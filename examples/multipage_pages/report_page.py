@@ -1,0 +1,83 @@
+import sys
+from pathlib import Path
+
+from st_components import App, Component, get_element_value, get_shared_state
+from st_components.elements import (
+    caption,
+    code,
+    columns,
+    container,
+    info,
+    json,
+    markdown,
+    metric,
+    text_area,
+    title,
+)
+
+EXAMPLES_DIR = Path(__file__).resolve().parents[1]
+if str(EXAMPLES_DIR) not in sys.path:
+    sys.path.insert(0, str(EXAMPLES_DIR))
+
+from multipage_shared import WorkspaceSidebar
+
+
+class ReportPage(Component):
+
+    def __init__(self, **props):
+        super().__init__(**props)
+        self.state = dict(
+            notes="This file is executed by Streamlit through st.Page(...).",
+        )
+
+    def sync_notes(self):
+        self.state.notes = get_element_value()
+
+    def render(self):
+        workspace = get_shared_state("workspace")
+        snapshot = {
+            "page_type": "file-backed page",
+            "notes": self.state.notes,
+            "shared_state": dict(workspace),
+        }
+
+        return container(key="page")(
+            WorkspaceSidebar(key="workspace_sidebar"),
+            title(key="title")("Report page"),
+            caption(key="caption")(
+                "This page lives in examples/multipage_pages/report_page.py and ends with App.render_page(...)."
+            ),
+            info(key="info")(
+                "This file-backed page instantiates the same sidebar component as the overview page."
+            ),
+            columns(key="metrics")(
+                metric(key="team", label="Shared team", value=workspace.team),
+                metric(key="focus", label="Shared focus", value=workspace.focus),
+                metric(key="visits", label="Shared visits", value=workspace.visits),
+                metric(key="mode", label="Page source", value="file"),
+            ),
+            text_area(
+                key="note",
+                value=self.state.notes,
+                height=140,
+                on_change=self.sync_notes,
+            )("File page notes"),
+            markdown(key="body")(
+                "This file is a regular Streamlit page source. "
+                "The important part is that its internal st-components paths are still prefixed by the active page namespace."
+                "\n\n"
+                "The sidebar component is reused here without any special router API. "
+                "It stays synchronized because it reads and writes `get_shared_state(\"workspace\")`."
+            ),
+            json(key="snapshot")(snapshot),
+            code(key="code", language="python")(
+                "from st_components import App, Component\n\n"
+                "class ReportPage(Component):\n"
+                "    def render(self):\n"
+                "        return ...\n\n"
+                "App.render_page(ReportPage(key=\"root\"))"
+            ),
+        )
+
+
+App.render_page(ReportPage(key="root"))
