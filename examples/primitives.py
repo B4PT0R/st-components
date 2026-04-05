@@ -66,6 +66,8 @@ from st_components.elements import (
     write_stream,
 )
 
+from examples._source import source_view
+
 
 ASSETS_DIR = Path(__file__).parent / "assets"
 IFRAME_DEMO_SRC = ASSETS_DIR / "iframe-demo.html"
@@ -489,8 +491,8 @@ class FileUploaderDemo(Component):
         super().__init__(**props)
         self.state = dict(value=None)
 
-    def sync_value(self):
-        self.state.value = uploaded_file_info(get_element_value())
+    def sync_value(self, value):
+        self.state.value = uploaded_file_info(value)
 
     def render(self):
         return container(key="panel", border=True)(
@@ -506,8 +508,8 @@ class CameraInputDemo(Component):
         super().__init__(**props)
         self.state = dict(value=None)
 
-    def sync_value(self):
-        self.state.value = uploaded_file_info(get_element_value())
+    def sync_value(self, value):
+        self.state.value = uploaded_file_info(value)
 
     def render(self):
         return container(key="panel", border=True)(
@@ -523,8 +525,8 @@ class AudioInputDemo(Component):
         super().__init__(**props)
         self.state = dict(value=None)
 
-    def sync_value(self):
-        self.state.value = uploaded_file_info(get_element_value())
+    def sync_value(self, value):
+        self.state.value = uploaded_file_info(value)
 
     def render(self):
         return container(key="panel", border=True)(
@@ -538,10 +540,10 @@ class AudioInputDemo(Component):
 class ChatInputDemo(Component):
     def __init__(self, **props):
         super().__init__(**props)
-        self.state = dict(messages=["The callback reads the submitted message with get_element_value()."])
+        self.state = dict(messages=["The callback receives the submitted message as `value`."])
 
-    def submit(self):
-        message = get_element_value()
+    def submit(self, value):
+        message = value
         if message:
             self.state.messages.append(message)
 
@@ -1018,8 +1020,8 @@ class FormDemo(Component):
 
     def submit(self):
         self.state.submitted = {
-            "name": self.name_ref.value(""),
-            "notes": self.notes_ref.value(""),
+            "name": get_element_value(self.name_ref, ""),
+            "notes": get_element_value(self.notes_ref, ""),
         }
 
     def render(self):
@@ -1219,6 +1221,7 @@ class PrimitivesApp(Component):
                 on_change=self.sync_state("selected"),
             )("Primitive"),
             self.current_demo(),
+            source_view(__file__),
         )
 
 

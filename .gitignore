@@ -33,3 +33,6 @@ Thumbs.db
 
 # Claude Code
 .claude/
+
+# Local Streamlit runtime config
+.streamlit/

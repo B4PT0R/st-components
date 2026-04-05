@@ -4,6 +4,7 @@ from typing import Any
 import streamlit as st
 
 from ...core import callback_context, get_element_path, set_element_value
+from ...core.access import get_element_value
 from ...core.access import _get_widget_key
 from .._types import (
     BindOption,
@@ -27,7 +28,7 @@ def data_or_prop(element):
     return element.children[0] if element.children else element.props.get("data")
 
 
-def widget_callback(element, callback_name="on_change"):
+def widget_callback(element, callback_name="on_change", *, pass_value=False):
     callback = element.props.get(callback_name)
     if callback is None:
         return None
@@ -39,6 +40,8 @@ def widget_callback(element, callback_name="on_change"):
 
     def wrapped():
         with callback_context(element_path=element_path, widget_key=widget_key):
+            if callback_name in {"on_change", "on_submit"} or pass_value:
+                return callback(get_element_value(), *args, **kwargs)
             return callback(*args, **kwargs)
 
     return wrapped

@@ -130,4 +130,4 @@ class menu_button(Element):
         Element.__init__(self, key=key, label=label, options=options, ref=ref, help=help, on_click=on_click, args=args, kwargs=kwargs, type=type, icon=icon, disabled=disabled, width=width, format_func=format_func)
 
     def render(self):
-        return st.menu_button(label_or_prop(self), key=_get_widget_key(), on_click=widget_callback(self, "on_click"), **widget_props(self, "on_click"))
+        return st.menu_button(label_or_prop(self), key=_get_widget_key(), on_click=widget_callback(self, "on_click", pass_value=True), **widget_props(self, "on_click"))

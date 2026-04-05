@@ -1,4 +1,4 @@
-from .access import get_element_value, refresh_element, set_element_value
+from .access import get_component_state, get_element_value, refresh_element, set_element_value
 from .app import App, get_app
 from .base import Component, Element, Fragment, Primitive, render, render_to_element
 from .context import (
@@ -63,6 +63,7 @@ __all__ = [
     "fibers",
     "get_active_page_namespace",
     "get_app",
+    "get_component_state",
     "get_element_path",
     "get_element_value",
     "get_key_stack",

@@ -81,6 +81,21 @@ def test_component_sync_state_shortcut():
     assert form.state.name == "Alice"
 
 
+def test_component_sync_state_accepts_injected_value():
+    class Form(Component):
+        class FormState(State):
+            name: str = ""
+
+        def render(self):
+            return None
+
+    form = Form(key="form")
+    sync_name = form.sync_state("name")
+    sync_name("Bob")
+
+    assert form.state.name == "Bob"
+
+
 def test_app_set_theme_and_set_css():
     app = App()
 

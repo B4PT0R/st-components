@@ -3,7 +3,7 @@ from pathlib import Path
 import streamlit as st
 from modict import modict
 
-from ..core import Component, Props, Ref, State, Theme, get_app, get_element_value
+from ..core import Component, Props, Ref, State, Theme, get_app
 from ..elements import (
     button,
     color_picker,
@@ -243,8 +243,7 @@ class ThemeEditor(Component):
         self._refresh_refs(*_PALETTE_FIELDS)
 
     def _bind_editor(self, field, after=None):
-        def sync():
-            value = get_element_value()
+        def sync(value):
             self.state.editor.update(**{field: value})
             if after is not None:
                 after(value)
@@ -252,8 +251,8 @@ class ThemeEditor(Component):
         return sync
 
     def _bind_flag(self, field):
-        def sync():
-            self.state.flags.update(**{field: get_element_value()})
+        def sync(value):
+            self.state.flags.update(**{field: value})
 
         return sync
 

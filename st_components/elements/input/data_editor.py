@@ -40,11 +40,12 @@ class data_editor(Element):
         def wrapped_callback():
             from . import _resolve_data_editor_value
 
-            set_element_value(element_path, _resolve_data_editor_value(data, st.session_state.get(widget_key)))
+            value = _resolve_data_editor_value(data, st.session_state.get(widget_key))
+            set_element_value(element_path, value)
             if callback is None:
                 return None
             with callback_context(element_path=element_path, widget_key=widget_key):
-                return callback(*args, **kwargs)
+                return callback(value, *args, **kwargs)
 
         value = st.data_editor(data, key=widget_key, on_change=wrapped_callback if callback is not None else None, **widget_props(self, "data"))
         set_element_value(element_path, value)

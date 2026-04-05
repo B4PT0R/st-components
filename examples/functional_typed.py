@@ -14,6 +14,8 @@ from st_components.elements import (
     button, code, columns, container, divider, markdown, metric, subheader, text_input,
 )
 
+from examples._source import source_view
+
 
 # --- 1. use_state with a State instance ---
 # Pass a State subclass instance to use_state() instead of flat kwargs.
@@ -139,5 +141,6 @@ App()(
             "    state = use_state(CardState())\n"
             "    ..."
         ),
+        source_view(__file__),
     )
 ).render()

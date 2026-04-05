@@ -14,6 +14,7 @@ from st_components.elements import (
     text_area,
     title,
 )
+from examples._source import source_view
 
 MULTIPAGE_DIR = Path(__file__).resolve().parents[1]
 if str(MULTIPAGE_DIR) not in sys.path:
@@ -74,6 +75,7 @@ class ReportPage(Component):
                 "        return ...\n\n"
                 "App.render_page(ReportPage(key=\"root\"))"
             ),
+            source_view(__file__),
         )
 
 

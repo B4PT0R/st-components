@@ -2,6 +2,8 @@ from st_components import App, Component, State
 from st_components.builtins import Case, Conditional, Default, KeepAlive, Match, Switch
 from st_components.elements import button, caption, columns, container, divider, metric, subheader, tabs, title
 
+from examples._source import source_view
+
 
 class CounterBox(Component):
     class CounterBoxState(State):
@@ -115,13 +117,14 @@ class FlowDemo(Component):
             divider(key="divider"),
             tabs(
                 key="tabs",
-                labels=["Conditional", "KeepAlive", "Case", "Switch"],
+                tabs=["Conditional", "KeepAlive", "Case", "Switch"],
             )(
                 ConditionalDemo(key="conditional_demo"),
                 KeepAliveDemo(key="keep_alive_demo"),
                 CaseDemo(key="case_demo"),
                 SwitchDemo(key="switch_demo"),
             ),
+            source_view(__file__),
         )
 
 

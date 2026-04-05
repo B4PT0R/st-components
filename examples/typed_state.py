@@ -13,6 +13,8 @@ from st_components.elements import (
     button, code, columns, container, divider, error, markdown, metric, subheader,
 )
 
+from examples._source import source_view
+
 
 # --- 1. Basic typed state ---
 # A nested State subclass replaces the __init__ override.
@@ -131,6 +133,7 @@ class Demo(Component):
                 "    count: int = \"not_an_int\"   # raises at class definition\n\n"
                 "state.count = \"oops\"             # raises at assignment"
             ),
+            source_view(__file__),
         )
 
 

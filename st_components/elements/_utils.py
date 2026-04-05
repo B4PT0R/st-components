@@ -31,7 +31,7 @@ def selection_callback(element, callback_name="on_select"):
         if selection is not None:
             set_element_value(element_path, selection)
         with callback_context(element_path=element_path, widget_key=widget_key):
-            return callback()
+            return callback(selection)
 
     return wrapped
 

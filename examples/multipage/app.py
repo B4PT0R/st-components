@@ -14,6 +14,7 @@ from st_components.elements import (
     title,
 )
 
+from examples._source import source_view
 from shared import WorkspaceSidebar, WorkspaceState
 
 
@@ -83,6 +84,7 @@ class OverviewPage(Component):
                 "app.shared_state(\"workspace\", WorkspaceState())\n"
                 "app.render()"
             ),
+            source_view(__file__),
         )
 
 app = App(

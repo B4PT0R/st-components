@@ -1,10 +1,12 @@
 import datetime
-from st_components import App, Component, Ref, get_element_value
+from st_components import App, Component, Ref, get_component_state, get_element_value
 from st_components.elements import (
     button, caption, code, columns, container, divider, expander, header, info,
     json, markdown, metric, sidebar, slider, subheader, success, tabs, text,
     text_area, text_input, title, toggle, warning,
 )
+
+from examples._source import source_view
 
 
 class CounterCard(Component):
@@ -44,7 +46,7 @@ class IntroCard(Component):
                 "`st-components` gives Streamlit a small component model:\n\n"
                 "- `Component` keeps local state across reruns.\n"
                 "- `Element` wraps Streamlit primitives.\n"
-                "- `get_element_value()` reads widget values by element path.\n"
+                "- `on_change` handlers receive the current widget value.\n"
                 "- `Ref()` lets you reach a component or stateful element later without hardcoding full paths."
             ),
             info(key="tip")(
@@ -88,23 +90,19 @@ class ElementValueDemo(Component):
             last_event="Waiting for a widget change",
         )
 
-    def sync_task(self):
-        value = get_element_value()
+    def sync_task(self, value):
         self.state.task = value
         self.state.last_event = f"task -> {value!r}"
 
-    def sync_focus(self):
-        value = get_element_value()
+    def sync_focus(self, value):
         self.state.focus = value
         self.state.last_event = f"focus -> {value}"
 
-    def sync_blocked(self):
-        value = get_element_value()
+    def sync_blocked(self, value):
         self.state.blocked = value
         self.state.last_event = f"blocked -> {value}"
 
-    def sync_notes(self):
-        value = get_element_value()
+    def sync_notes(self, value):
         self.state.notes = value
         self.state.last_event = f"notes -> {len(value)} chars"
 
@@ -118,9 +116,9 @@ class ElementValueDemo(Component):
         }
 
         return container(key="panel", border=True)(
-            subheader(key="h")("2. Widget values with get_element_value()"),
+            subheader(key="h")("2. Widget values in callbacks"),
             caption(key="c")(
-                "Every stateful Element stores its widget value under the element path. Call get_element_value() inside on_change to read it."
+                "Stateful Elements pass their current value to `on_change`, so simple widget-to-state sync stays explicit and lightweight."
             ),
             text_input(key="task", value=self.state.task, on_change=self.sync_task)("Current task"),
             slider(key="focus", min_value=0, max_value=10, value=self.state.focus, on_change=self.sync_focus)("Focus level"),
@@ -142,8 +140,8 @@ class ElementValueDemo(Component):
             ),
             json(key="snapshot")(snapshot),
             code(key="snippet", language="python")(
-                "def sync_task(self):\n"
-                "    self.state.task = get_element_value()\n"
+                "def sync_task(self, value):\n"
+                "    self.state.task = value\n"
                 "\n"
                 "def render(self):\n"
                 "    return text_input(key=\"task\", on_change=self.sync_task)(\"Current task\")"
@@ -166,18 +164,18 @@ class RefInspectorDemo(Component):
     def capture_refs(self):
         self.state.snapshot = {
             "name_ref_path": self.name_ref.path,
-            "name_ref_value": self.name_ref.value(),
+            "name_ref_value": get_element_value(self.name_ref),
             "notes_ref_path": self.notes_ref.path,
-            "notes_ref_value": self.notes_ref.value(),
+            "notes_ref_value": get_element_value(self.notes_ref),
             "counter_ref_path": self.counter_ref.path,
-            "counter_ref_state": dict(self.counter_ref.state()),
+            "counter_ref_state": dict(get_component_state(self.counter_ref)),
         }
 
     def render(self):
         return container(key="panel", border=True)(
             subheader(key="h")("3. Reach things later with Ref()"),
             caption(key="c")(
-                "Refs store logical paths, not Python instances. Render first, then read ref.value() or ref.state() from a callback."
+                "Refs store logical paths, not Python instances. Render first, then pass them to helpers like get_element_value(...) or get_component_state(...)."
             ),
             text_input(
                 key="name",
@@ -203,8 +201,8 @@ class RefInspectorDemo(Component):
                 "CounterCard(key=\"counter\", ref=counter_ref)\n"
                 "\n"
                 "snapshot = {\n"
-                "    \"name\": name_ref.value(),\n"
-                "    \"count\": counter_ref.get(\"value\"),\n"
+                "    \"name\": get_element_value(name_ref),\n"
+                "    \"count\": get_component_state(counter_ref).value,\n"
                 "}"
             ),
         )
@@ -215,7 +213,7 @@ class CompositionDemo(Component):
         super().__init__(**props)
         self.state = dict(saved=False)
 
-    def mark_dirty(self):
+    def mark_dirty(self, value):
         self.state.saved = False
 
     def mark_saved(self):
@@ -258,7 +256,7 @@ class SidebarGuide(Component):
             markdown(key="agenda")(
                 "This dashboard demonstrates:\n\n"
                 "1. local component state\n"
-                "2. `get_element_value()`\n"
+                "2. widget values in callbacks\n"
                 "3. `Ref()`\n"
                 "4. composition of simple Elements"
             ),
@@ -277,12 +275,13 @@ class Dashboard(Component):
         return container(key="page")(
             SidebarGuide(key="guide"),
             IntroCard(key="intro"),
-            tabs(key="sections", labels=["State", "Widget values", "Refs", "Composition"])(
+            tabs(key="sections", tabs=["State", "Widget values", "Refs", "Composition"])(
                 LocalStateDemo(key="state_demo"),
                 ElementValueDemo(key="element_demo"),
                 RefInspectorDemo(key="ref_demo"),
                 CompositionDemo(key="composition_demo"),
             ),
+            source_view(__file__),
         )
 
 

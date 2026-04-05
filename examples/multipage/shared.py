@@ -1,4 +1,4 @@
-from st_components import Component, State, get_element_value, get_shared_state
+from st_components import Component, State, get_shared_state
 from st_components.elements import button, caption, container, markdown, sidebar, text_input
 
 
@@ -11,20 +11,20 @@ class WorkspaceState(State):
 
 class WorkspaceSidebar(Component):
 
-    def sync_team(self):
+    def sync_team(self, value):
         workspace = get_shared_state("workspace")
-        workspace.team = get_element_value()
+        workspace.team = value
 
-    def sync_focus(self):
+    def sync_focus(self, value):
         workspace = get_shared_state("workspace")
         try:
-            workspace.focus = int(get_element_value())
+            workspace.focus = int(value)
         except (TypeError, ValueError):
             pass
 
-    def sync_message(self):
+    def sync_message(self, value):
         workspace = get_shared_state("workspace")
-        workspace.current_message = get_element_value()
+        workspace.current_message = value
 
     def increment_visits(self):
         workspace = get_shared_state("workspace")

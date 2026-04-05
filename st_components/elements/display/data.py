@@ -2,9 +2,10 @@ from typing import Any, Iterable, Literal, Optional
 
 import streamlit as st
 
-from ...core import Element, Ref
+from ...core import Element, Ref, get_element_path
+from ...core.access import _get_widget_key
 from .._types import DataSelectionMode, DeltaArrow, Height, LabelVisibility, Width, WidthWithoutContent
-from .._utils import child_or_prop
+from .._utils import child_or_prop, selection_prop, store_element_value
 
 
 class dataframe(Element):
@@ -29,7 +30,14 @@ class dataframe(Element):
         Element.__init__(self, key=key, ref=ref, data=data, width=width, height=height, use_container_width=use_container_width, hide_index=hide_index, column_order=column_order, column_config=column_config, on_select=on_select, selection_mode=selection_mode, selection_default=selection_default, row_height=row_height, placeholder=placeholder)
 
     def render(self):
-        st.dataframe(child_or_prop(self, "data"), **self.props.exclude("key", "children", "data", "ref"))
+        element_path = get_element_path()
+        value = st.dataframe(
+            child_or_prop(self, "data"),
+            key=_get_widget_key(element_path),
+            on_select=selection_prop(self),
+            **self.props.exclude("key", "children", "data", "ref", "on_select"),
+        )
+        store_element_value(element_path, value)
 
 
 class table(Element):

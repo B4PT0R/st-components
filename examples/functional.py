@@ -1,8 +1,10 @@
-from st_components import App, component, get_element_value, use_state
+from st_components import App, component, use_state
 from st_components.elements import (
     button, caption, code, columns, container, divider, json, markdown, metric,
     subheader, text_input, title,
 )
+
+from examples._source import source_view
 
 
 @component
@@ -52,8 +54,8 @@ def FunctionalCounter(props):
 def FunctionalDemo(props):
     state = use_state(name="Baptiste", clicks=0)
 
-    def sync_name():
-        state.name = get_element_value()
+    def sync_name(value):
+        state.name = value
 
     def increment():
         state.clicks += 1
@@ -112,6 +114,7 @@ def FunctionalDemo(props):
                 "    return button(key=\"inc\", on_click=increment)(...)"
             ),
         ),
+        source_view(__file__),
     )
 
 

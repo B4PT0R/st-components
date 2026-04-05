@@ -1,5 +1,7 @@
 from st_components import Component, App
-from st_components.elements import button
+from st_components.elements import button, container
+
+from examples._source import source_view
 
 
 class Counter(Component):
@@ -17,4 +19,12 @@ class Counter(Component):
         )
 
 
-App(root=Counter(key="counter")).render()
+class BasicDemo(Component):
+    def render(self):
+        return container(key="page")(
+            Counter(key="counter"),
+            source_view(__file__),
+        )
+
+
+App(root=BasicDemo(key="app")).render()

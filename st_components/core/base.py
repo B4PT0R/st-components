@@ -218,8 +218,8 @@ class Component:
             self.fiber.state.update(**kwargs)
 
     def sync_state(self, state_key):
-        def sync():
-            self.state.update(**{state_key: get_element_value()})
+        def sync(value=None):
+            self.state.update(**{state_key: get_element_value() if value is None else value})
 
         return sync
 

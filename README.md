@@ -120,7 +120,7 @@ If you're new to the library, this is the shortest useful path:
 
 1. Start with `App`, `Component`, and a few `elements`.
 2. Use `self.state` inside components for local UI state.
-3. Use `get_element_value()` inside widget callbacks when you need the current widget value.
+3. `on_change` handlers receive the current widget value as `value`.
 4. Use `Ref()` only when you need path-based reachability later.
 5. Add typed `State` and `Props` models once the shape stabilizes.
 
@@ -155,12 +155,14 @@ class Panel(Component):
 
 This is the preferred place for view state, local mode, and coordination between widgets.
 
-### Pattern 2: Read widget values with `get_element_value()`
+### Pattern 2: `on_change` handlers receive `value`
 
 Widgets already store their value in `st.session_state`. `st-components` keeps using that storage instead of duplicating it.
 
+For ordinary `on_change` handlers, the current widget value is passed to your callback as `value`:
+
 ```python
-from st_components import Component, get_element_value
+from st_components import Component
 from st_components.elements import text_input
 
 
@@ -170,8 +172,8 @@ class NameForm(Component):
         super().__init__(**props)
         self.state = dict(name="")
 
-    def sync_name(self):
-        self.state.name = get_element_value()
+    def sync_name(self, value):
+        self.state.name = value
 
     def render(self):
         return text_input(
@@ -181,12 +183,43 @@ class NameForm(Component):
         )("Name")
 ```
 
-### Pattern 3: Use `Ref()` for logical reachability
-
-Refs are path-based handles, not live object refs.
+If the callback does nothing except copy the current widget value into one state field, you do not need to write a separate handler like:
 
 ```python
-from st_components import App, Component, Ref
+def sync_name(self, value):
+    self.state.name = value
+```
+
+Use `sync_state(...)` instead. It reduces this kind of boilerplate by generating that simple sync callback for you:
+
+```python
+text_input(
+    key="name",
+    value=self.state.name,
+    on_change=self.sync_state("name"),
+)("Name")
+```
+
+More generally, callback payloads follow a simple rule:
+
+- if an event carries a useful value, that value is injected into the handler
+- otherwise the handler is called with no extra argument
+
+In practice this means:
+
+- `on_change(value)` for stateful widgets
+- `on_submit(value)` for `chat_input`
+- `on_select(value)` for selection-capable charts and dataframes
+- `on_click()` for plain buttons
+
+`get_element_value()` still exists as the low-level primitive underneath this. Inside a widget callback, it resolves to the Element that triggered that callback through the callback context, so you can still use it when you need the current value indirectly or want to read another element by path.
+
+### Pattern 3: Use `Ref()` for logical reachability
+
+Refs are path-based handles, not live object refs. In practice, you will usually pass them to helpers instead of calling methods on the ref directly.
+
+```python
+from st_components import App, Component, Ref, get_component_state, get_element_value
 from st_components.elements import button, container, markdown, text_input
 
 
@@ -217,8 +250,8 @@ class RefDemo(Component):
 
     def capture(self):
         self.state.snapshot = (
-            f"name={name_ref.value(default='')}, "
-            f"count={counter_ref.get('count', 0)}"
+            f"name={get_element_value(name_ref, default='')}, "
+            f"count={get_component_state(counter_ref).count}"
         )
 
     def render(self):
@@ -396,22 +429,47 @@ def Counter(props):
 Returns the current value of a stateful Element.
 
 - inside the current element or its callback, `path` may be omitted
-- elsewhere, pass the element path explicitly
+- elsewhere, pass the element path or an Element `Ref`
 
 ```python
 get_element_value("app.form.name")
+get_element_value(name_ref)
+```
+
+### `get_component_state(path_or_ref)`
+
+Returns the current local state of a mounted Component.
+
+```python
+get_component_state("app.counter")
+get_component_state(counter_ref)
+```
+
+### `refresh_element(path_or_ref)`
+
+Forces a stateful Element to be recreated on the next rerun, so its declared default value is applied again.
+
+```python
+refresh_element(name_ref)
 ```
 
 ### `Ref`
 
 Logical handle to a rendered Component or Element path.
 
+Typical use:
+
+- keep a `Ref()` instance on the component
+- attach it to an Element or Component with `ref=...`
+- later pass it to `get_element_value(ref)`, `get_component_state(ref)`, or `refresh_element(ref)`
+
 Available members:
 
 - `ref.path`
 - `ref.value(default=None)` for Element refs
 - `ref.state()` for Component refs
-- `ref.get(key, default=None)` for component state fields
+
+The methods stay available, but the preferred style is usually to pass refs to helpers.
 
 ### `Element`
 
@@ -482,7 +540,7 @@ Notes:
 To see this live:
 
 ```bash
-streamlit run examples/theme_editor.py
+python -m st_components.examples theme_editor
 ```
 
 ## Elements
@@ -528,19 +586,21 @@ Current built-ins include:
 
 ## Examples
 
-Useful examples in the repository:
+Useful examples:
 
-- `streamlit run examples/dashboard.py`
-- `streamlit run examples/functional.py`
-- `streamlit run examples/flow.py`
-- `streamlit run examples/theme_editor.py`
-- `streamlit run examples/primitives.py`
+- `python -m st_components.examples dashboard`
+- `python -m st_components.examples functional`
+- `python -m st_components.examples flow`
+- `python -m st_components.examples theme_editor`
+- `python -m st_components.examples primitives`
+
+You can also still run example files directly from the repository with `streamlit run examples/<name>.py`.
 
 If you want the fastest onboarding path, start with:
 
-1. `examples/dashboard.py`
-2. `examples/functional.py`
-3. `examples/theme_editor.py`
+1. `python -m st_components.examples dashboard`
+2. `python -m st_components.examples functional`
+3. `python -m st_components.examples theme_editor`
 
 ## Usage Guidelines
 

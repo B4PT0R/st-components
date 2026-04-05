@@ -1,11 +1,11 @@
 """
-Tests for get_element_value(), Ref, and built-in element wrappers.
+Tests for get_element_value(), get_component_state(), Ref, and built-in element wrappers.
 """
 import inspect
 import importlib
 from typing import Iterable, Literal
 
-from st_components.core import Component, Element, Ref, render, Context, get_element_value, refresh_element
+from st_components.core import Component, Element, Ref, render, Context, get_component_state, get_element_value, refresh_element
 from st_components.core.access import _get_widget_key
 from st_components import elements
 from st_components.elements import dialog, write_stream
@@ -44,6 +44,27 @@ def test_refresh_element_rotates_runtime_key():
     assert get_element_value("app.form.name") == "Bob"
 
 
+def test_refresh_element_accepts_ref():
+    ref = Ref()
+    ref._resolve("app.form.name", "element")
+
+    _session_data["app.form.name.widget"] = "Alice"
+    refresh_element(ref)
+    refreshed_key = _get_widget_key("app.form.name")
+
+    assert refreshed_key != "app.form.name.widget"
+
+    _session_data[refreshed_key] = "Bob"
+    assert get_element_value(ref) == "Bob"
+
+
+def test_get_element_value_accepts_ref():
+    ref = Ref()
+    _session_data["app.form.name.widget"] = "Alice"
+    ref._resolve("app.form.name", "element")
+    assert get_element_value(ref) == "Alice"
+
+
 def test_get_element_value_in_callback():
     seen = []
 
@@ -56,8 +77,8 @@ def test_get_element_value_in_callback():
     _mock_st.text_input.side_effect = fake_text_input
 
     class Form(Component):
-        def on_name_change(self):
-            seen.append(get_element_value())
+        def on_name_change(self, value):
+            seen.append(value)
 
         def render(self):
             return text_input(key="name", value="Alice", on_change=self.on_name_change)("Name")
@@ -112,6 +133,25 @@ def test_component_ref_state():
     assert counter_ref.kind == "component"
     assert counter_ref.state().count == 3
     assert counter_ref.get("count") == 3
+
+
+def test_get_component_state_accepts_path_and_ref():
+    counter_ref = Ref()
+
+    class Counter(Component):
+        def __init__(self, **props):
+            super().__init__(**props)
+            self.state = dict(count=3)
+
+        def render(self):
+            pass
+
+    Context.key_stack[:] = [fake_ctx("app")]
+    render(Counter(key="counter", ref=counter_ref))
+    Context.key_stack.clear()
+
+    assert get_component_state("app.counter").count == 3
+    assert get_component_state(counter_ref).count == 3
 
 
 def test_unresolved_ref_error():
@@ -218,8 +258,8 @@ def test_data_editor_wrapper():
     input_elements._resolve_data_editor_value = lambda data, state: edited_rows
 
     class TableForm(Component):
-        def on_edit(self):
-            seen.append(get_element_value())
+        def on_edit(self, value):
+            seen.append(value)
 
         def render(self):
             return data_editor(
@@ -255,8 +295,8 @@ def test_chat_input_wrapper():
     _mock_st.chat_input.side_effect = fake_chat_input
 
     class Composer(Component):
-        def on_submit(self):
-            seen.append(get_element_value())
+        def on_submit(self, value):
+            seen.append(value)
 
         def render(self):
             return chat_input(key="composer", ref=composer_ref, on_submit=self.on_submit)("Type a message")
@@ -284,8 +324,8 @@ def test_menu_button_wrapper():
     _mock_st.menu_button.side_effect = fake_menu_button
 
     class Actions(Component):
-        def on_click(self):
-            seen.append(get_element_value())
+        def on_click(self, value):
+            seen.append(value)
 
         def render(self):
             return menu_button(
@@ -401,8 +441,8 @@ def test_plotly_chart_wrapper():
     _mock_st.plotly_chart.side_effect = fake_plotly_chart
 
     class Dashboard(Component):
-        def on_select(self):
-            seen.append(get_element_value())
+        def on_select(self, value):
+            seen.append(value)
 
         def render(self):
             return plotly_chart(
@@ -418,6 +458,40 @@ def test_plotly_chart_wrapper():
 
     assert chart_ref.path == "app.dashboard.chart"
     assert chart_ref.value() == selection
+    assert seen == [selection], f"callback saw: {seen}"
+
+
+def test_dataframe_wrapper_on_select():
+    table_ref = Ref()
+    seen = []
+    selection = {"selection": {"rows": [1]}}
+
+    def fake_dataframe(data, key=None, on_select=None, **kwargs):
+        assert "ref" not in kwargs, f"ref leaked to streamlit kwargs: {kwargs}"
+        if callable(on_select):
+            on_select(selection)
+        return selection
+
+    _mock_st.dataframe.side_effect = fake_dataframe
+
+    class Table(Component):
+        def on_select(self, value):
+            seen.append(value)
+
+        def render(self):
+            return dataframe(
+                key="table",
+                ref=table_ref,
+                data=[{"a": 1}, {"a": 2}],
+                on_select=self.on_select,
+            )
+
+    Context.key_stack[:] = [fake_ctx("app")]
+    render(Table(key="dashboard"))
+    Context.key_stack.clear()
+
+    assert table_ref.path == "app.dashboard.table"
+    assert table_ref.value() == selection
     assert seen == [selection], f"callback saw: {seen}"
 
 

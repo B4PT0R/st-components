@@ -14,6 +14,8 @@ from st_components.elements import (
     code, container, divider, error, markdown, metric, subheader, success,
 )
 
+from examples._source import source_view
+
 
 # --- 1. Default prop values ---
 # Declaring Props as a typed subclass gives you documented defaults
@@ -145,6 +147,7 @@ class Demo(Component):
                 "StrictMetric(key=\"m\", label=\"Score\", typo=99)         # unknown prop → raises\n"
                 "StrictMetric(key=\"m\", label=\"Score\", value=\"oops\")   # wrong type  → raises"
             ),
+            source_view(__file__),
         )
 
 

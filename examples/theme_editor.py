@@ -13,6 +13,8 @@ from st_components.elements import (
     toggle,
 )
 
+from examples._source import source_view
+
 
 class SettingsCard(Component):
 
@@ -65,6 +67,7 @@ class ThemeEditorDemo(Component):
                 SettingsCard(key="settings"),
                 PreviewCard(key="preview"),
             ),
+            source_view(__file__),
         )
 
 

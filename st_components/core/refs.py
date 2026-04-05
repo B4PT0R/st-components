@@ -1,5 +1,4 @@
-from .access import get_element_value, refresh_element
-from .store import fibers
+from .access import get_component_state, get_element_value, refresh_element
 
 
 class Ref:
@@ -33,10 +32,7 @@ class Ref:
         path = self._require_path()
         if self.kind != "component":
             raise RuntimeError("Ref.state() is only available for Component refs.")
-        fiber = fibers().get(path)
-        if fiber is None:
-            raise RuntimeError(f"No mounted component found at ref path {path!r}.")
-        return fiber.state
+        return get_component_state(path)
 
     def get(self, key, default=None):
         return self.state().get(key, default)

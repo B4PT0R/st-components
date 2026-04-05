@@ -9,12 +9,14 @@ import altair as alt
 import numpy as np
 import pandas as pd
 
-from st_components import App, Component, State, get_element_value
+from st_components import App, Component, State
 from st_components.elements import (
     altair_chart, button, caption, columns, container, divider,
     line_chart, markdown, metric, sidebar,
     slider, subheader, tabs, text, title, selectbox,
 )
+
+from examples._source import source_view
 
 
 # ---------------------------------------------------------------------------
@@ -68,16 +70,16 @@ class SignalExplorer(Component):
 
     # ----- callbacks -----
 
-    def on_freq_change(self):
-        self.state.freq = get_element_value()
+    def on_freq_change(self, value):
+        self.state.freq = value
         self._recompute()
 
-    def on_noise_change(self):
-        self.state.noise = get_element_value()
+    def on_noise_change(self, value):
+        self.state.noise = value
         self._recompute()
 
-    def on_samples_change(self):
-        self.state.n_samples = int(get_element_value())
+    def on_samples_change(self, value):
+        self.state.n_samples = int(value)
         self._recompute()
 
     # ----- render -----
@@ -186,20 +188,20 @@ class DistributionAnalyzer(Component):
 
     # ----- callbacks -----
 
-    def on_dist_change(self):
-        self.state.dist = get_element_value()
+    def on_dist_change(self, value):
+        self.state.dist = value
         self._analyze()
 
-    def on_loc_change(self):
-        self.state.loc = get_element_value()
+    def on_loc_change(self, value):
+        self.state.loc = value
         self._analyze()
 
-    def on_scale_change(self):
-        self.state.scale = get_element_value()
+    def on_scale_change(self, value):
+        self.state.scale = value
         self._analyze()
 
-    def on_n_change(self):
-        self.state.n = int(get_element_value())
+    def on_n_change(self, value):
+        self.state.n = int(value)
         self._analyze()
 
     # ----- render -----
@@ -312,16 +314,16 @@ class RegressionPlayground(Component):
 
     # ----- callbacks -----
 
-    def on_slope_change(self):
-        self.state.true_slope = get_element_value()
+    def on_slope_change(self, value):
+        self.state.true_slope = value
         self._fit()
 
-    def on_noise_change(self):
-        self.state.noise = get_element_value()
+    def on_noise_change(self, value):
+        self.state.noise = value
         self._fit()
 
-    def on_n_change(self):
-        self.state.n = int(get_element_value())
+    def on_n_change(self, value):
+        self.state.n = int(value)
         self._fit()
 
     def reset(self):
@@ -402,8 +404,8 @@ class DSSidebar(Component):
             text(key="pattern")("Pattern"),
             markdown(key="pattern_code")(
                 "```python\n"
-                "def on_param_change(self):\n"
-                "    self.state.param = get_element_value()\n"
+                "def on_param_change(self, value):\n"
+                "    self.state.param = value\n"
                 "    self._recompute()   # ← numpy lives here\n"
                 "```"
             ),
@@ -414,11 +416,12 @@ class DataDashboard(Component):
     def render(self):
         return container(key="page")(
             DSSidebar(key="sidebar"),
-            tabs(key="panels", labels=["Signal", "Distribution", "Regression"])(
+            tabs(key="panels", tabs=["Signal", "Distribution", "Regression"])(
                 SignalExplorer(key="signal"),
                 DistributionAnalyzer(key="dist"),
                 RegressionPlayground(key="regression"),
             ),
+            source_view(__file__),
         )
 
 

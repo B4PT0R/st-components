@@ -10,8 +10,8 @@ readme = "README.md"
 requires-python = ">=3.10"
 license = "MIT"
 dependencies = [
-    "streamlit",
-    "modict",
+    "streamlit>=1.56.0",
+    "modict>=0.4.13",
     "toml",
 ]
 
@@ -23,7 +23,7 @@ testpaths = ["tests"]
 
 [tool.setuptools.packages.find]
 where = ["."]
-include = ["st_components*"]
+include = ["st_components*", "examples*"]
 
 [tool.setuptools.package-data]
 st_components = ["py.typed"]
