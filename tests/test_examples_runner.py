@@ -29,4 +29,4 @@ def test_examples_runner_builds_streamlit_command():
 
 
 def test_package_exposes_version():
-    assert st_components.__version__ == "0.1.1"
+    assert st_components.__version__ == "0.1.2"

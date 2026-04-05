@@ -1,7 +1,7 @@
 """
 Tests for App lifecycle, Router, multipage routing, and shared state.
 """
-import tomllib
+import toml
 
 import st_components
 
@@ -205,7 +205,7 @@ def test_save_theme_persists_current_theme(tmp_path, monkeypatch):
     app.save_theme()
 
     config_path = tmp_path / ".streamlit" / "config.toml"
-    config = tomllib.loads(config_path.read_text())
+    config = toml.loads(config_path.read_text())
     assert config["theme"]["primaryColor"] == "#123456"
 
 
@@ -236,7 +236,7 @@ def test_save_config_persists_current_config(tmp_path, monkeypatch):
     app.save_config()
 
     config_path = tmp_path / ".streamlit" / "config.toml"
-    config = tomllib.loads(config_path.read_text())
+    config = toml.loads(config_path.read_text())
     assert config["client"]["toolbarMode"] == "minimal"
     assert config["client"]["showSidebarNavigation"] is False
 
@@ -259,7 +259,7 @@ def test_save_config_persists_runtime_relevant_sections(tmp_path, monkeypatch):
     app.save_config()
 
     config_path = tmp_path / ".streamlit" / "config.toml"
-    config = tomllib.loads(config_path.read_text())
+    config = toml.loads(config_path.read_text())
     assert config["runner"]["fastReruns"] is False
     assert config["browser"]["gatherUsageStats"] is False
     assert config["server"]["runOnSave"] is True
@@ -301,7 +301,7 @@ def test_app_writes_theme_to_config_and_preserves_other_sections(tmp_path, monke
         },
     ).render()
 
-    config = tomllib.loads(config_path.read_text())
+    config = toml.loads(config_path.read_text())
     assert config["server"]["headless"] is True
     assert config["theme"]["primaryColor"] == "#123456"
     assert config["theme"]["sidebar"]["backgroundColor"] == "#eeeeee"
@@ -326,7 +326,7 @@ def test_app_replaces_theme_section_when_keys_are_removed(tmp_path, monkeypatch)
         theme={"primaryColor": "#abcdef"},
     ).render()
 
-    config = tomllib.loads(config_path.read_text())
+    config = toml.loads(config_path.read_text())
     assert config["theme"]["primaryColor"] == "#abcdef"
     assert "backgroundColor" not in config["theme"]
 
@@ -398,7 +398,7 @@ def test_app_accepts_theme_modict(tmp_path, monkeypatch):
     ).render()
 
     config_path = tmp_path / ".streamlit" / "config.toml"
-    config = tomllib.loads(config_path.read_text())
+    config = toml.loads(config_path.read_text())
     assert config["theme"]["primaryColor"] == "#123456"
     assert config["theme"]["sidebar"]["backgroundColor"] == "#eeeeee"
 

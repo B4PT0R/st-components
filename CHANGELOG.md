@@ -4,6 +4,14 @@ All notable changes to this project will be documented in this file.
 
 The format is based on Keep a Changelog, and this project uses SemVer.
 
+## [0.1.2] - 2026-04-05
+
+Python 3.10 compatibility patch.
+
+### Fixed
+
+- Replaced the remaining `tomllib` usage in tests with `toml`, matching the package runtime and avoiding CI/import failures on Python 3.10.
+
 ## [0.1.1] - 2026-04-05
 
 First stabilization patch after the initial public release.
