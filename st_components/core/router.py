@@ -1,12 +1,14 @@
+from typing import Literal
+
 from modict import modict
 
 from .page import Page
 
 
 class RouterProps(modict):
-    position = "sidebar"
-    expanded = False
-    children = modict.factory(list)
+    position: Literal["sidebar", "top", "hidden"] = "sidebar"
+    expanded: bool = False
+    children: list[Page] = modict.factory(list)
 
 
 class Router:
@@ -37,7 +39,7 @@ class Router:
 
     @children.setter
     def children(self, value):
-        self.props.children = value
+        self.props.children = list(value)
 
     def __call__(self, *children):
         for child in children:

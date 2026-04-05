@@ -269,13 +269,10 @@ class CheckboxDemo(Component):
         super().__init__(**props)
         self.state = dict(value=True)
 
-    def sync_value(self):
-        self.state.value = get_element_value()
-
     def render(self):
         return container(key="panel", border=True)(
             subheader(key="title")("checkbox"),
-            checkbox(key="widget", value=self.state.value, on_change=self.sync_value)("Enable feature"),
+            checkbox(key="widget", value=self.state.value, on_change=self.sync_state("value"))("Enable feature"),
             json(key="value")({"value": self.state.value}),
             snippet("checkbox"),
         )
@@ -286,13 +283,10 @@ class ToggleDemo(Component):
         super().__init__(**props)
         self.state = dict(value=False)
 
-    def sync_value(self):
-        self.state.value = get_element_value()
-
     def render(self):
         return container(key="panel", border=True)(
             subheader(key="title")("toggle"),
-            toggle(key="widget", value=self.state.value, on_change=self.sync_value)("Dark mode"),
+            toggle(key="widget", value=self.state.value, on_change=self.sync_state("value"))("Dark mode"),
             json(key="value")({"value": self.state.value}),
             snippet("toggle"),
         )
@@ -303,17 +297,14 @@ class RadioDemo(Component):
         super().__init__(**props)
         self.state = dict(value="Alpha")
 
-    def sync_value(self):
-        self.state.value = get_element_value()
-
     def render(self):
         return container(key="panel", border=True)(
             subheader(key="title")("radio"),
             radio(
                 key="widget",
                 options=["Alpha", "Beta", "Gamma"],
-                index=0,
-                on_change=self.sync_value,
+                index=["Alpha", "Beta", "Gamma"].index(self.state.value),
+                on_change=self.sync_state("value"),
             )("Channel"),
             json(key="value")({"value": self.state.value}),
             snippet("radio"),
@@ -325,9 +316,6 @@ class SelectboxDemo(Component):
         super().__init__(**props)
         self.state = dict(value="Paris")
 
-    def sync_value(self):
-        self.state.value = get_element_value()
-
     def render(self):
         options = ["Paris", "Berlin", "Tokyo"]
         return container(key="panel", border=True)(
@@ -336,7 +324,7 @@ class SelectboxDemo(Component):
                 key="widget",
                 options=options,
                 index=options.index(self.state.value),
-                on_change=self.sync_value,
+                on_change=self.sync_state("value"),
             )("City"),
             json(key="value")({"value": self.state.value}),
             snippet("selectbox"),
@@ -348,9 +336,6 @@ class MultiselectDemo(Component):
         super().__init__(**props)
         self.state = dict(value=["Python"])
 
-    def sync_value(self):
-        self.state.value = get_element_value()
-
     def render(self):
         return container(key="panel", border=True)(
             subheader(key="title")("multiselect"),
@@ -358,7 +343,7 @@ class MultiselectDemo(Component):
                 key="widget",
                 options=["Python", "Rust", "Go", "TypeScript"],
                 default=self.state.value,
-                on_change=self.sync_value,
+                on_change=self.sync_state("value"),
             )("Languages"),
             json(key="value")({"value": self.state.value}),
             snippet("multiselect"),
@@ -370,13 +355,10 @@ class SliderDemo(Component):
         super().__init__(**props)
         self.state = dict(value=5)
 
-    def sync_value(self):
-        self.state.value = get_element_value()
-
     def render(self):
         return container(key="panel", border=True)(
             subheader(key="title")("slider"),
-            slider(key="widget", min_value=0, max_value=10, value=self.state.value, on_change=self.sync_value)("Score"),
+            slider(key="widget", min_value=0, max_value=10, value=self.state.value, on_change=self.sync_state("value"))("Score"),
             json(key="value")({"value": self.state.value}),
             snippet("slider"),
         )
@@ -387,9 +369,6 @@ class SelectSliderDemo(Component):
         super().__init__(**props)
         self.state = dict(value="M")
 
-    def sync_value(self):
-        self.state.value = get_element_value()
-
     def render(self):
         return container(key="panel", border=True)(
             subheader(key="title")("select_slider"),
@@ -397,7 +376,7 @@ class SelectSliderDemo(Component):
                 key="widget",
                 options=["XS", "S", "M", "L", "XL"],
                 value=self.state.value,
-                on_change=self.sync_value,
+                on_change=self.sync_state("value"),
             )("Size"),
             json(key="value")({"value": self.state.value}),
             snippet("select_slider"),
@@ -409,13 +388,10 @@ class TextInputDemo(Component):
         super().__init__(**props)
         self.state = dict(value="Baptiste")
 
-    def sync_value(self):
-        self.state.value = get_element_value()
-
     def render(self):
         return container(key="panel", border=True)(
             subheader(key="title")("text_input"),
-            text_input(key="widget", value=self.state.value, on_change=self.sync_value)("Name"),
+            text_input(key="widget", value=self.state.value, on_change=self.sync_state("value"))("Name"),
             json(key="value")({"value": self.state.value}),
             snippet("text_input"),
         )
@@ -426,13 +402,10 @@ class NumberInputDemo(Component):
         super().__init__(**props)
         self.state = dict(value=42)
 
-    def sync_value(self):
-        self.state.value = get_element_value()
-
     def render(self):
         return container(key="panel", border=True)(
             subheader(key="title")("number_input"),
-            number_input(key="widget", value=self.state.value, on_change=self.sync_value)("Count"),
+            number_input(key="widget", value=self.state.value, on_change=self.sync_state("value"))("Count"),
             json(key="value")({"value": self.state.value}),
             snippet("number_input"),
         )
@@ -443,13 +416,10 @@ class TextAreaDemo(Component):
         super().__init__(**props)
         self.state = dict(value="Short multiline note.")
 
-    def sync_value(self):
-        self.state.value = get_element_value()
-
     def render(self):
         return container(key="panel", border=True)(
             subheader(key="title")("text_area"),
-            text_area(key="widget", value=self.state.value, height=120, on_change=self.sync_value)("Notes"),
+            text_area(key="widget", value=self.state.value, height=120, on_change=self.sync_state("value"))("Notes"),
             json(key="value")({"value": self.state.value}),
             snippet("text_area"),
         )
@@ -460,14 +430,11 @@ class DateInputDemo(Component):
         super().__init__(**props)
         self.state = dict(value=datetime.date.today())
 
-    def sync_value(self):
-        self.state.value = get_element_value()
-
     def render(self):
         value = self.state.value.isoformat() if self.state.value is not None else None
         return container(key="panel", border=True)(
             subheader(key="title")("date_input"),
-            date_input(key="widget", value=self.state.value, on_change=self.sync_value)("Date"),
+            date_input(key="widget", value=self.state.value, on_change=self.sync_state("value"))("Date"),
             json(key="value")({"value": value}),
             snippet("date_input"),
         )
@@ -478,14 +445,11 @@ class DatetimeInputDemo(Component):
         super().__init__(**props)
         self.state = dict(value=datetime.datetime.now().replace(second=0, microsecond=0))
 
-    def sync_value(self):
-        self.state.value = get_element_value()
-
     def render(self):
         value = self.state.value.isoformat() if self.state.value is not None else None
         return container(key="panel", border=True)(
             subheader(key="title")("datetime_input"),
-            datetime_input(key="widget", value=self.state.value, on_change=self.sync_value)("Schedule"),
+            datetime_input(key="widget", value=self.state.value, on_change=self.sync_state("value"))("Schedule"),
             json(key="value")({"value": value}),
             snippet("datetime_input"),
         )
@@ -496,14 +460,11 @@ class TimeInputDemo(Component):
         super().__init__(**props)
         self.state = dict(value=datetime.time(hour=9, minute=30))
 
-    def sync_value(self):
-        self.state.value = get_element_value()
-
     def render(self):
         value = self.state.value.isoformat() if self.state.value is not None else None
         return container(key="panel", border=True)(
             subheader(key="title")("time_input"),
-            time_input(key="widget", value=self.state.value, on_change=self.sync_value)("Time"),
+            time_input(key="widget", value=self.state.value, on_change=self.sync_state("value"))("Time"),
             json(key="value")({"value": value}),
             snippet("time_input"),
         )
@@ -514,13 +475,10 @@ class ColorPickerDemo(Component):
         super().__init__(**props)
         self.state = dict(value="#ff4b4b")
 
-    def sync_value(self):
-        self.state.value = get_element_value()
-
     def render(self):
         return container(key="panel", border=True)(
             subheader(key="title")("color_picker"),
-            color_picker(key="widget", value=self.state.value, on_change=self.sync_value)("Accent color"),
+            color_picker(key="widget", value=self.state.value, on_change=self.sync_state("value"))("Accent color"),
             json(key="value")({"value": self.state.value}),
             snippet("color_picker"),
         )
@@ -813,9 +771,6 @@ class PlotlyChartDemo(Component):
         super().__init__(**props)
         self.state = dict(selection=None)
 
-    def sync_value(self):
-        self.state.selection = get_element_value()
-
     def render(self):
         import plotly.express as px
 
@@ -823,7 +778,7 @@ class PlotlyChartDemo(Component):
         return container(key="panel", border=True)(
             subheader(key="title")("plotly_chart"),
             markdown(key="hint")("Box- or lasso-select points to trigger `on_select`."),
-            plotly_chart(key="widget", figure_or_data=fig, on_select=self.sync_value, height=360),
+            plotly_chart(key="widget", figure_or_data=fig, on_select=self.sync_state("selection"), height=360),
             json(key="value")({"selection": self.state.selection}),
             snippet("plotly_chart"),
         )
@@ -833,9 +788,6 @@ class AltairChartDemo(Component):
     def __init__(self, **props):
         super().__init__(**props)
         self.state = dict(selection=None)
-
-    def sync_value(self):
-        self.state.selection = get_element_value()
 
     def render(self):
         import altair as alt
@@ -855,7 +807,7 @@ class AltairChartDemo(Component):
         return container(key="panel", border=True)(
             subheader(key="title")("altair_chart"),
             markdown(key="hint")("Drag a region on the chart to test `on_select`."),
-            altair_chart(key="widget", altair_chart=chart, on_select=self.sync_value, selection_mode="pick", height=320),
+            altair_chart(key="widget", altair_chart=chart, on_select=self.sync_state("selection"), selection_mode="pick", height=320),
             json(key="value")({"selection": self.state.selection}),
             snippet("altair_chart"),
         )
@@ -865,9 +817,6 @@ class VegaLiteChartDemo(Component):
     def __init__(self, **props):
         super().__init__(**props)
         self.state = dict(selection=None)
-
-    def sync_value(self):
-        self.state.selection = get_element_value()
 
     def render(self):
         spec = {
@@ -891,7 +840,7 @@ class VegaLiteChartDemo(Component):
                 key="widget",
                 data=SCATTER_ROWS,
                 spec=spec,
-                on_select=self.sync_value,
+                on_select=self.sync_state("selection"),
                 selection_mode="pick",
                 height=320,
             ),
@@ -904,9 +853,6 @@ class PydeckChartDemo(Component):
     def __init__(self, **props):
         super().__init__(**props)
         self.state = dict(selection=None)
-
-    def sync_value(self):
-        self.state.selection = get_element_value()
 
     def render(self):
         import pydeck as pdk
@@ -927,7 +873,7 @@ class PydeckChartDemo(Component):
         return container(key="panel", border=True)(
             subheader(key="title")("pydeck_chart"),
             markdown(key="hint")("Click a point on the map to test `on_select`."),
-            pydeck_chart(key="widget", pydeck_obj=deck, on_select=self.sync_value, height=360),
+            pydeck_chart(key="widget", pydeck_obj=deck, on_select=self.sync_state("selection"), height=360),
             json(key="value")({"selection": self.state.selection}),
             snippet("pydeck_chart"),
         )
@@ -1114,16 +1060,13 @@ class MenuButtonDemo(Component):
         super().__init__(**props)
         self.state = dict(value=None)
 
-    def sync_value(self):
-        self.state.value = get_element_value()
-
     def render(self):
         return container(key="panel", border=True)(
             subheader(key="title")("menu_button"),
             menu_button(
                 key="widget",
                 options=["Draft", "Review", "Ship"],
-                on_click=self.sync_value,
+                on_click=self.sync_state("value"),
                 type="primary",
             )("Actions"),
             json(key="value")({"value": self.state.value}),
@@ -1136,13 +1079,10 @@ class PillsDemo(Component):
         super().__init__(**props)
         self.state = dict(value="Medium")
 
-    def sync_value(self):
-        self.state.value = get_element_value()
-
     def render(self):
         return container(key="panel", border=True)(
             subheader(key="title")("pills"),
-            pills(key="widget", options=["Low", "Medium", "High"], default=self.state.value, on_change=self.sync_value)("Priority"),
+            pills(key="widget", options=["Low", "Medium", "High"], default=self.state.value, on_change=self.sync_state("value"))("Priority"),
             json(key="value")({"value": self.state.value}),
             snippet("pills"),
         )
@@ -1153,9 +1093,6 @@ class SegmentedControlDemo(Component):
         super().__init__(**props)
         self.state = dict(value="List")
 
-    def sync_value(self):
-        self.state.value = get_element_value()
-
     def render(self):
         return container(key="panel", border=True)(
             subheader(key="title")("segmented_control"),
@@ -1163,7 +1100,7 @@ class SegmentedControlDemo(Component):
                 key="widget",
                 options=["List", "Board", "Calendar"],
                 default=self.state.value,
-                on_change=self.sync_value,
+                on_change=self.sync_state("value"),
             )("View"),
             json(key="value")({"value": self.state.value}),
             snippet("segmented_control"),
@@ -1175,13 +1112,10 @@ class FeedbackDemo(Component):
         super().__init__(**props)
         self.state = dict(value=None)
 
-    def sync_value(self):
-        self.state.value = get_element_value()
-
     def render(self):
         return container(key="panel", border=True)(
             subheader(key="title")("feedback"),
-            feedback(key="widget", options="stars", on_change=self.sync_value),
+            feedback(key="widget", options="stars", on_change=self.sync_state("value")),
             json(key="value")({"value": self.state.value}),
             snippet("feedback"),
         )
@@ -1197,13 +1131,10 @@ class DataEditorDemo(Component):
             ]
         )
 
-    def sync_value(self):
-        self.state.value = get_element_value()
-
     def render(self):
         return container(key="panel", border=True)(
             subheader(key="title")("data_editor"),
-            data_editor(key="widget", data=self.state.value, num_rows="dynamic", on_change=self.sync_value, width="stretch"),
+            data_editor(key="widget", data=self.state.value, num_rows="dynamic", on_change=self.sync_state("value"), width="stretch"),
             json(key="value")({"value": self.state.value}),
             snippet("data_editor"),
         )
@@ -1213,9 +1144,6 @@ class PrimitivesApp(Component):
     def __init__(self, **props):
         super().__init__(**props)
         self.state = dict(selected="button")
-
-    def sync_selected(self):
-        self.state.selected = get_element_value()
 
     def current_demo(self):
         demos = {
@@ -1288,7 +1216,7 @@ class PrimitivesApp(Component):
                 key="selector",
                 options=PRIMITIVES,
                 index=PRIMITIVES.index(self.state.selected),
-                on_change=self.sync_selected,
+                on_change=self.sync_state("selected"),
             )("Primitive"),
             self.current_demo(),
         )

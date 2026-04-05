@@ -2,20 +2,29 @@
 
 React-inspired stateful components for [Streamlit](https://streamlit.io), in pure Python.
 
-`st-components` does not try to fight Streamlit's rerun model. It accepts that the script reruns from top to bottom on every interaction, then adds a small component system on top:
+`st-components` adds a small component model on top of Streamlit:
 
-- `Component` gives you local persistent state.
-- `Element` wraps Streamlit primitives in a composable tree.
-- widget values remain in `st.session_state`, where Streamlit already expects them.
-- refs and path-based helpers let you reach parts of the tree without relying on fragile Python instances.
+- `Component` for reusable, stateful UI units
+- `Element` for thin wrappers around Streamlit primitives
+- `App` for render-cycle orchestration, shared theme/config, and root rendering
 
-The result is a style that feels closer to React composition, but stays idiomatic to Streamlit.
+It keeps Streamlit's rerun model, but gives larger apps a clearer tree structure, local state, and more composable UI.
 
-## Status
+## Table of Contents
 
-This project is currently a small experimental library.
-
-The goal is not to reproduce React completely. The goal is to make Streamlit apps easier to structure once they stop being "just a script".
+- [Installation](#installation)
+- [Why This Exists](#why-this-exists)
+- [Quick Start](#quick-start)
+- [Mental Model](#mental-model)
+- [Onboarding Path](#onboarding-path)
+- [Core API](#core-api)
+- [Theming and Config](#theming-and-config)
+- [Elements](#elements)
+- [Built-ins](#built-ins)
+- [Examples](#examples)
+- [Usage Guidelines](#usage-guidelines)
+- [Non-Goals](#non-goals)
+- [License](#license)
 
 ## Installation
 
@@ -23,53 +32,23 @@ The goal is not to reproduce React completely. The goal is to make Streamlit app
 pip install st-components
 ```
 
+`st-components` builds on [modict](https://github.com/B4PT0R/modict) for its data models. `State`, `Props`, fibers, `Theme`, and `Config` are all modict-based, so they support both attribute access and dict-style access.
+
 ## Why This Exists
 
-Plain Streamlit is simple and productive, but larger apps often become awkward:
+Plain Streamlit is fast to start with, but larger apps often drift toward:
 
-- state ends up flattened into global `st.session_state`
-- UI structure is implicit in script order
-- reusable widgets are hard to turn into real stateful units
-- callbacks often need too much plumbing
+- flattened global `st.session_state`
+- implicit UI structure based on script order
+- reusable blocks that are hard to make truly stateful
+- callbacks that require too much plumbing
 
 `st-components` gives you a more explicit structure:
 
-- Components own local state.
-- Elements describe renderable primitives.
-- keys stay short and local.
-- the framework derives full tree paths automatically.
-
-## Mental Model
-
-There are only two core building blocks.
-
-### `Component`
-
-A `Component` is a stateful unit.
-
-- It has persistent local state.
-- Its `render()` method returns Elements, Components, or plain values.
-- A new Python instance is created on each rerun, but its state is restored from a fiber stored in `st.session_state`.
-
-### `Element`
-
-An `Element` is a terminal render primitive.
-
-- It usually wraps one Streamlit primitive.
-- It does not own persistent local state.
-- Rich behavior should be built by composing Elements inside Components.
-
-### Keys
-
-Every Component and Element must have a `key`.
-
-Keys are deliberately simple:
-
-- they only need to be unique among siblings
-- they are not global ids
-- the framework computes the full path automatically from the render context
-
-This means two nodes can both use `key="counter"` safely if they live in different branches of the tree.
+- Components own local state
+- Elements wrap Streamlit primitives
+- keys stay short and local
+- the framework derives full tree paths automatically
 
 ## Quick Start
 
@@ -93,27 +72,65 @@ class Counter(Component):
         )
 
 
-app = App(
-    root=container(key="app")(
-        Counter(key="counter_a"),
-        Counter(key="counter_b"),
+app = App()(
+    container(key="app")(
+        Counter(key="a"),
+        Counter(key="b"),
     )
 )
 
 app.render()
 ```
 
-Each `Counter` keeps its own `count` across reruns.
+Each `Counter` keeps its own state across reruns.
 
-## The Main Patterns
+## Mental Model
 
-Most real usage falls into four patterns.
+### `Component`
 
-### 1. Keep local state in Components
+A `Component` is a stateful unit.
 
-Use `self.state` for state that conceptually belongs to a component.
+- It has persistent local state.
+- Its `render()` method returns Components, Elements, or plain values.
+- A new Python instance is created on each rerun, but its state is restored from a fiber stored in `st.session_state`.
+
+### `Element`
+
+An `Element` is a render primitive.
+
+- It usually wraps one Streamlit primitive.
+- It does not own persistent local component state.
+- Stateful behavior should generally be built by composing Elements inside Components.
+
+### Keys
+
+Every Component and Element must have a `key`.
+
+Keys are intentionally local:
+
+- they only need to be unique among siblings
+- they are not global ids
+- the framework computes the full path automatically from the render context
+
+This means two nodes can both use `key="counter"` safely if they live in different branches.
+
+## Onboarding Path
+
+If you're new to the library, this is the shortest useful path:
+
+1. Start with `App`, `Component`, and a few `elements`.
+2. Use `self.state` inside components for local UI state.
+3. Use `get_element_value()` inside widget callbacks when you need the current widget value.
+4. Use `Ref()` only when you need path-based reachability later.
+5. Add typed `State` and `Props` models once the shape stabilizes.
+
+### Pattern 1: Keep local state in Components
 
 ```python
+from st_components import Component
+from st_components.elements import button, container, markdown
+
+
 class Panel(Component):
 
     def __init__(self, **props):
@@ -122,22 +139,25 @@ class Panel(Component):
 
     def toggle(self):
         self.state.open = not self.state.open
+
+    def render(self):
+        return container(key="panel", border=True)(
+            button(key="toggle", on_click=self.toggle)(
+                "Hide details" if self.state.open else "Show details"
+            ),
+            markdown(key="body")(
+                "Local component state controls this panel."
+                if self.state.open
+                else "Click the button to reveal more content."
+            ),
+        )
 ```
 
-This is the preferred place for:
+This is the preferred place for view state, local mode, and coordination between widgets.
 
-- view state
-- local UI mode
-- derived workflow state
-- state coordinated across several child widgets
+### Pattern 2: Read widget values with `get_element_value()`
 
-### 2. Read widget values with `get_element_value()`
-
-Stateful Streamlit widgets already store their value in `st.session_state`.
-
-`st-components` keeps using that storage. It does not duplicate widget state into a second store.
-
-Instead, stateful Elements expose their value by element path, and `get_element_value()` reads it.
+Widgets already store their value in `st.session_state`. `st-components` keeps using that storage instead of duplicating it.
 
 ```python
 from st_components import Component, get_element_value
@@ -161,117 +181,73 @@ class NameForm(Component):
         )("Name")
 ```
 
-This is the intended pattern for widget callbacks:
+### Pattern 3: Use `Ref()` for logical reachability
 
-1. a widget changes
-2. Streamlit stores the widget value
-3. the callback runs
-4. `get_element_value()` reads the current value for that Element
-5. the Component updates its own state if needed
-
-### 3. Use `Ref()` for path-based reachability
-
-Refs are supported, but they are not React-style object refs.
-
-Because Streamlit reruns recreate all Python instances, a ref cannot safely point to a living object. In `st-components`, a ref stores a resolved logical path.
+Refs are path-based handles, not live object refs.
 
 ```python
-from st_components import Ref
-from st_components.elements import text_input
+from st_components import App, Component, Ref
+from st_components.elements import button, container, markdown, text_input
 
 
 name_ref = Ref()
-
-text_input(key="name", ref=name_ref)("Name")
-
-name_ref.path
-name_ref.value()
-```
-
-Refs are useful when you want to reach a node later without hardcoding its full path as a string.
-
-For Components:
-
-```python
 counter_ref = Ref()
 
-Counter(key="counter", ref=counter_ref)
 
-counter_ref.state()
-counter_ref.get("count")
+class Counter(Component):
+
+    def __init__(self, **props):
+        super().__init__(**props)
+        self.state = dict(count=0)
+
+    def increment(self):
+        self.state.count += 1
+
+    def render(self):
+        return button(key="inc", on_click=self.increment)(
+            f"Count: {self.state.count}"
+        )
+
+
+class RefDemo(Component):
+
+    def __init__(self, **props):
+        super().__init__(**props)
+        self.state = dict(snapshot="")
+
+    def capture(self):
+        self.state.snapshot = (
+            f"name={name_ref.value(default='')}, "
+            f"count={counter_ref.get('count', 0)}"
+        )
+
+    def render(self):
+        return container(key="demo", border=True)(
+            text_input(key="name", ref=name_ref)("Name"),
+            Counter(key="counter", ref=counter_ref),
+            button(key="capture", on_click=self.capture)("Read refs"),
+            markdown(key="snapshot")(self.state.snapshot or "Nothing captured yet."),
+        )
+
+
+App()(RefDemo(key="refs")).render()
 ```
 
-Use refs for path-based lookup. Do not think of them as imperative handles to living instances.
-
-### 4. Build rich behavior by composition
-
-The library intentionally keeps base Elements small.
-
-The intended design is:
-
-- one Element wraps one Streamlit primitive
-- layouts compose children
-- stateful interactions live in Components
-
-That keeps the model simple and predictable.
-
-### 5. Use `@component` for simple stateless components
-
-If a component does not need lifecycle hooks or explicit class syntax, you can define it as a function.
-
-```python
-from st_components import component
-from st_components.elements import markdown
-
-
-@component
-def Callout(props):
-    return markdown(key="body")(f"**{props.title}**\n\n{props.children[0]}")
-```
-
-This decorator turns the function into a component instantiator:
-
-```python
-Callout(key="intro", title="Heads up")("This is a functional component.")
-```
-
-Rules:
-
-- the decorated function must use the shape `func(props)`
-- `props` is a `modict`-style object with attribute access and helpers like `exclude()`
-- the decorated function receives regular props plus `children`
-- framework props like `key` and `ref` are not passed to the function
-- under the hood, `@component` caches a generated `Component` subclass
-
-You can also add local state inside a functional component with `use_state()`:
-
-```python
-from st_components import component, use_state
-
-
-@component
-def Counter(props):
-    state = use_state(count=props.initial)
-
-    def increment():
-        state.count += 1
-```
-
-## API Overview
+## Core API
 
 ### `App`
 
-Small entry point that renders a root Component or Element.
+`App` is the root entry point:
 
 ```python
-App(root=MyRoot(key="root")).render()
+App()(MyRoot(key="root")).render()
 ```
 
-`App` also owns the render cycle:
+It also owns the render cycle:
 
-- it tracks which component fibers were rendered during the current pass
-- it unmounts fibers that disappeared from the tree
-- it calls `component_did_unmount()` for those stale components
+- tracks which component fibers rendered in the current pass
+- unmounts fibers that disappeared from the tree
+- calls `component_did_unmount()` for stale components
 
 ### `Component`
 
@@ -287,23 +263,100 @@ Useful members:
 - `component_did_unmount()`
 - `component_did_update(prev_state)`
 
-State is stored in a fiber keyed by the Component's resolved tree path.
+### `State`
 
-`component_did_update(prev_state)` is called after a render cycle when the Component was already mounted and its state changed since the previous cycle.
+You can initialize state in `__init__`:
+
+```python
+self.state = dict(count=0)
+```
+
+Or declare a typed nested subclass:
+
+```python
+from st_components import Component, State
+from st_components.elements import button, container, metric
+
+
+class Counter(Component):
+
+    class CounterState(State):
+        count: int = 0
+        label: str = "clicks"
+
+    def increment(self):
+        self.state.count += 1
+
+    def render(self):
+        return container(key="panel", border=True)(
+            metric(key="metric", label=self.state.label, value=self.state.count),
+            button(key="inc", on_click=self.increment)("Increment"),
+        )
+```
+
+Typed state gives you defaults, validation, and a visible schema.
+
+### `Props`
+
+You can also declare typed props with a nested `Props` subclass:
+
+```python
+from modict import modict
+from st_components import Component, Props
+from st_components.elements import markdown
+
+
+class Badge(Component):
+
+    class BadgeProps(Props):
+        _config = modict.config(extra="forbid")
+        label: str = "badge"
+        color: str = "blue"
+
+    def render(self):
+        return markdown(key="body")(f":{self.props.color}[**{self.props.label}**]")
+```
 
 ### `@component`
 
-Decorator that turns a function `func(props)` into a component instantiator backed by a cached generated `Component` subclass.
+Use `@component` for simple functional components:
 
 ```python
+from st_components import App, component
+from st_components.elements import container, markdown
+
+
 @component
-def Badge(props):
-    return markdown(key="body")(props.label)
+def Callout(props):
+    return container(key="box", border=True)(
+        markdown(key="body")(f"**{props.title}**\n\n{props.children[0]}")
+    )
+
+
+App()(Callout(key="intro", title="Heads up")("This is a functional component.")).render()
 ```
 
-The generated class is cached per function, and exposed on `Badge.component_class`.
+It can also use local state through `use_state()`:
 
-### `use_state(**kwargs)`
+```python
+from st_components import component, use_state
+from st_components.elements import button, markdown
+
+
+@component
+def Counter(props):
+    state = use_state(count=props.initial)
+
+    def increment():
+        state.count += 1
+
+    return (
+        markdown(key="value")(f"Count: **{state.count}**"),
+        button(key="inc", on_click=increment)("Increment"),
+    )
+```
+
+### `use_state(other=None, /, **kwargs)`
 
 Minimal state hook for functional components.
 
@@ -313,70 +366,41 @@ def Counter(props):
     state = use_state(count=0)
 ```
 
-Behavior:
-
-- on the first render, `kwargs` initialize the component state
-- on later renders, the existing persisted state is returned
-- later `kwargs` are ignored
-
-`use_state()` must be called while rendering a Component.
-
-### `Element`
-
-Subclass `Element` when you want to wrap a Streamlit primitive directly.
-
-An Element may:
-
-- render Streamlit UI directly
-- render its children
-- return a simple value or handle when needed
-
-But Elements should stay simple. If behavior starts becoming stateful or orchestration-heavy, move it into a Component.
-
-### `render(obj)`
-
-Renders:
-
-- an `Element`
-- a `Component`
-- or any other object via `st.write()`
-
-This is mainly useful when iterating over heterogeneous children.
-
-### `KEY(key)`
-
-`KEY()` is only meant for internal use inside `Element.render()`, when calling a raw Streamlit widget function with a `key=...`.
-
-Example:
+You can also pass a typed `State` instance:
 
 ```python
-class checkbox(Element):
-    def render(self):
-        return st.checkbox("Enabled", key=KEY("widget"))
-```
+from st_components import State, component, use_state
+from st_components.elements import button, markdown
 
-You do not call `KEY()` when instantiating Components or Elements themselves.
+
+class CounterState(State):
+    count: int = 0
+    step: int = 1
+
+
+@component
+def Counter(props):
+    state = use_state(CounterState(count=0, step=2))
+
+    def increment():
+        state.count += state.step
+
+    return (
+        markdown(key="value")(f"Count: **{state.count}**"),
+        button(key="inc", on_click=increment)(f"+ {state.step}"),
+    )
+```
 
 ### `get_element_value(path=None, default=None)`
 
 Returns the current value of a stateful Element.
 
-Rules:
-
-- if called inside the current Element's `render()`, `path` may be omitted
-- if called inside a widget callback, `path` may also be omitted
-- if called elsewhere, pass the Element path explicitly
+- inside the current element or its callback, `path` may be omitted
+- elsewhere, pass the element path explicitly
 
 ```python
 get_element_value("app.form.name")
 ```
-
-Convention:
-
-- stateful widget Elements use an internal widget key at `element_path + ".widget"`
-- the public API stays based on the Element path, not the internal widget key
-
-This keeps the API stable even if the internal Streamlit primitive changes.
 
 ### `Ref`
 
@@ -387,58 +411,146 @@ Available members:
 - `ref.path`
 - `ref.value(default=None)` for Element refs
 - `ref.state()` for Component refs
-- `ref.get(key, default=None)` as a shortcut to component state fields
+- `ref.get(key, default=None)` for component state fields
 
-Important:
+### `Element`
 
-- a `Ref` does not point to a live Python instance
-- a `Ref` becomes usable only after the tree has rendered
+Subclass `Element` when you want to wrap a Streamlit primitive directly.
 
-### `fibers()`
+Elements should stay thin. If behavior becomes stateful or orchestration-heavy, move it into a `Component`.
 
-Returns the raw component fiber store in `st.session_state`.
+## Theming and Config
 
-This is mostly a debugging tool.
+`App` exposes official Streamlit theming and selected config options.
 
-## Built-in Elements
+```python
+from st_components import App, Theme
 
-The package currently provides wrappers for common Streamlit primitives.
+
+app = App(
+    theme=Theme(
+        base="dark",
+        primaryColor="#2dd4bf",
+        backgroundColor="#0f172a",
+        textColor="#e2e8f0",
+        sidebar={"backgroundColor": "#111827"},
+    ),
+)(
+    MyRoot(key="root"),
+)
+```
+
+You can also use the built-in `ThemeEditorButton` to tune a theme visually while building your app:
+
+```python
+from st_components import App, Component
+from st_components.builtins import ThemeEditorButton
+from st_components.elements import container, markdown
+
+
+class Home(Component):
+
+    def render(self):
+        return container(key="page")(
+            container(key="hero", border=True)(
+                markdown(key="title")("# Hello"),
+                markdown(key="body")("Use the built-in theme editor to tune the app live."),
+                ThemeEditorButton(key="open", type="primary", title="Theme editor")(),
+            )
+        )
+
+
+App()(Home(key="home")).render()
+```
+
+This is useful during development when you want to find a good theme quickly, then later replace it with a fixed `Theme(...)` in `App(...)` once the design is settled. If you want the lower-level primitive, `ThemeEditorDialog` is still available too.
+
+Relevant entry points:
+
+- `theme=...` accepts a plain dict or typed `Theme`
+- `css=...` accepts raw CSS, a `.css` path, or a list mixing both
+- `config=...` accepts selected runtime-relevant `config.toml` options
+- `get_app()` returns the current app instance, so you can call `get_app().set_theme(...)`, `set_css(...)`, `save_theme()`, and related helpers during a rerun
+
+Notes:
+
+- `Theme` fields map to Streamlit theme config keys
+- theme persistence goes through `.streamlit/config.toml`
+- runtime application is best-effort; persisted config is the stable source of truth
+- CSS is injected after theme application, so CSS can intentionally override theme-driven styles
+
+To see this live:
+
+```bash
+streamlit run examples/theme_editor.py
+```
+
+## Elements
+
+Import Streamlit wrappers from `st_components.elements`:
 
 ```python
 from st_components.elements import (
-    button, checkbox, slider, text_input, text_area,
-    container, columns, tabs, expander, sidebar,
+    button, checkbox, slider, text_input,
+    container, columns, tabs, expander,
     markdown, metric, json,
 )
 ```
 
-Broad categories:
+Coverage is organized by package:
 
-- text: `title`, `header`, `subheader`, `caption`, `text`, `markdown`, `code`, `latex`, `divider`
-- input: `button`, `checkbox`, `toggle`, `radio`, `selectbox`, `multiselect`, `slider`, `text_input`, `text_area`, and others
-- layout: `container`, `columns`, `tabs`, `expander`, `popover`, `sidebar`, `empty`
-- display: `write`, `dataframe`, `table`, `metric`, `json`
-- media: `image`, `audio`, `video`
-- feedback: `success`, `info`, `warning`, `error`, `toast`, `progress`, `spinner`, `balloons`, `snow`
+- `text`
+- `input`
+- `layout`
+- `display`
+- `charts`
+- `media`
+- `feedback`
 
-## Recommended Usage Rules
+The wrappers stay aligned with Streamlit signatures, with framework-specific `key` and optional `ref`.
 
-If you want code that stays readable, these are the rules to follow.
+## Built-ins
+
+Import higher-level structural components from `st_components.builtins`:
+
+```python
+from st_components.builtins import (
+    Conditional, Case, Switch, Match, Default,
+    KeepAlive, ThemeEditorButton, ThemeEditorDialog, Router, Page,
+)
+```
+
+Current built-ins include:
+
+- flow helpers: `Conditional`, `Case`, `Switch`, `Match`, `Default`, `KeepAlive`
+- app helpers: `Router`, `Page`
+- theme tooling: `ThemeEditor`, `ThemeEditorButton`, `ThemeEditorDialog`
+
+## Examples
+
+Useful examples in the repository:
+
+- `streamlit run examples/dashboard.py`
+- `streamlit run examples/functional.py`
+- `streamlit run examples/flow.py`
+- `streamlit run examples/theme_editor.py`
+- `streamlit run examples/primitives.py`
+
+If you want the fastest onboarding path, start with:
+
+1. `examples/dashboard.py`
+2. `examples/functional.py`
+3. `examples/theme_editor.py`
+
+## Usage Guidelines
 
 ### Prefer Components for behavior
 
-If something:
-
-- has local state
-- coordinates several widgets
-- needs callbacks plus derived state
-- behaves like a reusable UI block
-
-it should probably be a `Component`.
+If something has local state, coordinates several widgets, or behaves like a reusable UI block, it should usually be a `Component`.
 
 ### Prefer Elements for thin wrappers
 
-If something is just a direct Streamlit primitive with a cleaner compositional API, keep it as an `Element`.
+If something is just a direct Streamlit primitive with a compositional API, keep it as an `Element`.
 
 ### Keep keys local and boring
 
@@ -451,60 +563,26 @@ Good:
 Bad:
 
 - globally namespaced keys everywhere
-- encoded hierarchy inside the user key
-
-Let the framework derive the full path.
+- encoded hierarchy inside user keys
 
 ### Do not duplicate widget state unless you need to
 
-Widget values already live in `st.session_state`.
-
-Only copy them into `self.state` when:
-
-- you want a component-level snapshot
-- you want derived state
-- you want to coordinate multiple widgets together
+Widget values already live in `st.session_state`. Copy them into component state only when you want a component-level snapshot, derived state, or cross-widget coordination.
 
 ### Think in paths, not instances
 
-This is especially important for refs.
-
-Because reruns recreate the tree, the stable identity is the resolved path, not the Python object you saw during a previous run.
-
-## Tutorial Demo
-
-The repository includes a richer tutorial dashboard:
-
-```bash
-streamlit run examples/dashboard.py
-```
-
-It walks through:
-
-- local component state
-- `get_element_value()`
-- `Ref()`
-- composition patterns
-
-If you want to understand the library quickly, start there.
-
-There is also a smaller dedicated example for functional components:
-
-```bash
-streamlit run examples/functional.py
-```
+Because reruns recreate the tree, the stable identity is the resolved path, not the Python object from a previous run.
 
 ## Non-Goals
 
 `st-components` is not trying to provide:
 
 - a virtual DOM
-- hooks
-- a JSX syntax
-- imperative control of live UI instances
+- JSX
+- imperative control over live UI instances
 - a replacement for Streamlit's execution model
 
-It is a small structuring layer over Streamlit, not a different frontend runtime.
+It is a structuring layer over Streamlit, not a different frontend runtime.
 
 ## License
 

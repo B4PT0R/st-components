@@ -163,12 +163,6 @@ class RefInspectorDemo(Component):
             snapshot={},
         )
 
-    def sync_name(self):
-        self.state.name = get_element_value()
-
-    def sync_notes(self):
-        self.state.notes = get_element_value()
-
     def capture_refs(self):
         self.state.snapshot = {
             "name_ref_path": self.name_ref.path,
@@ -189,14 +183,14 @@ class RefInspectorDemo(Component):
                 key="name",
                 ref=self.name_ref,
                 value=self.state.name,
-                on_change=self.sync_name,
+                on_change=self.sync_state("name"),
             )("Title tracked by ref"),
             text_area(
                 key="notes",
                 ref=self.notes_ref,
                 value=self.state.notes,
                 height=100,
-                on_change=self.sync_notes,
+                on_change=self.sync_state("notes"),
             )("Notes tracked by ref"),
             CounterCard(key="counter", ref=self.counter_ref, label="Counter reached through ref", initial=3),
             button(key="read_refs", on_click=self.capture_refs, type="primary")("Read refs now"),

@@ -1,7 +1,8 @@
 """
 Tests for the @component decorator, use_state hook, and fragment support.
 """
-from st_components.core import App, Component, Ref, component, render, fibers, Context, use_state
+from st_components.core import App, Component, Ref, State, component, render, fibers, Context, use_state
+from st_components.core.models import Props
 from st_components.elements import text_input
 
 from tests._mock import fake_ctx, _mock_st, _session_data
@@ -27,9 +28,9 @@ def test_function_component_decorator():
     assert instance.__class__.__name__ == "Title"
     assert Title.component_class is instance.__class__
 
-    Context.stack[:] = [fake_ctx("app")]
+    Context.key_stack[:] = [fake_ctx("app")]
     render(instance)
-    Context.stack.clear()
+    Context.key_stack.clear()
 
     assert title_ref.path == "app.title"
     assert seen == [{
@@ -78,6 +79,54 @@ def test_use_state_initializes_once():
     assert fibers()["counter"].state.count == 5
 
 
+def test_use_state_with_state_instance():
+    class CounterState(State):
+        count: int = 0
+
+    seen = []
+
+    @component
+    def Counter(props):
+        state = use_state(CounterState(count=props.initial))
+        seen.append(state.count)
+        return None
+
+    App(root=Counter(key="counter", initial=3)).render()
+    fibers()["counter"].state.count = 7
+    App(root=Counter(key="counter", initial=999)).render()
+
+    assert seen == [3, 7], f"unexpected state timeline: {seen}"
+    assert isinstance(fibers()["counter"].state, CounterState)
+
+
+def test_function_component_typed_props():
+    class BadgeProps(Props):
+        label: str = "badge"
+        color: str = "blue"
+
+    @component
+    def Badge(props: BadgeProps):
+        return None
+
+    inst = Badge(key="b", label="ok")
+    assert inst.props.label == "ok"
+    assert inst.props.color == "blue"
+    assert isinstance(inst.props, BadgeProps)
+
+
+def test_function_component_typed_props_coercion():
+    class BadgeProps(Props):
+        label: str = "badge"
+
+    @component
+    def Badge(props: BadgeProps):
+        return None
+
+    # modict coerces by default: int 42 becomes str "42"
+    inst = Badge(key="b", label=42)
+    assert inst.props.label == "42"
+
+
 def test_use_state_outside_component_raises():
     try:
         use_state(count=0)
@@ -113,9 +162,9 @@ def test_class_component_fragment():
         def render(self):
             return text_input(key="name", value="Alice")("Name")
 
-    Context.stack[:] = [fake_ctx("app")]
+    Context.key_stack[:] = [fake_ctx("app")]
     render(Profile(key="profile"))
-    Context.stack.clear()
+    Context.key_stack.clear()
 
     fragment_wrappers[-1]()
 
@@ -149,9 +198,9 @@ def test_function_component_fragment():
     def FragmentName(props):
         return text_input(key="name", value="Alice")("Name")
 
-    Context.stack[:] = [fake_ctx("app")]
+    Context.key_stack[:] = [fake_ctx("app")]
     render(FragmentName(key="profile"))
-    Context.stack.clear()
+    Context.key_stack.clear()
 
     fragment_wrappers[-1]()
 

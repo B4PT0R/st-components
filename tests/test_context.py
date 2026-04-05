@@ -11,8 +11,8 @@ def test_key_no_context():
 
 
 def test_key_full_path():
-    Context.stack[:] = [fake_ctx("a"), fake_ctx("b"), fake_ctx("c")]
+    Context.key_stack[:] = [fake_ctx("a"), fake_ctx("b"), fake_ctx("c")]
     try:
         assert KEY("widget") == "a.b.c.widget"
     finally:
-        Context.stack.clear()
+        Context.key_stack.clear()

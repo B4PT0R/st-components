@@ -12,6 +12,7 @@ license = "MIT"
 dependencies = [
     "streamlit",
     "modict",
+    "toml",
 ]
 
 [project.optional-dependencies]
@@ -23,3 +24,7 @@ testpaths = ["tests"]
 [tool.setuptools.packages.find]
 where = ["."]
 include = ["st_components*"]
+
+[tool.setuptools.package-data]
+st_components = ["py.typed"]
+"st_components.elements" = ["*.pyi"]

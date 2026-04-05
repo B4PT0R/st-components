@@ -1,12 +1,15 @@
 import random
 import string
+from uuid import uuid4
 
 import streamlit as st
 
 from .context import KEY, component_context, get_key_stack, key_context, path_context
-from .models import Props
+from .access import get_element_value
+from .models import Fiber, Props, State
 from .refs import bind_ref
-from .store import Fiber, State, fibers, track_rendered_fiber
+from .store import fibers, register_component, track_rendered_fiber, unregister_component
+
 
 
 def unique_id(length=8):
@@ -40,9 +43,15 @@ def render(obj):
 
 
 class Element:
+    def __init_subclass__(cls, **kwargs):
+        super().__init_subclass__(**kwargs)
+        for attr in list(vars(cls).values()):
+            if isinstance(attr, type) and issubclass(attr, Props) and attr is not Props:
+                cls.__props_class__ = attr
 
     def __init__(self, **props):
-        self.props = Props(props)
+        props_cls = getattr(type(self), "__props_class__", Props)
+        self.props = props_cls(props)
         self._decorate_render()
 
     @property
@@ -59,7 +68,7 @@ class Element:
 
     @children.setter
     def children(self, value):
-        self.props.children = value
+        self.props.children = list(value)
 
     def __call__(self, *children):
         self.props.children = list(children)
@@ -112,10 +121,18 @@ class Component:
             cls.__fragment__ = fragment
         if run_every is not None:
             cls.__fragment_run_every__ = run_every
+        for attr in list(vars(cls).values()):
+            if isinstance(attr, type) and issubclass(attr, State) and attr is not State:
+                cls.__initial_state_class__ = attr
+            if isinstance(attr, type) and issubclass(attr, Props) and attr is not Props:
+                cls.__props_class__ = attr
 
     def __init__(self, **props):
-        self.props = Props(props)
-        self._state = State()
+        props_cls = getattr(type(self), "__props_class__", Props)
+        self.props = props_cls(props)
+        initial_cls = getattr(type(self), "__initial_state_class__", None)
+        self._state = initial_cls() if initial_cls is not None else State()
+        self._component_id = f"{type(self).__name__}:{uuid4().hex}"
         self._fiber_key = None
         self._decorate_render()
 
@@ -134,13 +151,15 @@ class Component:
 
     def mount(self):
         if not self.is_mounted:
-            fibers()[self._fiber_key] = Fiber(state=self._state, component=self, rendered_state=None)
+            register_component(self._component_id, self)
+            fibers()[self._fiber_key] = Fiber(state=self._state, component_id=self._component_id, previous_state=None)
             self.component_did_mount()
         else:
             raise RuntimeError("Can't mount a component that's already mounted")
 
     def unmount(self):
         if self.is_mounted:
+            unregister_component(self.fiber.component_id)
             del fibers()[self._fiber_key]
             self.component_did_unmount()
         else:
@@ -166,7 +185,16 @@ class Component:
 
     @children.setter
     def children(self, value):
-        self.props.children = value
+        self.props.children = list(value)
+
+    def _make_state(self, data):
+        cls = getattr(type(self), "__initial_state_class__", State)
+        if isinstance(data, cls):
+            return data
+        elif isinstance(data, dict):
+            return cls(**data)
+        else:
+            raise TypeError(f"Can only assign a dict to state, got {type(data)}")
 
     @property
     def state(self):
@@ -177,23 +205,23 @@ class Component:
     @state.setter
     def state(self, value):
         if not self.is_mounted:
-            self._state = State(**value)
+            self._state = self._make_state(value)
 
     def set_state(self, other=None, /, **kwargs):
         if not self.is_mounted:
             if other is not None:
-                if isinstance(other, dict):
-                    self._state = State(**other)
-                else:
-                    raise TypeError(f"Can only assign a dict to state, got {type(other)}")
+                self._state = self._make_state(other)
             self._state.update(**kwargs)
         else:
             if other is not None:
-                if isinstance(other, dict):
-                    self.fiber.state = State(**other)
-                else:
-                    raise TypeError(f"Can only assign a dict to state, got {type(other)}")
+                self.fiber.state = self._make_state(other)
             self.fiber.state.update(**kwargs)
+
+    def sync_state(self, state_key):
+        def sync():
+            self.state.update(**{state_key: get_element_value()})
+
+        return sync
 
     def __call__(self, *children):
         self.props.children = list(children)
@@ -216,7 +244,10 @@ class Component:
         bind_ref(self, self._fiber_key, "component")
         if not self.is_mounted:
             self.mount()
-        self.fiber.component = self
+        if self.fiber.component_id != self._component_id:
+            unregister_component(self.fiber.component_id)
+            self.fiber.component_id = self._component_id
+        register_component(self._component_id, self)
         track_rendered_fiber(self._fiber_key)
         with key_context(self.key), component_context(self):
             children = map(render_to_element, to_tuple(render_func()))

@@ -1,4 +1,4 @@
-from .access import get_element_value
+from .access import get_element_value, refresh_element
 from .store import fibers
 
 
@@ -22,6 +22,12 @@ class Ref:
         if self.kind != "element":
             raise RuntimeError("Ref.value() is only available for Element refs.")
         return get_element_value(path, default)
+
+    def refresh(self):
+        path = self._require_path()
+        if self.kind != "element":
+            raise RuntimeError("Ref.refresh() is only available for Element refs.")
+        refresh_element(path)
 
     def state(self):
         path = self._require_path()

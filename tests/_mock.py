@@ -22,6 +22,9 @@ class MockSessionState:
     def __setitem__(self, key, value):
         _session_data[key] = value
 
+    def __delitem__(self, key):
+        del _session_data[key]
+
     def __getattr__(self, name):
         if name in _session_data:
             return _session_data[name]

@@ -1,164 +1,162 @@
 from contextlib import contextmanager
+from typing import Optional
 
+from modict import modict
 from streamlit import session_state as state
 
 
-RUNTIME_KEY = "__st_components_runtime__"
+class CallbackState(modict):
+    element_path: Optional[str] = None
+    widget_key: Optional[str] = None
 
 
-def _runtime():
-    runtime = state.get(RUNTIME_KEY)
-    if runtime is None:
-        runtime = {
-            "key_stack": [],
-            "component_stack": [],
-            "callback": {
-                "element_path": None,
-                "widget_key": None,
-            },
-        }
-        state[RUNTIME_KEY] = runtime
-    return runtime
+class RuntimeState(modict):
+    key_stack: list = modict.factory(list)
+    component_stack: list = modict.factory(list)
+    callback: CallbackState = modict.factory(CallbackState)
 
 
-def _key_stack():
-    return _runtime()["key_stack"]
+class PageState(modict):
+    active_namespace: Optional[str] = None
 
 
-def _component_stack():
-    return _runtime()["component_stack"]
+class _RenderContext:
+    """Transient render-cycle state: key stack, component stack, callback."""
 
+    _KEY = "__st_components_runtime__"
 
-def _callback():
-    return _runtime()["callback"]
+    def _state(self) -> RuntimeState:
+        rt = state.get(self._KEY)
+        if rt is None:
+            rt = RuntimeState()
+            state[self._KEY] = rt
+        return rt
 
-
-def _active_page_namespace():
-    return _runtime().get("active_page_namespace")
-
-
-class _ContextProxy:
+    def reset(self):
+        state[self._KEY] = RuntimeState()
 
     @property
-    def stack(self):
-        return _key_stack()
-
-
-class _CallbackContextProxy:
+    def key_stack(self):
+        return self._state().key_stack
 
     @property
-    def element_path(self):
-        return _callback()["element_path"]
-
-    @element_path.setter
-    def element_path(self, value):
-        _callback()["element_path"] = value
+    def component_stack(self):
+        return self._state().component_stack
 
     @property
-    def widget_key(self):
-        return _callback()["widget_key"]
-
-    @widget_key.setter
-    def widget_key(self, value):
-        _callback()["widget_key"] = value
+    def callback(self) -> CallbackState:
+        return self._state().callback
 
 
-Context = _ContextProxy()
-CallbackContext = _CallbackContextProxy()
+class _PageContext:
+    """Page-scoped state: active namespace for multipage routing."""
+
+    _KEY = "__st_components_page__"
+
+    def _state(self) -> PageState:
+        page = state.get(self._KEY)
+        if page is None:
+            page = PageState()
+            state[self._KEY] = page
+        return page
+
+    @property
+    def active_namespace(self) -> Optional[str]:
+        return self._state().active_namespace
+
+    @active_namespace.setter
+    def active_namespace(self, value: Optional[str]):
+        self._state().active_namespace = value
+
+
+Context = _RenderContext()
+PageContext = _PageContext()
 
 
 def reset_context_runtime():
-    runtime = _runtime()
-    runtime["key_stack"].clear()
-    runtime["component_stack"].clear()
-    runtime["callback"]["element_path"] = None
-    runtime["callback"]["widget_key"] = None
+    Context.reset()
 
 
 @contextmanager
 def page_namespace(namespace):
-    runtime = _runtime()
-    previous = runtime.get("active_page_namespace")
+    previous = PageContext.active_namespace
     try:
-        runtime["active_page_namespace"] = namespace
+        PageContext.active_namespace = namespace
         yield namespace
     finally:
-        runtime["active_page_namespace"] = previous
+        PageContext.active_namespace = previous
 
 
 @contextmanager
 def key_context(key):
     try:
-        _key_stack().append(key)
+        Context.key_stack.append(key)
         yield key
     finally:
-        if _key_stack():
-            _key_stack().pop(-1)
+        if Context.key_stack:
+            Context.key_stack.pop(-1)
 
 
 @contextmanager
 def component_context(component):
     try:
-        _component_stack().append(component)
+        Context.component_stack.append(component)
         yield component
     finally:
-        if _component_stack():
-            _component_stack().pop(-1)
+        if Context.component_stack:
+            Context.component_stack.pop(-1)
 
 
 @contextmanager
 def callback_context(*, element_path=None, widget_key=None):
-    previous_element_path = CallbackContext.element_path
-    previous_widget_key = CallbackContext.widget_key
+    previous_element_path = Context.callback.element_path
+    previous_widget_key = Context.callback.widget_key
     try:
-        CallbackContext.element_path = element_path
-        CallbackContext.widget_key = widget_key
+        Context.callback.element_path = element_path
+        Context.callback.widget_key = widget_key
         yield
     finally:
-        CallbackContext.element_path = previous_element_path
-        CallbackContext.widget_key = previous_widget_key
+        Context.callback.element_path = previous_element_path
+        Context.callback.widget_key = previous_widget_key
 
 
 @contextmanager
 def path_context(keys):
-    stack = _key_stack()
-    previous_stack = list(stack)
+    previous = list(Context.key_stack)
     try:
-        stack[:] = list(keys)
+        Context.key_stack[:] = list(keys)
         yield
     finally:
-        stack[:] = previous_stack
+        Context.key_stack[:] = previous
 
 
 def get_key_stack():
-    return list(_key_stack())
+    return list(Context.key_stack)
 
 
 def get_active_page_namespace():
-    return _active_page_namespace()
+    return PageContext.active_namespace
 
 
 def get_rendering_component():
-    stack = _component_stack()
-    if stack:
-        return stack[-1]
-    return None
+    stack = Context.component_stack
+    return stack[-1] if stack else None
 
 
 def get_element_path():
     segments = []
-    if _active_page_namespace():
-        segments.append(f"page[{_active_page_namespace()}]")
-    segments.extend(_key_stack())
+    if PageContext.active_namespace:
+        segments.append(f"page[{PageContext.active_namespace}]")
+    segments.extend(Context.key_stack)
     if segments:
         return ".".join(segments)
-    return CallbackContext.element_path
+    return Context.callback.element_path
 
 
 def KEY(key):
     segments = []
-    if _active_page_namespace():
-        segments.append(f"page[{_active_page_namespace()}]")
-    segments.extend(_key_stack())
+    if PageContext.active_namespace:
+        segments.append(f"page[{PageContext.active_namespace}]")
+    segments.extend(Context.key_stack)
     segments.append(key)
     return ".".join(segments)

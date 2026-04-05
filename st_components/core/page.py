@@ -1,5 +1,6 @@
 import inspect
 from pathlib import Path
+from typing import Literal
 
 from modict import modict
 
@@ -7,19 +8,19 @@ from .base import Component, Element
 
 
 class PageProps(modict):
-    key = None
-    nav_title = None
-    nav_icon = None
-    page_title = None
-    page_icon = None
-    layout = None
-    initial_sidebar_state = None
-    menu_items = None
-    url_path = None
-    default = False
-    visibility = "visible"
-    section = None
-    children = modict.factory(list)
+    key: str | None = None
+    nav_title: str | None = None
+    nav_icon: str | None = None
+    page_title: str | None = None
+    page_icon: str | None = None
+    layout: Literal["centered", "wide"] | None = None
+    initial_sidebar_state: Literal["auto", "expanded", "collapsed"] | None = None
+    menu_items: dict | None = None
+    url_path: str | None = None
+    default: bool = False
+    visibility: Literal["visible", "hidden"] = "visible"
+    section: str | None = None
+    children: list = modict.factory(list)
 
 
 class Page:
@@ -33,7 +34,7 @@ class Page:
 
     @children.setter
     def children(self, value):
-        self.props.children = value
+        self.props.children = list(value)
 
     def __call__(self, *children):
         if len(children) != 1:

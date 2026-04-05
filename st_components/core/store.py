@@ -3,21 +3,52 @@ from copy import deepcopy
 
 from modict import modict
 from streamlit import session_state as state
+from .models import Fibers, PreviousStates, SharedStates, State
+
+try:
+    from streamlit.runtime.scriptrunner import get_script_run_ctx
+except Exception:  # pragma: no cover - fallback for bare mode / test doubles
+    get_script_run_ctx = None
 
 
-class State(modict):
-    pass
+_COMPONENT_REGISTRY = {}
 
 
-class Fiber(modict):
-    state = modict.factory(State)
-    component = None
-    rendered_state = None
+def _session_registry_key():
+    if get_script_run_ctx is None:
+        return "bare"
+    ctx = get_script_run_ctx()
+    if ctx is None:
+        return "bare"
+    return getattr(ctx, "session_id", "bare")
 
 
-def shared_states():
+def _component_registry():
+    session_key = _session_registry_key()
+    return _COMPONENT_REGISTRY.setdefault(session_key, {})
+
+
+def register_component(component_id, component):
+    _component_registry()[component_id] = component
+
+
+def resolve_component(component_id):
+    if component_id is None:
+        return None
+    return _component_registry().get(component_id)
+
+
+def unregister_component(component_id):
+    if component_id is None:
+        return
+    registry = _component_registry()
+    if component_id in registry:
+        del registry[component_id]
+
+
+def shared_states() -> SharedStates:
     if "__st_components_shared__" not in state:
-        state.__st_components_shared__ = modict()
+        state.__st_components_shared__ = SharedStates()
     return state.__st_components_shared__
 
 
@@ -56,9 +87,9 @@ def clear_shared_state(namespace=None):
         del store[namespace]
 
 
-def fibers():
+def fibers() -> Fibers:
     if "__fibers__" not in state:
-        state.__fibers__ = modict()
+        state.__fibers__ = Fibers()
     return state.__fibers__
 
 
@@ -68,9 +99,9 @@ def _render_cycle_fibers():
     return state.__render_cycle_fibers__
 
 
-def _render_cycle_previous_states():
+def _render_cycle_previous_states() -> PreviousStates:
     if "__render_cycle_previous_states__" not in state:
-        state.__render_cycle_previous_states__ = {}
+        state.__render_cycle_previous_states__ = PreviousStates()
     return state.__render_cycle_previous_states__
 
 
@@ -79,13 +110,21 @@ def track_rendered_fiber(fiber_key):
         _render_cycle_fibers().add(fiber_key)
 
 
+def mark_subtree_keep_alive(prefix):
+    for key, fiber in fibers().items():
+        if key == prefix or key.startswith(prefix + "."):
+            fiber.keep_alive = True
+
+
 def begin_render_cycle():
+    for fiber in fibers().values():
+        fiber.keep_alive = False
     state.__render_cycle_fibers__ = set()
-    state.__render_cycle_previous_states__ = {
-        fiber_key: deepcopy(fiber.rendered_state)
+    state.__render_cycle_previous_states__ = PreviousStates({
+        fiber_key: deepcopy(fiber.previous_state)
         for fiber_key, fiber in fibers().items()
-        if fiber.rendered_state is not None
-    }
+        if fiber.previous_state is not None
+    })
 
 
 def end_render_cycle():
@@ -103,20 +142,26 @@ def end_render_cycle():
     stale_fiber_keys = [fiber_key for fiber_key in list(fibers().keys()) if fiber_key not in rendered_fibers]
     for fiber_key in stale_fiber_keys:
         fiber = fibers().get(fiber_key)
-        if fiber is not None and fiber.component is not None:
-            fiber.component.component_did_unmount()
+        if fiber is not None and fiber.keep_alive:
+            continue
+        component = resolve_component(fiber.component_id) if fiber is not None else None
+        if component is not None:
+            component.component_did_unmount()
+        if fiber is not None:
+            unregister_component(fiber.component_id)
         if fiber_key in fibers():
             del fibers()[fiber_key]
 
     for fiber_key in updated_fiber_keys:
         fiber = fibers().get(fiber_key)
-        if fiber is not None and fiber.component is not None:
-            fiber.component.component_did_update(previous_states[fiber_key])
+        component = resolve_component(fiber.component_id) if fiber is not None else None
+        if component is not None:
+            component.component_did_update(previous_states[fiber_key])
 
     for fiber_key in rendered_fibers:
         fiber = fibers().get(fiber_key)
         if fiber is not None:
-            fiber.rendered_state = deepcopy(fiber.state)
+            fiber.previous_state = deepcopy(fiber.state)
 
     del state.__render_cycle_fibers__
     del state.__render_cycle_previous_states__

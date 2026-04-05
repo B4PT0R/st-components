@@ -1,4 +1,5 @@
-from st_components import App, Component, Page, Router, get_element_value, get_shared_state
+from st_components import App, Component, get_shared_state
+from st_components.builtins import Page, Router
 from st_components.elements import (
     caption,
     code,
@@ -13,7 +14,7 @@ from st_components.elements import (
     title,
 )
 
-from multipage_shared import WorkspaceSidebar, WorkspaceState
+from shared import WorkspaceSidebar, WorkspaceState
 
 
 class OverviewPage(Component):
@@ -21,9 +22,6 @@ class OverviewPage(Component):
     def __init__(self, **props):
         super().__init__(**props)
         self.state = dict(note="Inline pages can live next to the entrypoint.")
-
-    def sync_note(self):
-        self.state.note = get_element_value()
 
     def render(self):
         workspace = get_shared_state("workspace")
@@ -52,7 +50,7 @@ class OverviewPage(Component):
             text_input(
                 key="note",
                 value=self.state.note,
-                on_change=self.sync_note,
+                on_change=self.sync_state("note"),
             )("Inline page note"),
             markdown(key="body")(
                 "The sidebar is declared as a reusable component and instantiated by each page. "
@@ -60,7 +58,7 @@ class OverviewPage(Component):
             ),
             page_link(
                 key="report_link",
-                page="multipage_pages/report_page.py",
+                page="pages/report_page.py",
                 label="Open the file-backed report page",
                 icon=":material/open_in_new:",
             ),
@@ -78,7 +76,7 @@ class OverviewPage(Component):
                 "            OverviewPage(key=\"root\")\n"
                 "        ),\n"
                 "        Page(key=\"report\", nav_title=\"Report\", nav_icon=\":material/description:\")(\n"
-                "            \"multipage_pages/report_page.py\"\n"
+                "            \"pages/report_page.py\"\n"
                 "        ),\n"
                 "    )\n"
                 ")\n"
@@ -97,7 +95,7 @@ app = App(
             OverviewPage(key="root")
         ),
         Page(key="report", nav_title="Report", nav_icon=":material/description:")(
-            "multipage_pages/report_page.py"
+            "pages/report_page.py"
         ),
     )
 )
