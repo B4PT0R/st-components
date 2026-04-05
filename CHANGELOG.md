@@ -4,6 +4,20 @@ All notable changes to this project will be documented in this file.
 
 The format is based on Keep a Changelog, and this project uses SemVer.
 
+## [0.1.1] - 2026-04-05
+
+First stabilization patch after the initial public release.
+
+### Added
+
+- Package `__version__` export.
+- Minimal GitHub Actions CI covering tests, builds, and an installed example-launcher smoke test.
+
+### Changed
+
+- Example runner tests now verify the exposed package version.
+- Example apps were manually smoke-tested after installation and in-repo.
+
 ## [0.1.0] - 2026-04-05
 
 Initial public release.

@@ -1,3 +1,5 @@
+from importlib.metadata import version as _package_version
+
 from .core import (
     App,
     Component,
@@ -15,7 +17,10 @@ from .core import (
     use_state,
 )
 
+__version__ = _package_version("st-components")
+
 __all__ = [
+    "__version__",
     "App",
     "Component",
     "Config",

@@ -1,3 +1,5 @@
+import st_components
+
 from st_components.examples.runner import (
     available_examples,
     build_streamlit_command,
@@ -24,3 +26,7 @@ def test_examples_runner_builds_streamlit_command():
     assert command[0]
     assert command[1:4] == ["-m", "streamlit", "run"]
     assert command[-1] == "--server.headless=true"
+
+
+def test_package_exposes_version():
+    assert st_components.__version__ == "0.1.1"
