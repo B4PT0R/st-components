@@ -932,7 +932,7 @@ def test_app_multipage_inline_component():
             Page(key="settings", nav_title="Settings", page_title="Settings page")(Settings(key="root")),
         )
     )
-    app.render(position="top")
+    app.render()
 
     assert navigation_calls[0][1] == {"position": "top", "expanded": False}
     _mock_st.set_page_config.assert_called_with(
@@ -973,7 +973,7 @@ def test_app_multipage_file_page_namespace():
         def render(self):
             return None
 
-    file_registry["pages/settings.py"] = lambda: App.render_page(SettingsRoot(key="root"))
+    file_registry["pages/settings.py"] = lambda: get_app().render_page(SettingsRoot(key="root"))
 
     app = App(page_title="Demo app")(
         Router()(
@@ -1010,7 +1010,7 @@ def test_app_shared_state_persists():
         focus: int = 7
 
     app = App()
-    app.shared_state("workspace", WorkspaceState())
+    app.create_shared_state("workspace", WorkspaceState())
 
     shared = get_shared_state("workspace")
     assert isinstance(shared, State)
@@ -1030,7 +1030,7 @@ def test_app_shared_state_accepts_class():
         team: str = "Core"
         show_code: bool = True
 
-    App().shared_state("shell", ShellState)
+    App().create_shared_state("shell", ShellState)
 
     shared = get_shared_state("shell")
     assert isinstance(shared, ShellState)
@@ -1048,8 +1048,8 @@ def test_get_shared_state_requires_declaration():
 
 
 def test_clear_shared_state():
-    App().shared_state("workspace", State(team="Core"))
-    App().shared_state("auth", State(user="baptiste"))
+    App().create_shared_state("workspace", State(team="Core"))
+    App().create_shared_state("auth", State(user="baptiste"))
 
     clear_shared_state("workspace")
     assert "workspace" not in shared_states()

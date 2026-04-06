@@ -17,6 +17,7 @@ from .core import (
     get_component_state,
     get_element_value,
     get_shared_state,
+    reset_element,
     use_state,
 )
 
@@ -51,5 +52,6 @@ __all__ = [
     "get_component_state",
     "get_element_value",
     "get_shared_state",
+    "reset_element",
     "use_state",
 ]

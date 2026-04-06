@@ -73,7 +73,7 @@ def get_shared_state(namespace, /):
     store = shared_states()
     if namespace not in store:
         raise RuntimeError(
-            f"Shared state {namespace!r} is not declared. Declare it with App.shared_state(...)."
+            f"Shared state {namespace!r} is not declared. Declare it with App.create_shared_state(...)."
         )
     return store[namespace]
 

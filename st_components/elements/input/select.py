@@ -27,8 +27,6 @@ class radio(Element):
         format_func: Callable[[Any], Any] = str,
         help: Optional[str] = None,
         on_change: Optional[WidgetCallback] = None,
-        args: Optional[tuple[Any, ...]] = None,
-        kwargs: Optional[dict[str, Any]] = None,
         *,
         key: str,
         ref: Optional[Ref] = None,
@@ -39,7 +37,7 @@ class radio(Element):
         width: Optional[Width] = "content",
         bind: Optional[BindOption] = None,
     ):
-        Element.__init__(self, key=key, label=label, options=options, ref=ref, index=index, format_func=format_func, help=help, on_change=on_change, args=args, kwargs=kwargs, disabled=disabled, horizontal=horizontal, captions=captions, label_visibility=label_visibility, width=width, bind=bind)
+        Element.__init__(self, key=key, label=label, options=options, ref=ref, index=index, format_func=format_func, help=help, on_change=on_change, disabled=disabled, horizontal=horizontal, captions=captions, label_visibility=label_visibility, width=width, bind=bind)
 
     def render(self):
         st.radio(label_or_prop(self), key=_get_widget_key(), on_change=widget_callback(self), **widget_props(self))
@@ -54,8 +52,6 @@ class selectbox(Element):
         format_func: Callable[[Any], str] = str,
         help: Optional[str] = None,
         on_change: Optional[WidgetCallback] = None,
-        args: Optional[tuple[Any, ...]] = None,
-        kwargs: Optional[dict[str, Any]] = None,
         *,
         key: str,
         ref: Optional[Ref] = None,
@@ -67,7 +63,7 @@ class selectbox(Element):
         width: Optional[WidthWithoutContent] = "stretch",
         bind: Optional[BindOption] = None,
     ):
-        Element.__init__(self, key=key, label=label, options=options, ref=ref, index=index, format_func=format_func, help=help, on_change=on_change, args=args, kwargs=kwargs, placeholder=placeholder, disabled=disabled, label_visibility=label_visibility, accept_new_options=accept_new_options, filter_mode=filter_mode, width=width, bind=bind)
+        Element.__init__(self, key=key, label=label, options=options, ref=ref, index=index, format_func=format_func, help=help, on_change=on_change, placeholder=placeholder, disabled=disabled, label_visibility=label_visibility, accept_new_options=accept_new_options, filter_mode=filter_mode, width=width, bind=bind)
 
     def render(self):
         st.selectbox(label_or_prop(self), key=_get_widget_key(), on_change=widget_callback(self), **widget_props(self))
@@ -82,8 +78,6 @@ class multiselect(Element):
         format_func: Callable[[Any], str] = str,
         help: Optional[str] = None,
         on_change: Optional[WidgetCallback] = None,
-        args: Optional[tuple[Any, ...]] = None,
-        kwargs: Optional[dict[str, Any]] = None,
         *,
         key: str,
         ref: Optional[Ref] = None,
@@ -96,7 +90,7 @@ class multiselect(Element):
         width: Optional[WidthWithoutContent] = "stretch",
         bind: Optional[BindOption] = None,
     ):
-        Element.__init__(self, key=key, label=label, options=options, ref=ref, default=default, format_func=format_func, help=help, on_change=on_change, args=args, kwargs=kwargs, max_selections=max_selections, placeholder=placeholder, disabled=disabled, label_visibility=label_visibility, accept_new_options=accept_new_options, filter_mode=filter_mode, width=width, bind=bind)
+        Element.__init__(self, key=key, label=label, options=options, ref=ref, default=default, format_func=format_func, help=help, on_change=on_change, max_selections=max_selections, placeholder=placeholder, disabled=disabled, label_visibility=label_visibility, accept_new_options=accept_new_options, filter_mode=filter_mode, width=width, bind=bind)
 
     def render(self):
         st.multiselect(label_or_prop(self), key=_get_widget_key(), on_change=widget_callback(self), **widget_props(self))
@@ -113,8 +107,6 @@ class slider(Element):
         format: Optional[str] = None,
         help: Optional[str] = None,
         on_change: Optional[WidgetCallback] = None,
-        args: Optional[tuple[Any, ...]] = None,
-        kwargs: Optional[dict[str, Any]] = None,
         *,
         key: str,
         ref: Optional[Ref] = None,
@@ -123,7 +115,7 @@ class slider(Element):
         width: Optional[WidthWithoutContent] = "stretch",
         bind: Optional[BindOption] = None,
     ):
-        Element.__init__(self, key=key, label=label, min_value=min_value, max_value=max_value, value=value, step=step, format=format, ref=ref, help=help, on_change=on_change, args=args, kwargs=kwargs, disabled=disabled, label_visibility=label_visibility, width=width, bind=bind)
+        Element.__init__(self, key=key, label=label, min_value=min_value, max_value=max_value, value=value, step=step, format=format, ref=ref, help=help, on_change=on_change, disabled=disabled, label_visibility=label_visibility, width=width, bind=bind)
 
     def render(self):
         st.slider(label_or_prop(self), key=_get_widget_key(), on_change=widget_callback(self), **widget_props(self))
@@ -138,8 +130,6 @@ class select_slider(Element):
         format_func: Callable[[Any], Any] = str,
         help: Optional[str] = None,
         on_change: Optional[WidgetCallback] = None,
-        args: Optional[tuple[Any, ...]] = None,
-        kwargs: Optional[dict[str, Any]] = None,
         *,
         key: str,
         ref: Optional[Ref] = None,
@@ -148,7 +138,7 @@ class select_slider(Element):
         width: Optional[WidthWithoutContent] = "stretch",
         bind: Optional[BindOption] = None,
     ):
-        Element.__init__(self, key=key, label=label, options=options, value=value, format_func=format_func, ref=ref, help=help, on_change=on_change, args=args, kwargs=kwargs, disabled=disabled, label_visibility=label_visibility, width=width, bind=bind)
+        Element.__init__(self, key=key, label=label, options=options, value=value, format_func=format_func, ref=ref, help=help, on_change=on_change, disabled=disabled, label_visibility=label_visibility, width=width, bind=bind)
 
     def render(self):
         st.select_slider(label_or_prop(self), key=_get_widget_key(), on_change=widget_callback(self), **widget_props(self))
@@ -168,14 +158,12 @@ class pills(Element):
         format_func: Optional[Callable[[Any], str]] = None,
         help: Optional[str] = None,
         on_change: Optional[WidgetCallback] = None,
-        args: Optional[tuple[Any, ...]] = None,
-        kwargs: Optional[dict[str, Any]] = None,
         disabled: bool = False,
         label_visibility: LabelVisibility = "visible",
         width: Optional[Width] = "content",
         bind: Optional[BindOption] = None,
     ):
-        Element.__init__(self, key=key, label=label, options=options, ref=ref, selection_mode=selection_mode, default=default, required=required, format_func=format_func, help=help, on_change=on_change, args=args, kwargs=kwargs, disabled=disabled, label_visibility=label_visibility, width=width, bind=bind)
+        Element.__init__(self, key=key, label=label, options=options, ref=ref, selection_mode=selection_mode, default=default, required=required, format_func=format_func, help=help, on_change=on_change, disabled=disabled, label_visibility=label_visibility, width=width, bind=bind)
 
     def render(self):
         st.pills(label_or_prop(self), key=_get_widget_key(), on_change=widget_callback(self), **widget_props(self))
@@ -195,14 +183,12 @@ class segmented_control(Element):
         format_func: Optional[Callable[[Any], str]] = None,
         help: Optional[str] = None,
         on_change: Optional[WidgetCallback] = None,
-        args: Optional[tuple[Any, ...]] = None,
-        kwargs: Optional[dict[str, Any]] = None,
         disabled: bool = False,
         label_visibility: LabelVisibility = "visible",
         width: Optional[Width] = "content",
         bind: Optional[BindOption] = None,
     ):
-        Element.__init__(self, key=key, label=label, options=options, ref=ref, selection_mode=selection_mode, default=default, required=required, format_func=format_func, help=help, on_change=on_change, args=args, kwargs=kwargs, disabled=disabled, label_visibility=label_visibility, width=width, bind=bind)
+        Element.__init__(self, key=key, label=label, options=options, ref=ref, selection_mode=selection_mode, default=default, required=required, format_func=format_func, help=help, on_change=on_change, disabled=disabled, label_visibility=label_visibility, width=width, bind=bind)
 
     def render(self):
         st.segmented_control(label_or_prop(self), key=_get_widget_key(), on_change=widget_callback(self), **widget_props(self))
@@ -218,11 +204,9 @@ class feedback(Element):
         default: Optional[int] = None,
         disabled: bool = False,
         on_change: Optional[WidgetCallback] = None,
-        args: Optional[tuple[Any, ...]] = None,
-        kwargs: Optional[dict[str, Any]] = None,
         width: Optional[Width] = "content",
     ):
-        Element.__init__(self, key=key, options=options, ref=ref, default=default, disabled=disabled, on_change=on_change, args=args, kwargs=kwargs, width=width)
+        Element.__init__(self, key=key, options=options, ref=ref, default=default, disabled=disabled, on_change=on_change, width=width)
 
     def render(self):
         options = self.children[0] if self.children else self.props.get("options", "thumbs")

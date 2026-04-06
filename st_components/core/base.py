@@ -37,9 +37,9 @@ def render(obj):
         return render_to_element(obj).render()
     if obj is not None:
         try:
-            return st.write(obj)
+            st.write(obj)
         except Exception:
-            return st.error(f"Object of type {type(obj)} can't be rendered.")
+            st.error(f"Object of type {type(obj)} can't be rendered.")
 
 
 class Element:
@@ -83,10 +83,7 @@ class Element:
             element_path = KEY(self.key)
             bind_ref(self, element_path, "element")
             with key_context(self.key):
-                result = render_func()
-                if isinstance(result, Primitive):
-                    return render(result)
-                return None
+                render_func()
 
         decorated._decorated = True
         return decorated
@@ -109,7 +106,7 @@ class Primitive(Element):
         self.value = value
 
     def render(self):
-        return self.value
+        render(self.value)
 
 
 class Component:

@@ -59,11 +59,11 @@ def _get_widget_key(path=None):
     return f"{base_key}#{revision}"
 
 
-def refresh_element(path=None):
-    element_path = _resolve_path(path, expected_kind="element", fn_name="refresh_element")
+def reset_element(path=None):
+    element_path = _resolve_path(path, expected_kind="element", fn_name="reset_element")
     if element_path is None:
         raise RuntimeError(
-            "refresh_element() requires an element path or an active element/widget callback context."
+            "reset_element() requires an element path or an active element/widget callback context."
         )
 
     base_key = _base_value_key(element_path)
@@ -76,7 +76,6 @@ def refresh_element(path=None):
     revisions = _widget_revisions()
     revisions[base_key] = revisions.get(base_key, 0) + 1
     state[_WIDGET_REVISIONS_KEY] = revisions
-
 
 def get_element_value(path=None, default=None):
     element_path = _resolve_path(path, expected_kind="element", fn_name="get_element_value")

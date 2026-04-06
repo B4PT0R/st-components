@@ -81,7 +81,7 @@ class OverviewPage(Component):
                 "        ),\n"
                 "    )\n"
                 ")\n"
-                "app.shared_state(\"workspace\", WorkspaceState())\n"
+                "app.create_shared_state(\"workspace\", WorkspaceState())\n"
                 "app.render()"
             ),
             source_view(__file__),
@@ -101,5 +101,5 @@ app = App(
         ),
     )
 )
-app.shared_state("workspace", WorkspaceState())
+app.create_shared_state("workspace", WorkspaceState())
 app.render()

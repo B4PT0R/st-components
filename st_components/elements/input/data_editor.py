@@ -22,20 +22,16 @@ class data_editor(Element):
         num_rows: Literal["fixed", "dynamic", "add", "delete"] = "fixed",
         disabled: bool | Iterable[str | int] = False,
         on_change: Optional[Any] = None,
-        args: Optional[tuple[Any, ...]] = None,
-        kwargs: Optional[dict[str, Any]] = None,
         row_height: Optional[int] = None,
         placeholder: Optional[str] = None,
     ):
-        Element.__init__(self, key=key, data=data, ref=ref, width=width, height=height, use_container_width=use_container_width, hide_index=hide_index, column_order=column_order, column_config=column_config, num_rows=num_rows, disabled=disabled, on_change=on_change, args=args, kwargs=kwargs, row_height=row_height, placeholder=placeholder)
+        Element.__init__(self, key=key, data=data, ref=ref, width=width, height=height, use_container_width=use_container_width, hide_index=hide_index, column_order=column_order, column_config=column_config, num_rows=num_rows, disabled=disabled, on_change=on_change, row_height=row_height, placeholder=placeholder)
 
     def render(self):
         data = data_or_prop(self)
         element_path = get_element_path()
         widget_key = _get_widget_key(element_path)
         callback = self.props.get("on_change")
-        args = tuple(self.props.get("args") or ())
-        kwargs = dict(self.props.get("kwargs") or {})
 
         def wrapped_callback():
             from . import _resolve_data_editor_value
@@ -45,7 +41,7 @@ class data_editor(Element):
             if callback is None:
                 return None
             with callback_context(element_path=element_path, widget_key=widget_key):
-                return callback(value, *args, **kwargs)
+                return callback(value)
 
         value = st.data_editor(data, key=widget_key, on_change=wrapped_callback if callback is not None else None, **widget_props(self, "data"))
         set_element_value(element_path, value)

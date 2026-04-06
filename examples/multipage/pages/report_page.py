@@ -1,7 +1,7 @@
 import sys
 from pathlib import Path
 
-from st_components import App, Component, get_shared_state
+from st_components import Component, get_app, get_shared_state
 from st_components.elements import (
     caption,
     code,
@@ -43,7 +43,7 @@ class ReportPage(Component):
             WorkspaceSidebar(key="workspace_sidebar"),
             title(key="title")("Report page"),
             caption(key="caption")(
-                "This page lives in examples/multipage/pages/report_page.py and ends with App.render_page(...)."
+                "This page lives in examples/multipage/pages/report_page.py and ends with get_app().render_page(...)."
             ),
             info(key="info")(
                 "This file-backed page instantiates the same sidebar component as the overview page."
@@ -69,14 +69,14 @@ class ReportPage(Component):
             ),
             json(key="snapshot")(snapshot),
             code(key="code", language="python")(
-                "from st_components import App, Component\n\n"
+                "from st_components import Component, get_app\n\n"
                 "class ReportPage(Component):\n"
                 "    def render(self):\n"
                 "        return ...\n\n"
-                "App.render_page(ReportPage(key=\"root\"))"
+                "get_app().render_page(ReportPage(key=\"root\"))"
             ),
             source_view(__file__),
         )
 
 
-App.render_page(ReportPage(key="root"))
+get_app().render_page(ReportPage(key="root"))

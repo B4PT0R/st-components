@@ -33,16 +33,14 @@ def widget_callback(element, callback_name="on_change", *, pass_value=False):
     if callback is None:
         return None
 
-    args = tuple(element.props.get("args") or ())
-    kwargs = dict(element.props.get("kwargs") or {})
     element_path = get_element_path()
     widget_key = _get_widget_key(element_path)
 
     def wrapped():
         with callback_context(element_path=element_path, widget_key=widget_key):
             if callback_name in {"on_change", "on_submit"} or pass_value:
-                return callback(get_element_value(), *args, **kwargs)
-            return callback(*args, **kwargs)
+                return callback(get_element_value())
+            return callback()
 
     return wrapped
 
@@ -54,8 +52,6 @@ def widget_props(element, *excluded):
         "label",
         "ref",
         "on_change",
-        "args",
-        "kwargs",
         *excluded,
     )
 

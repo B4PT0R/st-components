@@ -1,4 +1,4 @@
-from .access import get_component_state, get_element_value, refresh_element, set_element_value
+from .access import get_component_state, get_element_value, reset_element, set_element_value
 from .app import App, get_app
 from .base import Component, Element, Fragment, Primitive, render, render_to_element
 from .context import (
@@ -72,7 +72,7 @@ __all__ = [
     "key_context",
     "page_namespace",
     "path_context",
-    "refresh_element",
+    "reset_element",
     "render",
     "render_to_element",
     "reset_context_runtime",

@@ -5,7 +5,7 @@ import inspect
 import importlib
 from typing import Iterable, Literal
 
-from st_components.core import Component, Element, Ref, render, Context, get_component_state, get_element_value, refresh_element
+from st_components.core import Component, Element, Ref, render, Context, get_component_state, get_element_value, reset_element
 from st_components.core.access import _get_widget_key
 from st_components import elements
 from st_components.elements._utils import store_element_value
@@ -41,10 +41,10 @@ def test_get_element_value_from_path():
     assert get_element_value("app.form.name") == "Alice"
 
 
-def test_refresh_element_rotates_runtime_key():
+def test_reset_element_rotates_runtime_key():
     Context.key_stack[:] = [fake_ctx("app"), fake_ctx("form"), fake_ctx("name")]
     original_key = _get_widget_key()
-    refresh_element()
+    reset_element()
     refreshed_key = _get_widget_key()
     Context.key_stack.clear()
 
@@ -55,12 +55,12 @@ def test_refresh_element_rotates_runtime_key():
     assert get_element_value("app.form.name") == "Bob"
 
 
-def test_refresh_element_accepts_ref():
+def test_reset_element_accepts_ref():
     ref = Ref()
     ref._resolve("app.form.name", "element")
 
     _session_data["app.form.name.value"] = "Alice"
-    refresh_element(ref)
+    reset_element(ref)
     refreshed_key = _get_widget_key("app.form.name")
 
     assert refreshed_key != "app.form.name.value"

@@ -29,10 +29,6 @@ class App:
     _PERSIST_THEME_KEY = "__st_components_persist_theme__"
     _PERSIST_CONFIG_KEY = "__st_components_persist_config__"
 
-    @classmethod
-    def render_page(cls, root):
-        return cls(root=root).render()
-
     def __init__(
         self,
         root=None,
@@ -73,9 +69,12 @@ class App:
         self.root = children[0]
         return self
 
-    def shared_state(self, namespace, spec):
+    def create_shared_state(self, namespace, spec):
         declare_shared_state(namespace, spec)
         return self
+
+    def render_page(self, root):
+        return self._render_root(root)
 
     def _initial_theme(self, theme):
         if theme is None and self._THEME_STATE_KEY in st.session_state:
@@ -347,7 +346,7 @@ class App:
             return sections, namespaces, page_map
         return pages, namespaces, page_map
 
-    def render(self, *, position="sidebar", expanded=False):
+    def render(self):
         if self.root is None:
             raise RuntimeError("App.render() requires a root.")
 
@@ -360,8 +359,8 @@ class App:
         navigation_pages, namespaces, page_map = self._build_navigation_pages(router)
         current = st.navigation(
             navigation_pages,
-            position=router.props.position if router.props.position is not None else position,
-            expanded=router.props.expanded if router.props.expanded is not None else expanded,
+            position=router.props.position,
+            expanded=router.props.expanded,
         )
         namespace = namespaces.get(id(current))
         current_page = page_map.get(id(current))

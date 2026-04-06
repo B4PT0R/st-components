@@ -235,7 +235,7 @@ class ThemeEditor(Component):
 
     def _refresh_refs(self, *fields):
         for field in fields:
-            self._refs[field].refresh()
+            self._refs[field].reset()
 
     def _sync_palette(self, base):
         self.state.editor.update(base=base)

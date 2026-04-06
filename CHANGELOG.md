@@ -4,6 +4,29 @@ All notable changes to this project will be documented in this file.
 
 The format is based on Keep a Changelog, and this project uses SemVer.
 
+## [0.1.4] - 2026-04-06
+
+API clarification and documentation pass.
+
+### Changed
+
+- Simplified callback semantics across input elements:
+  - event handlers now receive only the element payload when the event carries one
+  - plain click handlers now receive no injected extra arguments
+  - removed callback `args` / `kwargs` plumbing from element APIs to keep the mental model explicit
+- Clarified `App` lifecycle and naming:
+  - shared state declaration is now exposed as `App.create_shared_state(...)`
+  - page rendering now goes through the current app instance via `get_app().render_page(...)`
+  - `App.render()` no longer accepts navigation overrides and relies on `Router(...)` props instead
+- Tightened the render contract:
+  - `Element.render()` is now fully side-effect oriented and does not expose a return-value data channel
+  - primitive values are rendered directly through the component tree rather than treated as element return values
+- Reworked the README substantially:
+  - documented the JSX-like two-step props/children creation pattern
+  - expanded `App` constructor and method documentation
+  - clarified callbacks, refs, elements, state, props, built-ins, examples, and usage guidelines
+- Updated examples and tests to match the simplified callback model and clarified API names.
+
 ## [0.1.3] - 2026-04-06
 
 Runtime/value-channel cleanup and feedback primitive expansion.
@@ -63,7 +86,7 @@ Initial public release.
 
 - React-style `Component` model for Streamlit with local state preserved across reruns.
 - `Ref` handles plus helper-based access through `get_element_value(...)`, `get_component_state(...)`, and `refresh_element(...)`.
-- Shared state support through `App.shared_state(...)` and `get_shared_state(...)`.
+- Shared state support through `App.create_shared_state(...)` and `get_shared_state(...)`.
 - Functional components through `@component` and `use_state(...)`.
 - Theme and config support on `App`, including runtime theme editing through `ThemeEditor`, `ThemeEditorDialog`, and `ThemeEditorButton`.
 - Flow built-ins: `Conditional`, `KeepAlive`, `Case`, `Switch`, `Match`, and `Default`.

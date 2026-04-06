@@ -66,10 +66,8 @@ class tabs(Element):
         width: WidthWithoutContent = "stretch",
         default: Optional[str] = None,
         on_change: Literal["ignore", "rerun"] | Any = "ignore",
-        args: Optional[tuple[Any, ...]] = None,
-        kwargs: Optional[dict[str, Any]] = None,
     ):
-        Element.__init__(self, key=key, ref=ref, tabs=tabs, width=width, default=default, on_change=on_change, args=args, kwargs=kwargs)
+        Element.__init__(self, key=key, ref=ref, tabs=tabs, width=width, default=default, on_change=on_change)
 
     def render(self):
         labels = self.props.get("tabs", self.props.get("labels", [str(i) for i in range(len(self.children))]))
@@ -113,10 +111,8 @@ class expander(Element):
         icon: Optional[str] = None,
         width: WidthWithoutContent = "stretch",
         on_change: Literal["ignore", "rerun"] | Any = "ignore",
-        args: Optional[tuple[Any, ...]] = None,
-        kwargs: Optional[dict[str, Any]] = None,
     ):
-        Element.__init__(self, key=key, label=label, ref=ref, expanded=expanded, icon=icon, width=width, on_change=on_change, args=args, kwargs=kwargs)
+        Element.__init__(self, key=key, label=label, ref=ref, expanded=expanded, icon=icon, width=width, on_change=on_change)
 
     def render(self):
         expander_obj = st.expander(**self.props.exclude("key", "children", "ref"))
@@ -140,10 +136,8 @@ class popover(Element):
         use_container_width: Optional[bool] = None,
         width: Width = "content",
         on_change: Literal["ignore", "rerun"] | Any = "ignore",
-        args: Optional[tuple[Any, ...]] = None,
-        kwargs: Optional[dict[str, Any]] = None,
     ):
-        Element.__init__(self, key=key, label=label, ref=ref, type=type, help=help, icon=icon, disabled=disabled, use_container_width=use_container_width, width=width, on_change=on_change, args=args, kwargs=kwargs)
+        Element.__init__(self, key=key, label=label, ref=ref, type=type, help=help, icon=icon, disabled=disabled, use_container_width=use_container_width, width=width, on_change=on_change)
 
     def render(self):
         popover_obj = st.popover(**self.props.exclude("key", "children", "ref"))

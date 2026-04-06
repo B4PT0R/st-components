@@ -12,7 +12,7 @@ This example demonstrates the multipage API around `Router`:
 - `Page(...)("pages/report_page.py")` declares a file-backed page that Streamlit executes directly.
 - `App(page_title=..., page_icon=..., layout=...)` configures the shared web page envelope for the app.
 - `nav_title` and `nav_icon` configure the navigation label and icon for each page.
-- `app.shared_state("workspace", WorkspaceState())` declares the global shared state in one central place.
+- `app.create_shared_state("workspace", WorkspaceState())` declares the global shared state in one central place.
 - `WorkspaceSidebar` is a normal reusable component rendered by each page inside `sidebar(...)`.
 - `get_shared_state("workspace")` is then used for consumption inside page components and the shared sidebar.
 

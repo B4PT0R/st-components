@@ -15,8 +15,6 @@ class date_input(Element):
         max_value: Optional[date | Any] = None,
         help: Optional[str] = None,
         on_change: Optional[WidgetCallback] = None,
-        args: Optional[tuple[Any, ...]] = None,
-        kwargs: Optional[dict[str, Any]] = None,
         *,
         key: str,
         ref: Optional[Ref] = None,
@@ -26,7 +24,7 @@ class date_input(Element):
         width: Optional[WidthWithoutContent] = "stretch",
         bind: Optional[BindOption] = None,
     ):
-        Element.__init__(self, key=key, label=label, value=value, min_value=min_value, max_value=max_value, ref=ref, help=help, on_change=on_change, args=args, kwargs=kwargs, format=format, disabled=disabled, label_visibility=label_visibility, width=width, bind=bind)
+        Element.__init__(self, key=key, label=label, value=value, min_value=min_value, max_value=max_value, ref=ref, help=help, on_change=on_change, format=format, disabled=disabled, label_visibility=label_visibility, width=width, bind=bind)
 
     def render(self):
         st.date_input(label_or_prop(self), key=_get_widget_key(), on_change=widget_callback(self), **widget_props(self))
@@ -39,8 +37,6 @@ class time_input(Element):
         value: Optional[time | str] = "now",
         help: Optional[str] = None,
         on_change: Optional[WidgetCallback] = None,
-        args: Optional[tuple[Any, ...]] = None,
-        kwargs: Optional[dict[str, Any]] = None,
         *,
         key: str,
         ref: Optional[Ref] = None,
@@ -50,7 +46,7 @@ class time_input(Element):
         width: Optional[WidthWithoutContent] = "stretch",
         bind: Optional[BindOption] = None,
     ):
-        Element.__init__(self, key=key, label=label, value=value, ref=ref, help=help, on_change=on_change, args=args, kwargs=kwargs, disabled=disabled, label_visibility=label_visibility, step=step, width=width, bind=bind)
+        Element.__init__(self, key=key, label=label, value=value, ref=ref, help=help, on_change=on_change, disabled=disabled, label_visibility=label_visibility, step=step, width=width, bind=bind)
 
     def render(self):
         st.time_input(label_or_prop(self), key=_get_widget_key(), on_change=widget_callback(self), **widget_props(self))
@@ -63,8 +59,6 @@ class color_picker(Element):
         value: Optional[str] = None,
         help: Optional[str] = None,
         on_change: Optional[WidgetCallback] = None,
-        args: Optional[tuple[Any, ...]] = None,
-        kwargs: Optional[dict[str, Any]] = None,
         *,
         key: str,
         ref: Optional[Ref] = None,
@@ -73,7 +67,7 @@ class color_picker(Element):
         width: Optional[Width] = "content",
         bind: Optional[BindOption] = None,
     ):
-        Element.__init__(self, key=key, label=label, value=value, ref=ref, help=help, on_change=on_change, args=args, kwargs=kwargs, disabled=disabled, label_visibility=label_visibility, width=width, bind=bind)
+        Element.__init__(self, key=key, label=label, value=value, ref=ref, help=help, on_change=on_change, disabled=disabled, label_visibility=label_visibility, width=width, bind=bind)
 
     def render(self):
         st.color_picker(label_or_prop(self), key=_get_widget_key(), on_change=widget_callback(self), **widget_props(self))
@@ -91,8 +85,6 @@ class datetime_input(Element):
         ref: Optional[Ref] = None,
         help: Optional[str] = None,
         on_change: Optional[WidgetCallback] = None,
-        args: Optional[tuple[Any, ...]] = None,
-        kwargs: Optional[dict[str, Any]] = None,
         format: str = "YYYY/MM/DD",
         step: int | timedelta = timedelta(seconds=900),
         disabled: bool = False,
@@ -100,7 +92,7 @@ class datetime_input(Element):
         width: Optional[WidthWithoutContent] = "stretch",
         bind: Optional[BindOption] = None,
     ):
-        Element.__init__(self, key=key, label=label, value=value, min_value=min_value, max_value=max_value, ref=ref, help=help, on_change=on_change, args=args, kwargs=kwargs, format=format, step=step, disabled=disabled, label_visibility=label_visibility, width=width, bind=bind)
+        Element.__init__(self, key=key, label=label, value=value, min_value=min_value, max_value=max_value, ref=ref, help=help, on_change=on_change, format=format, step=step, disabled=disabled, label_visibility=label_visibility, width=width, bind=bind)
 
     def render(self):
         st.datetime_input(label_or_prop(self), key=_get_widget_key(), on_change=widget_callback(self), **widget_props(self))
