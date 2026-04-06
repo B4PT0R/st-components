@@ -10,6 +10,10 @@ def set_element_value(path, value):
     state[f"{path}.value"] = value
 
 
+def _base_value_key(path: str) -> str:
+    return f"{path}.value"
+
+
 def _resolve_path(path_or_ref=None, *, expected_kind=None, fn_name="operation"):
     if path_or_ref is None:
         return get_element_path()
@@ -48,7 +52,7 @@ def _get_widget_key(path=None):
             "_get_widget_key() requires an element path or an active element/widget callback context."
         )
 
-    base_key = f"{element_path}.widget"
+    base_key = _base_value_key(element_path)
     revision = _widget_revisions().get(base_key, 0)
     if revision == 0:
         return base_key
@@ -62,8 +66,10 @@ def refresh_element(path=None):
             "refresh_element() requires an element path or an active element/widget callback context."
         )
 
-    base_key = f"{element_path}.widget"
+    base_key = _base_value_key(element_path)
     current_key = _get_widget_key(element_path)
+    if base_key in state:
+        del state[base_key]
     if current_key in state:
         del state[current_key]
 
@@ -78,7 +84,7 @@ def get_element_value(path=None, default=None):
         raise RuntimeError(
             "get_element_value() requires an element path or an active element/widget callback context."
         )
-    value_key = f"{element_path}.value"
+    value_key = _base_value_key(element_path)
     if value_key in state:
         return state.get(value_key, default)
 

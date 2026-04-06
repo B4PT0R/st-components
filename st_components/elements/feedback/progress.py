@@ -2,27 +2,8 @@ from typing import Optional
 
 import streamlit as st
 
-from ...core import Element, Ref, render
-from .._types import Width, WidthWithoutContent
-
-
-class progress(Element):
-    def __init__(self, value: int | float = 0, text: Optional[str] = None, width: WidthWithoutContent = "stretch", *, key: str, ref: Optional[Ref] = None):
-        Element.__init__(self, key=key, value=value, ref=ref, text=text, width=width)
-
-    def render(self):
-        value = self.children[0] if self.children else self.props.get("value", 0)
-        st.progress(value, **self.props.exclude("key", "children", "value", "ref"))
-
-
-class spinner(Element):
-    def __init__(self, text: str = "In progress...", *, key: str, ref: Optional[Ref] = None, show_time: bool = False, _cache: bool = False, width: Width = "content"):
-        Element.__init__(self, key=key, text=text, ref=ref, show_time=show_time, _cache=_cache, width=width)
-
-    def render(self):
-        with st.spinner(self.props.get("text", "In progress..."), **self.props.exclude("key", "children", "text", "ref")):
-            for child in self.children:
-                render(child)
+from ...core import Element, Ref, get_element_path, render, set_element_value
+from .._types import WidthWithoutContent
 
 
 class balloons(Element):
@@ -39,3 +20,48 @@ class snow(Element):
 
     def render(self):
         st.snow()
+
+
+class spinner(Element):
+    def __init__(
+        self,
+        *children,
+        key: str,
+        ref: Optional[Ref] = None,
+        text: str = "In progress...",
+        show_time: bool = False,
+        width: WidthWithoutContent = "content",
+    ):
+        Element.__init__(self, key=key, ref=ref, text=text, show_time=show_time, width=width)
+        if children:
+            self.children = list(children)
+
+    def render(self):
+        with st.spinner(
+            self.props.text,
+            show_time=self.props.show_time,
+            width=self.props.width,
+        ):
+            for child in self.children:
+                render(child)
+
+
+class progress(Element):
+    def __init__(
+        self,
+        value=0,
+        *,
+        key: str,
+        ref: Optional[Ref] = None,
+        text: Optional[str] = None,
+        width: WidthWithoutContent = "stretch",
+    ):
+        Element.__init__(self, key=key, ref=ref, value=value, text=text, width=width)
+
+    def render(self):
+        handle = st.progress(
+            self.props.value,
+            text=self.props.text,
+            width=self.props.width,
+        )
+        set_element_value(get_element_path(), handle)

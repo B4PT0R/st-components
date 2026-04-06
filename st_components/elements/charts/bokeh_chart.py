@@ -11,4 +11,4 @@ class bokeh_chart(Element):
         Element.__init__(self, key=key, figure=figure, ref=ref, use_container_width=use_container_width)
 
     def render(self):
-        return st.bokeh_chart(child_or_prop(self, "figure"), **self.props.exclude("key", "children", "figure", "ref"))
+        st.bokeh_chart(child_or_prop(self, "figure"), **self.props.exclude("key", "children", "figure", "ref"))

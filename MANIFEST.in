@@ -4,7 +4,7 @@ include CHANGELOG.md
 include pyproject.toml
 
 recursive-include examples *.py *.md
-recursive-include assets *
+recursive-include examples/assets *
 recursive-include tests *.py
 
 recursive-include st_components *.py

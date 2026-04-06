@@ -12,4 +12,4 @@ class area_chart(Element):
         Element.__init__(self, key=key, data=data, ref=ref, x=x, y=y, x_label=x_label, y_label=y_label, color=color, stack=stack, width=width, height=height, use_container_width=use_container_width)
 
     def render(self):
-        return st.area_chart(child_or_prop(self, "data"), **self.props.exclude("key", "children", "data", "ref"))
+        st.area_chart(child_or_prop(self, "data"), **self.props.exclude("key", "children", "data", "ref"))

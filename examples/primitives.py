@@ -1,14 +1,16 @@
 import datetime
-import importlib.util
+import inspect
+import textwrap
 import time as pytime
-from pathlib import Path
 
-from st_components import App, Component, Ref, get_element_value
+from st_components import App, Component, Ref, State, elements, get_element_value
 from st_components.elements import (
+    audio,
     altair_chart,
     area_chart,
     audio_input,
     badge,
+    balloons,
     bar_chart,
     bokeh_chart,
     button,
@@ -18,529 +20,772 @@ from st_components.elements import (
     chat_input,
     chat_message,
     code,
+    columns,
     color_picker,
     container,
+    dataframe,
     data_editor,
     date_input,
     datetime_input,
     divider,
     dialog,
-    exception as exception_display,
+    download_button,
+    empty,
+    error,
+    expander,
+    exception,
     feedback,
     file_uploader,
     form,
     form_submit_button,
     graphviz_chart,
-    help as help_display,
+    header,
+    help,
     html,
+    image,
+    info,
     iframe,
     json,
+    latex,
+    link_button,
     line_chart,
     logo,
     markdown,
-    map as map_chart,
+    map,
     menu_button,
+    metric,
     multiselect,
     number_input,
     page_link,
     pdf,
     pills,
     plotly_chart,
+    popover,
+    progress,
     pydeck_chart,
     pyplot,
     radio,
     segmented_control,
     select_slider,
     selectbox,
+    sidebar,
     slider,
+    snow,
     space,
     scatter_chart,
+    spinner,
     status,
     subheader,
+    success,
+    table,
+    tabs,
+    text,
     text_area,
     text_input,
     time_input,
     title,
+    toast,
     toggle,
     vega_lite_chart,
+    video,
+    warning,
+    write,
     write_stream,
 )
+from st_components.elements.runtime import show_balloons, show_progress, show_snow, show_spinner, show_toast
 
-from examples._source import source_view
-
-
-ASSETS_DIR = Path(__file__).parent / "assets"
-IFRAME_DEMO_SRC = ASSETS_DIR / "iframe-demo.html"
-LOGO_DEMO_SRC = ASSETS_DIR / "demo-logo.svg"
-PDF_DEMO_AVAILABLE = importlib.util.find_spec("streamlit_pdf") is not None
-PDF_DEMO_DATA = (
-    b"%PDF-1.4\n"
-    b"1 0 obj<</Type/Catalog/Pages 2 0 R>>endobj\n"
-    b"2 0 obj<</Type/Pages/Count 1/Kids[3 0 R]>>endobj\n"
-    b"3 0 obj<</Type/Page/Parent 2 0 R/MediaBox[0 0 200 200]/Contents 4 0 R>>endobj\n"
-    b"4 0 obj<</Length 44>>stream\n"
-    b"BT /F1 18 Tf 36 120 Td (st-components PDF demo) Tj ET\n"
-    b"endstream\n"
-    b"endobj\n"
-    b"xref\n"
-    b"0 5\n"
-    b"0000000000 65535 f \n"
-    b"0000000010 00000 n \n"
-    b"0000000053 00000 n \n"
-    b"0000000110 00000 n \n"
-    b"0000000198 00000 n \n"
-    b"trailer<</Root 1 0 R/Size 5>>\n"
-    b"startxref\n"
-    b"293\n"
-    b"%%EOF\n"
-)
-CHART_ROWS = [
-    {"month": "Jan", "alpha": 12, "beta": 7},
-    {"month": "Feb", "alpha": 18, "beta": 11},
-    {"month": "Mar", "alpha": 9, "beta": 15},
-    {"month": "Apr", "alpha": 22, "beta": 13},
-]
-SCATTER_ROWS = [
-    {"x": 1, "y": 3, "size": 10, "segment": "A"},
-    {"x": 2, "y": 8, "size": 18, "segment": "A"},
-    {"x": 3, "y": 5, "size": 12, "segment": "B"},
-    {"x": 4, "y": 11, "size": 20, "segment": "B"},
-]
-MAP_ROWS = [
-    {"lat": 48.8566, "lon": 2.3522},
-    {"lat": 51.5072, "lon": -0.1276},
-    {"lat": 40.7128, "lon": -74.0060},
-]
-GRAPHVIZ_DOT = """
-digraph Demo {
-    rankdir=LR;
-    Streamlit -> st_components;
-    st_components -> primitives;
-    primitives -> browser;
-}
-""".strip()
+PRIMITIVES = sorted(set(elements.__all__) | {"fragment"})
 
 
-PRIMITIVES = [
-    "button",
-    "checkbox",
-    "toggle",
-    "radio",
-    "selectbox",
-    "multiselect",
-    "slider",
-    "select_slider",
-    "text_input",
-    "number_input",
-    "text_area",
-    "date_input",
-    "datetime_input",
-    "time_input",
-    "color_picker",
-    "file_uploader",
-    "camera_input",
-    "audio_input",
-    "chat_input",
-    "chat_message",
-    "status",
-    "badge",
-    "space",
-    "html",
-    "iframe",
-    "pdf",
-    "exception",
-    "help",
-    "page_link",
-    "logo",
-    "area_chart",
-    "bar_chart",
-    "line_chart",
-    "scatter_chart",
-    "map",
-    "graphviz_chart",
-    "plotly_chart",
-    "altair_chart",
-    "vega_lite_chart",
-    "pydeck_chart",
-    "pyplot",
-    "bokeh_chart",
-    "fragment",
-    "dialog",
-    "write_stream",
-    "form",
-    "form_submit_button",
-    "menu_button",
-    "pills",
-    "segmented_control",
-    "feedback",
-    "data_editor",
-]
+def signature_doc(name):
+    if name == "fragment":
+        return "class ClockFragment(Component, fragment=True, run_every=1)"
+    target = globals().get(name)
+    if target is None:
+        raise RuntimeError(f"Missing public callable for primitive {name!r}.")
+    try:
+        return f"{name}{inspect.signature(target)}"
+    except (TypeError, ValueError):
+        raise RuntimeError(f"Could not inspect signature for primitive {name!r}.")
 
 
-SNIPPETS = {
-    "button": 'button(key="save", on_click=self.save, type="primary")("Save")',
-    "checkbox": 'checkbox(key="enabled", value=True, on_change=self.sync_value)("Enable feature")',
-    "toggle": 'toggle(key="dark_mode", value=False, on_change=self.sync_value)("Dark mode")',
-    "radio": 'radio(key="channel", options=["Alpha", "Beta", "Gamma"], on_change=self.sync_value)("Channel")',
-    "selectbox": 'selectbox(key="city", options=["Paris", "Berlin", "Tokyo"], on_change=self.sync_value)("City")',
-    "multiselect": 'multiselect(key="langs", options=["Python", "Rust"], on_change=self.sync_value)("Languages")',
-    "slider": 'slider(key="score", min_value=0, max_value=10, value=5, on_change=self.sync_value)("Score")',
-    "select_slider": 'select_slider(key="size", options=["XS", "S", "M", "L"], on_change=self.sync_value)("Size")',
-    "text_input": 'text_input(key="name", value="Baptiste", on_change=self.sync_value)("Name")',
-    "number_input": 'number_input(key="count", value=42, on_change=self.sync_value)("Count")',
-    "text_area": 'text_area(key="notes", value="Short note", on_change=self.sync_value)("Notes")',
-    "date_input": 'date_input(key="start_date", value=date.today(), on_change=self.sync_value)("Date")',
-    "datetime_input": 'datetime_input(key="schedule", value=datetime.now(), on_change=self.sync_value)("Schedule")',
-    "time_input": 'time_input(key="start_time", value=time(9, 30), on_change=self.sync_value)("Time")',
-    "color_picker": 'color_picker(key="accent", value="#ff4b4b", on_change=self.sync_value)("Accent color")',
-    "file_uploader": 'file_uploader(key="upload", on_change=self.sync_value)("Upload a file")',
-    "camera_input": 'camera_input(key="photo", on_change=self.sync_value)("Take a photo")',
-    "audio_input": 'audio_input(key="clip", on_change=self.sync_value)("Record a short clip")',
-    "chat_input": 'chat_input(key="composer", on_submit=self.submit)("Send a message")',
-    "chat_message": 'chat_message(key="answer", name="assistant")(markdown(key="body")("A compact message bubble"))',
-    "status": 'status(key="sync", label="Syncing dataset", state="running", expanded=True)(markdown(key="body")("3 files indexed"))',
-    "badge": 'badge(key="beta", color="green", icon=":material/check_circle:")("Stable wrapper")',
-    "space": 'space(key="gap", size="large")',
-    "html": 'html(key="badge", body="<div style=\\"padding:12px;border-radius:12px;background:#111827;color:white\\">Inline HTML</div>")',
-    "iframe": 'iframe(key="preview", src=Path("assets/iframe-demo.html"), height=220)',
-    "pdf": 'pdf(key="proposal", data=pdf_bytes, height=240)',
-    "exception": 'exception(key="failure", exception=RuntimeError("Wrapper smoke test"))',
-    "help": 'help(key="docs", obj=datetime.datetime)',
-    "page_link": 'page_link(key="docs", page="https://streamlit.io", label="Open Streamlit")',
-    "logo": 'logo(key="brand", image=Path("assets/demo-logo.svg"), size="large")',
-    "area_chart": 'area_chart(key="sales", data=rows, x="month", y=["alpha", "beta"])',
-    "bar_chart": 'bar_chart(key="sales", data=rows, x="month", y=["alpha", "beta"])',
-    "line_chart": 'line_chart(key="trend", data=rows, x="month", y=["alpha", "beta"])',
-    "scatter_chart": 'scatter_chart(key="clusters", data=points, x="x", y="y", size="size", color="segment")',
-    "map": 'map(key="cities", data=points, latitude="lat", longitude="lon", zoom=1)',
-    "graphviz_chart": 'graphviz_chart(key="flow", figure_or_dot="digraph { A -> B }")',
-    "plotly_chart": 'plotly_chart(key="sales", figure_or_data=fig, on_select=self.sync_value)',
-    "altair_chart": 'altair_chart(key="sales", altair_chart=chart, on_select=self.sync_value, selection_mode="pick")',
-    "vega_lite_chart": 'vega_lite_chart(key="sales", data=rows, spec=spec, on_select=self.sync_value, selection_mode="pick")',
-    "pydeck_chart": 'pydeck_chart(key="cities", pydeck_obj=deck, on_select=self.sync_value)',
-    "pyplot": 'pyplot(key="sales", fig=fig)',
-    "bokeh_chart": 'bokeh_chart(key="trend", figure=figure)',
-    "fragment": 'class Clock(Component, fragment=True, run_every=1): ...',
-    "dialog": 'dialog(key="confirm", title="Confirm action", on_dismiss=self.close_dialog)(markdown(key="body")("Modal content"))',
-    "write_stream": 'button(key="start", on_click=self.start_stream)("Start stream"); write_stream(key="writer", stream=self.stream(), cursor="▋")',
-    "form": 'form(key="signup")(text_input(key="name", ref=name_ref)("Name"), form_submit_button(key="submit", on_click=self.submit)("Submit"))',
-    "form_submit_button": 'form_submit_button(key="submit", on_click=self.submit, type="primary")("Save form")',
-    "menu_button": 'menu_button(key="actions", options=["Draft", "Review", "Ship"], on_click=self.sync_value)("Actions")',
-    "pills": 'pills(key="priority", options=["Low", "Medium", "High"], on_change=self.sync_value)("Priority")',
-    "segmented_control": 'segmented_control(key="view", options=["List", "Board"], on_change=self.sync_value)("View")',
-    "feedback": 'feedback(key="rating", options="stars", on_change=self.sync_value)',
-    "data_editor": 'data_editor(key="tasks", data=rows, num_rows="dynamic", on_change=self.sync_value)',
-}
+def snippet(name, component=None):
+    try:
+        signature_block = code(key="signature", language="python")(signature_doc(name))
+    except RuntimeError as err:
+        signature_block = error(key="signature_error")(str(err))
+
+    if component is None:
+        implementation_block = error(key="implementation_error")("Missing demo component for source inspection.")
+    else:
+        try:
+            implementation = textwrap.dedent(inspect.getsource(type(component)))
+            implementation_block = code(key="implementation", language="python")(implementation)
+        except (OSError, TypeError):
+            implementation_block = error(key="implementation_error")(
+                f"Could not inspect implementation for demo component {type(component).__name__}."
+            )
+
+    return container(key="snippet_block")(
+        signature_block,
+        expander(key="implementation_expander", label="Demo implementation")(
+            implementation_block
+        ),
+    )
+
+class PrimitivePanelValue(Component):
+    def __init__(self, *, name, demo_ref, **props):
+        super().__init__(name=name, demo_ref=demo_ref, **props)
+
+    def render(self):
+        value = self.props.demo_ref.state()
+        if value is None:
+            return None
+        return json(key="value")(value)
 
 
-def snippet(name):
-    return code(key="snippet", language="python")(SNIPPETS[name])
+class PrimitivePanel(Component):
+    def __init__(self, *, name, demo, demo_ref, **props):
+        super().__init__(name=name, demo=demo, demo_ref=demo_ref, **props)
+
+    def render(self):
+        return container(key="panel", border=True)(
+            subheader(key="title")(self.props.name),
+            self.props.demo,
+            PrimitivePanelValue(key="value_block", name=self.props.name, demo_ref=self.props.demo_ref),
+            snippet(self.props.name, self.props.demo),
+        )
 
 
-def uploaded_file_info(value):
-    if value is None:
-        return None
-    if isinstance(value, list):
-        return [uploaded_file_info(item) for item in value]
-    return {
-        "name": getattr(value, "name", None),
-        "type": getattr(value, "type", None),
-        "size": getattr(value, "size", None),
-    }
+class AudioDemo(Component):
+    def render(self):
+        return audio(
+            key="widget",
+            data="https://www.w3schools.com/html/horse.mp3",
+            format="audio/mpeg",
+        )
+
+
+class BalloonsDemo(Component):
+    class DemoState(State):
+        element_runs = 0
+        helper_runs = 0
+        pending = None
+        consumed = None
+        last_mode = None
+
+    def trigger_element(self):
+        self.state.element_runs += 1
+        self.state.pending = self.state.element_runs
+        self.state.last_mode = "element"
+
+    def trigger_helper(self):
+        show_balloons()
+        self.state.helper_runs += 1
+        self.state.last_mode = "helper"
+
+    def render(self):
+        effect_block = None
+        if self.state.pending != self.state.consumed:
+            effect_block = balloons(key=f"widget_{self.state.pending}")
+            self.state.consumed = self.state.pending
+        return (
+            markdown(key="hint")(
+                "Use the first button to trigger the declarative `balloons(...)` element on the next rerender, "
+                "or the second to call `show_balloons()` directly inside the callback."
+            ),
+            columns(key="actions", spec=2)(
+                button(key="element", on_click=self.trigger_element, type="primary")("Trigger via element"),
+                button(key="helper", on_click=self.trigger_helper)("Trigger via helper"),
+            ),
+            effect_block,
+        )
+
+
+class CaptionDemo(Component):
+    def render(self):
+        return caption(key="widget")("Small secondary text")
+
+
+class CodeDemo(Component):
+    def render(self):
+        return code(key="widget", language="python")("answer = 42")
+
+
+class ColumnsDemo(Component):
+    def render(self):
+        return columns(key="widget", spec=2)(
+            container(key="left", border=True)(markdown(key="body")("Left column")),
+            container(key="right", border=True)(markdown(key="body")("Right column")),
+        )
+
+
+class ContainerDemo(Component):
+    def render(self):
+        return container(key="widget", border=True)(
+            markdown(key="body")("Contained content"),
+            badge(key="tag", color="blue")("Nested element"),
+        )
+
+
+class DataframeDemo(Component):
+    def render(self):
+        return dataframe(key="widget", data=[
+            {"month": "Jan", "alpha": 12, "beta": 7},
+            {"month": "Feb", "alpha": 18, "beta": 11},
+            {"month": "Mar", "alpha": 9, "beta": 15},
+            {"month": "Apr", "alpha": 22, "beta": 13},
+        ])
+
+
+class DividerDemo(Component):
+    def render(self):
+        return (
+            markdown(key="before")("Content before"),
+            divider(key="widget"),
+            markdown(key="after")("Content after"),
+        )
+
+
+class DownloadButtonDemo(Component):
+    def render(self):
+        return download_button(key="widget", data="hello from st-components\n", file_name="demo.txt")("Download")
+
+
+class EmptyDemo(Component):
+    def render(self):
+        return empty(key="widget")(markdown(key="slot")("Placeholder content"))
+
+
+class ErrorDemo(Component):
+    def render(self):
+        return error(key="widget")("Something failed")
+
+
+class ExpanderDemo(Component):
+    def render(self):
+        return expander(key="widget", label="More details", expanded=True)(
+            markdown(key="body")("Expanded content")
+        )
+
+
+class HeaderDemo(Component):
+    def render(self):
+        return header(key="widget")("Section heading")
+
+
+class SubheaderTextDemo(Component):
+    def render(self):
+        return subheader(key="widget")("Section heading")
+
+
+class TitleTextDemo(Component):
+    def render(self):
+        return title(key="widget")("Page title")
+
+
+class ImageDemo(Component):
+    def render(self):
+        return image(
+            key="widget",
+            image="https://www.w3schools.com/html/img_chania.jpg",
+            caption="Remote demo image",
+        )
+
+
+class InfoDemo(Component):
+    def render(self):
+        return info(key="widget")("Heads-up message")
+
+
+class JsonDemo(Component):
+    def render(self):
+        payload = {"status": "ok", "count": 3}
+        return json(key="widget", body=payload)
+
+
+class LatexDemo(Component):
+    def render(self):
+        return latex(key="widget")(r"E = mc^2")
+
+
+class LinkButtonDemo(Component):
+    def render(self):
+        return link_button(key="widget", url="https://streamlit.io")("Open docs")
+
+
+class MarkdownDemo(Component):
+    def render(self):
+        return markdown(key="widget")("**Bold** _markdown_ sample")
+
+
+class MetricDemo(Component):
+    def render(self):
+        return metric(key="widget", label="Revenue", value="EUR 12.4k", delta="+8%")
+
+
+class PopoverDemo(Component):
+    def render(self):
+        return popover(key="widget", label="Open popover")(
+            markdown(key="body")("Popover content")
+        )
+
+
+class ProgressDemo(Component):
+    class DemoState(State):
+        callback_runs = 0
+        element_runs = 0
+        current_progress = 0
+
+    def __init__(self, **props):
+        super().__init__(**props)
+        self.bar_ref = Ref()
+        self.slot_ref = Ref()
+
+    def progress_message(self,progress):
+        if progress == 0 :
+            return "Idle"
+        if 0 <= progress < 30 :
+            return "Starting..."
+        elif 30 <= progress < 70 :
+            return "Progressing..."
+        elif 70 <= progress < 100 :
+            return "Finishing..."
+        else:
+            return "Done!"
+
+    def run_element_job(self):
+        bar = self.bar_ref.value()
+        next_progress = self.state.current_progress + 10
+        if next_progress > 100:
+            next_progress = 0
+        self.state.current_progress = next_progress
+        bar.progress(next_progress, text=self.progress_message(next_progress), width="stretch")
+        self.state.element_runs += 1
+
+    def run_callback_job(self):
+        bar = show_progress(ref=self.slot_ref, value=0, text="Starting...", width="stretch")
+        for prog in range(10,110,10):
+            pytime.sleep(0.5)
+            bar.update(prog, text=self.progress_message(prog))
+        pytime.sleep(0.5)
+        self.state.callback_runs += 1
+
+    def render(self):
+        return (
+            markdown(key="hint")(
+                "On the left, `progress(...)` is pre-rendered in the tree and updated via `ref.value()`. On the right, `show_progress(...)` uses a placeholder as a callback-only alternative."
+            ),
+            columns(key="content", spec=2)(
+                container(key="element_panel", border=True)(
+                    button(key="element_run", on_click=self.run_element_job, type="primary")("Trigger element progress"),
+                    progress(key="widget", ref=self.bar_ref, value=self.state.current_progress, text=self.progress_message(self.state.current_progress), width="stretch"),
+                ),
+                container(key="callback_panel", border=True)(
+                    button(key="callback_run", on_click=self.run_callback_job, type="primary")("Trigger callback progress"),
+                    empty(key="slot", ref=self.slot_ref),
+                ),
+            ),
+        )
+
+
+class SidebarDemo(Component):
+    def render(self):
+        return (
+            markdown(key="hint")("This primitive renders in Streamlit's sidebar, not inside the body panel."),
+            sidebar(key="widget")(markdown(key="body")("Sidebar content")),
+        )
+
+
+class SnowDemo(Component):
+    class DemoState(State):
+        element_runs = 0
+        helper_runs = 0
+        pending = None
+        consumed = None
+        last_mode = None
+
+    def trigger_element(self):
+        self.state.element_runs += 1
+        self.state.pending = self.state.element_runs
+        self.state.last_mode = "element"
+
+    def trigger_helper(self):
+        show_snow()
+        self.state.helper_runs += 1
+        self.state.last_mode = "helper"
+
+    def render(self):
+        effect_block = None
+        if self.state.pending != self.state.consumed:
+            effect_block = snow(key=f"widget_{self.state.pending}")
+            self.state.consumed = self.state.pending
+        return (
+            markdown(key="hint")(
+                "Use the first button to trigger the declarative `snow(...)` element on the next rerender, "
+                "or the second to call `show_snow()` directly inside the callback."
+            ),
+            columns(key="actions", spec=2)(
+                button(key="element", on_click=self.trigger_element, type="primary")("Trigger via element"),
+                button(key="helper", on_click=self.trigger_helper)("Trigger via helper"),
+            ),
+            effect_block,
+        )
+
+
+class SlowSpinnerPreview(Component):
+    def render(self):
+        pytime.sleep(1.8)
+        return success(key="done")("Slow subtree rendered")
+
+
+class SpinnerDemo(Component):
+    class DemoState(State):
+        element_runs = 0
+        pending_element = None
+        consumed_element = None
+        callback_runs = 0
+
+    def __init__(self, **props):
+        super().__init__(**props)
+        self.slot_ref = Ref()
+
+    def run_element_preview(self):
+        self.state.element_runs += 1
+        self.state.pending_element = self.state.element_runs
+
+    def run_callback_preview(self):
+        with show_spinner(ref=self.slot_ref, text="Loading preview", show_time=True):
+            for _ in range(3):
+                pytime.sleep(0.6)
+        self.state.callback_runs += 1
+
+    def maybe_render(self, component):
+        if self.state.pending_element == self.state.consumed_element:
+            return None
+        self.state.consumed_element = self.state.pending_element
+        return component
+
+    def render(self):
+        return (
+            markdown(key="hint")(
+                "On the left, `spinner(...)` wraps a slow subtree during render. On the right, `show_spinner(...)` covers slow callback work inside a placeholder."
+            ),
+            columns(key="content", spec=[1, 2])(
+                container(key="element_panel", border=True)(
+                    button(key="element_trigger", on_click=self.run_element_preview, type="primary")("Trigger slow render"),
+                    self.maybe_render(
+                        spinner(
+                            key=f"element_spinner_{self.state.pending_element}",
+                            text="Rendering slow preview",
+                            show_time=True,
+                        )(
+                            SlowSpinnerPreview(key=f"slow_preview_{self.state.pending_element}")
+                        )
+                    ),
+                ),
+                container(key="callback_panel", border=True)(
+                    button(key="callback_trigger", on_click=self.run_callback_preview, type="primary")("Trigger callback"),
+                    empty(key="slot", ref=self.slot_ref),
+                    success(key="callback_done")("Callback completed successfully")
+                    if self.state.callback_runs
+                    else None
+                ),
+            ),
+        )
+
+
+class SuccessDemo(Component):
+    def render(self):
+        return success(key="widget")("Saved successfully")
+
+
+class TableDemo(Component):
+    def render(self):
+        return table(key="widget", data=[
+            {"month": "Jan", "alpha": 12, "beta": 7},
+            {"month": "Feb", "alpha": 18, "beta": 11},
+            {"month": "Mar", "alpha": 9, "beta": 15},
+            {"month": "Apr", "alpha": 22, "beta": 13},
+        ])
+
+
+class TabsDemo(Component):
+    def render(self):
+        return tabs(key="widget", tabs=["Alpha", "Beta"])(
+            markdown(key="alpha")("Alpha"),
+            markdown(key="beta")("Beta"),
+        )
+
+
+class TextDemo(Component):
+    def render(self):
+        return text(key="widget")("Monospace-like plain text")
+
+
+class ToastDemo(Component):
+    class DemoState(State):
+        element_runs = 0
+        helper_runs = 0
+        pending = None
+        consumed = None
+        last_mode = None
+
+    def trigger_element(self):
+        self.state.element_runs += 1
+        self.state.pending = self.state.element_runs
+        self.state.last_mode = "element"
+
+    def trigger_helper(self):
+        show_toast("Saved draft", duration="short")
+        self.state.helper_runs += 1
+        self.state.last_mode = "helper"
+
+    def render(self):
+        effect_block = None
+        if self.state.pending != self.state.consumed:
+            effect_block = toast(key=f"widget_{self.state.pending}")("Saved draft")
+            self.state.consumed = self.state.pending
+        return (
+            markdown(key="hint")(
+                "Use the first button to trigger the declarative `toast(...)` element on the next rerender, "
+                "or the second to call `show_toast(...)` directly inside the callback."
+            ),
+            columns(key="actions", spec=2)(
+                button(key="element", on_click=self.trigger_element, type="primary")("Trigger via element"),
+                button(key="helper", on_click=self.trigger_helper)("Trigger via helper"),
+            ),
+            effect_block,
+        )
+
+
+class VideoDemo(Component):
+    def render(self):
+        return video(key="widget", data="https://www.w3schools.com/html/mov_bbb.mp4")
+
+
+class WarningDemo(Component):
+    def render(self):
+        return warning(key="widget")("Review required")
+
+
+class WriteDemo(Component):
+    def render(self):
+        return write("Mixed output", {"count": 3}, key="widget")
 
 
 class ButtonDemo(Component):
-    def __init__(self, **props):
-        super().__init__(**props)
-        self.state = dict(clicks=0)
+    class DemoState(State):
+        clicks = 0
 
     def click(self):
         self.state.clicks += 1
 
     def render(self):
-        return container(key="panel", border=True)(
-            subheader(key="title")("button"),
-            button(key="widget", on_click=self.click, type="primary")("Click me"),
-            json(key="value")({"clicks": self.state.clicks}),
-            snippet("button"),
-        )
+        return button(key="widget", on_click=self.click, type="primary")("Click me")
 
 
 class CheckboxDemo(Component):
-    def __init__(self, **props):
-        super().__init__(**props)
-        self.state = dict(value=True)
+    class DemoState(State):
+        current = True
 
     def render(self):
-        return container(key="panel", border=True)(
-            subheader(key="title")("checkbox"),
-            checkbox(key="widget", value=self.state.value, on_change=self.sync_state("value"))("Enable feature"),
-            json(key="value")({"value": self.state.value}),
-            snippet("checkbox"),
-        )
+        return checkbox(key="widget", value=self.state.current, on_change=self.sync_state("current"))("Enable feature")
 
 
 class ToggleDemo(Component):
-    def __init__(self, **props):
-        super().__init__(**props)
-        self.state = dict(value=False)
+    class DemoState(State):
+        current = False
 
     def render(self):
-        return container(key="panel", border=True)(
-            subheader(key="title")("toggle"),
-            toggle(key="widget", value=self.state.value, on_change=self.sync_state("value"))("Dark mode"),
-            json(key="value")({"value": self.state.value}),
-            snippet("toggle"),
-        )
+        return toggle(key="widget", value=self.state.current, on_change=self.sync_state("current"))("Dark mode")
 
 
 class RadioDemo(Component):
-    def __init__(self, **props):
-        super().__init__(**props)
-        self.state = dict(value="Alpha")
+    class DemoState(State):
+        current = "Alpha"
 
     def render(self):
-        return container(key="panel", border=True)(
-            subheader(key="title")("radio"),
-            radio(
-                key="widget",
-                options=["Alpha", "Beta", "Gamma"],
-                index=["Alpha", "Beta", "Gamma"].index(self.state.value),
-                on_change=self.sync_state("value"),
-            )("Channel"),
-            json(key="value")({"value": self.state.value}),
-            snippet("radio"),
-        )
+        return radio(
+            key="widget",
+            options=["Alpha", "Beta", "Gamma"],
+            index=["Alpha", "Beta", "Gamma"].index(self.state.current),
+            on_change=self.sync_state("current"),
+        )("Channel")
 
 
 class SelectboxDemo(Component):
-    def __init__(self, **props):
-        super().__init__(**props)
-        self.state = dict(value="Paris")
+    class DemoState(State):
+        current = "Paris"
 
     def render(self):
         options = ["Paris", "Berlin", "Tokyo"]
-        return container(key="panel", border=True)(
-            subheader(key="title")("selectbox"),
-            selectbox(
-                key="widget",
-                options=options,
-                index=options.index(self.state.value),
-                on_change=self.sync_state("value"),
-            )("City"),
-            json(key="value")({"value": self.state.value}),
-            snippet("selectbox"),
-        )
+        return selectbox(
+            key="widget",
+            options=options,
+            index=options.index(self.state.current),
+            on_change=self.sync_state("current"),
+        )("City")
 
 
 class MultiselectDemo(Component):
-    def __init__(self, **props):
-        super().__init__(**props)
-        self.state = dict(value=["Python"])
+    class DemoState(State):
+        current = ["Python"]
 
     def render(self):
-        return container(key="panel", border=True)(
-            subheader(key="title")("multiselect"),
-            multiselect(
-                key="widget",
-                options=["Python", "Rust", "Go", "TypeScript"],
-                default=self.state.value,
-                on_change=self.sync_state("value"),
-            )("Languages"),
-            json(key="value")({"value": self.state.value}),
-            snippet("multiselect"),
-        )
+        return multiselect(
+            key="widget",
+            options=["Python", "Rust", "Go", "TypeScript"],
+            default=self.state.current,
+            on_change=self.sync_state("current"),
+        )("Languages")
 
 
 class SliderDemo(Component):
-    def __init__(self, **props):
-        super().__init__(**props)
-        self.state = dict(value=5)
+    class DemoState(State):
+        current = 5
 
     def render(self):
-        return container(key="panel", border=True)(
-            subheader(key="title")("slider"),
-            slider(key="widget", min_value=0, max_value=10, value=self.state.value, on_change=self.sync_state("value"))("Score"),
-            json(key="value")({"value": self.state.value}),
-            snippet("slider"),
-        )
+        return slider(key="widget", min_value=0, max_value=10, value=self.state.current, on_change=self.sync_state("current"))("Score")
 
 
 class SelectSliderDemo(Component):
-    def __init__(self, **props):
-        super().__init__(**props)
-        self.state = dict(value="M")
+    class DemoState(State):
+        current = "M"
 
     def render(self):
-        return container(key="panel", border=True)(
-            subheader(key="title")("select_slider"),
-            select_slider(
-                key="widget",
-                options=["XS", "S", "M", "L", "XL"],
-                value=self.state.value,
-                on_change=self.sync_state("value"),
-            )("Size"),
-            json(key="value")({"value": self.state.value}),
-            snippet("select_slider"),
-        )
+        return select_slider(
+            key="widget",
+            options=["XS", "S", "M", "L", "XL"],
+            value=self.state.current,
+            on_change=self.sync_state("current"),
+        )("Size")
 
 
 class TextInputDemo(Component):
-    def __init__(self, **props):
-        super().__init__(**props)
-        self.state = dict(value="Baptiste")
+    class DemoState(State):
+        current = "Baptiste"
 
     def render(self):
-        return container(key="panel", border=True)(
-            subheader(key="title")("text_input"),
-            text_input(key="widget", value=self.state.value, on_change=self.sync_state("value"))("Name"),
-            json(key="value")({"value": self.state.value}),
-            snippet("text_input"),
-        )
+        return text_input(key="widget", value=self.state.current, on_change=self.sync_state("current"))("Name")
 
 
 class NumberInputDemo(Component):
-    def __init__(self, **props):
-        super().__init__(**props)
-        self.state = dict(value=42)
+    class DemoState(State):
+        current = 42
 
     def render(self):
-        return container(key="panel", border=True)(
-            subheader(key="title")("number_input"),
-            number_input(key="widget", value=self.state.value, on_change=self.sync_state("value"))("Count"),
-            json(key="value")({"value": self.state.value}),
-            snippet("number_input"),
-        )
+        return number_input(key="widget", value=self.state.current, on_change=self.sync_state("current"))("Count")
 
 
 class TextAreaDemo(Component):
-    def __init__(self, **props):
-        super().__init__(**props)
-        self.state = dict(value="Short multiline note.")
+    class DemoState(State):
+        current = "Short multiline note."
 
     def render(self):
-        return container(key="panel", border=True)(
-            subheader(key="title")("text_area"),
-            text_area(key="widget", value=self.state.value, height=120, on_change=self.sync_state("value"))("Notes"),
-            json(key="value")({"value": self.state.value}),
-            snippet("text_area"),
-        )
+        return text_area(key="widget", value=self.state.current, height=120, on_change=self.sync_state("current"))("Notes")
 
 
 class DateInputDemo(Component):
-    def __init__(self, **props):
-        super().__init__(**props)
-        self.state = dict(value=datetime.date.today())
+    class DemoState(State):
+        current = datetime.date.today()
 
     def render(self):
-        value = self.state.value.isoformat() if self.state.value is not None else None
-        return container(key="panel", border=True)(
-            subheader(key="title")("date_input"),
-            date_input(key="widget", value=self.state.value, on_change=self.sync_state("value"))("Date"),
-            json(key="value")({"value": value}),
-            snippet("date_input"),
-        )
+        value = self.state.current.isoformat() if self.state.current is not None else None
+        return date_input(key="widget", value=self.state.current, on_change=self.sync_state("current"))("Date")
 
 
 class DatetimeInputDemo(Component):
-    def __init__(self, **props):
-        super().__init__(**props)
-        self.state = dict(value=datetime.datetime.now().replace(second=0, microsecond=0))
+    class DemoState(State):
+        current = datetime.datetime.now().replace(second=0, microsecond=0)
 
     def render(self):
-        value = self.state.value.isoformat() if self.state.value is not None else None
-        return container(key="panel", border=True)(
-            subheader(key="title")("datetime_input"),
-            datetime_input(key="widget", value=self.state.value, on_change=self.sync_state("value"))("Schedule"),
-            json(key="value")({"value": value}),
-            snippet("datetime_input"),
-        )
+        value = self.state.current.isoformat() if self.state.current is not None else None
+        return datetime_input(key="widget", value=self.state.current, on_change=self.sync_state("current"))("Schedule")
 
 
 class TimeInputDemo(Component):
-    def __init__(self, **props):
-        super().__init__(**props)
-        self.state = dict(value=datetime.time(hour=9, minute=30))
+    class DemoState(State):
+        current = datetime.time(hour=9, minute=30)
 
     def render(self):
-        value = self.state.value.isoformat() if self.state.value is not None else None
-        return container(key="panel", border=True)(
-            subheader(key="title")("time_input"),
-            time_input(key="widget", value=self.state.value, on_change=self.sync_state("value"))("Time"),
-            json(key="value")({"value": value}),
-            snippet("time_input"),
-        )
+        value = self.state.current.isoformat() if self.state.current is not None else None
+        return time_input(key="widget", value=self.state.current, on_change=self.sync_state("current"))("Time")
 
 
 class ColorPickerDemo(Component):
-    def __init__(self, **props):
-        super().__init__(**props)
-        self.state = dict(value="#ff4b4b")
+    class DemoState(State):
+        current = "#ff4b4b"
 
     def render(self):
-        return container(key="panel", border=True)(
-            subheader(key="title")("color_picker"),
-            color_picker(key="widget", value=self.state.value, on_change=self.sync_state("value"))("Accent color"),
-            json(key="value")({"value": self.state.value}),
-            snippet("color_picker"),
-        )
+        return color_picker(key="widget", value=self.state.current, on_change=self.sync_state("current"))("Accent color")
 
 
 class FileUploaderDemo(Component):
-    def __init__(self, **props):
-        super().__init__(**props)
-        self.state = dict(value=None)
+    class DemoState(State):
+        value = None
+
+    def file_info(self, value):
+        if value is None:
+            return None
+        if isinstance(value, list):
+            return [self.file_info(item) for item in value]
+        return {
+            "name": getattr(value, "name", None),
+            "type": getattr(value, "type", None),
+            "size": getattr(value, "size", None),
+        }
 
     def sync_value(self, value):
-        self.state.value = uploaded_file_info(value)
+        self.state.value = self.file_info(value)
 
     def render(self):
-        return container(key="panel", border=True)(
-            subheader(key="title")("file_uploader"),
-            file_uploader(key="widget", on_change=self.sync_value)("Upload a file"),
-            json(key="value")({"value": self.state.value}),
-            snippet("file_uploader"),
-        )
+        return file_uploader(key="widget", on_change=self.sync_value)("Upload a file")
 
 
 class CameraInputDemo(Component):
-    def __init__(self, **props):
-        super().__init__(**props)
-        self.state = dict(value=None)
+    class DemoState(State):
+        value = None
+
+    def file_info(self, value):
+        if value is None:
+            return None
+        return {
+            "name": getattr(value, "name", None),
+            "type": getattr(value, "type", None),
+            "size": getattr(value, "size", None),
+        }
 
     def sync_value(self, value):
-        self.state.value = uploaded_file_info(value)
+        self.state.value = self.file_info(value)
 
     def render(self):
-        return container(key="panel", border=True)(
-            subheader(key="title")("camera_input"),
-            camera_input(key="widget", on_change=self.sync_value)("Take a photo"),
-            json(key="value")({"value": self.state.value}),
-            snippet("camera_input"),
-        )
+        return camera_input(key="widget", on_change=self.sync_value)("Take a photo")
 
 
 class AudioInputDemo(Component):
-    def __init__(self, **props):
-        super().__init__(**props)
-        self.state = dict(value=None)
+    class DemoState(State):
+        value = None
+
+    def file_info(self, value):
+        if value is None:
+            return None
+        return {
+            "name": getattr(value, "name", None),
+            "type": getattr(value, "type", None),
+            "size": getattr(value, "size", None),
+        }
 
     def sync_value(self, value):
-        self.state.value = uploaded_file_info(value)
+        self.state.value = self.file_info(value)
 
     def render(self):
-        return container(key="panel", border=True)(
-            subheader(key="title")("audio_input"),
-            audio_input(key="widget", on_change=self.sync_value)("Record a short clip"),
-            json(key="value")({"value": self.state.value}),
-            snippet("audio_input"),
-        )
+        return audio_input(key="widget", on_change=self.sync_value)("Record a short clip")
 
 
 class ChatInputDemo(Component):
-    def __init__(self, **props):
-        super().__init__(**props)
-        self.state = dict(messages=["The callback receives the submitted message as `value`."])
+    class DemoState(State):
+        messages = ["The callback receives the submitted message as `value`."]
 
     def submit(self, value):
         message = value
@@ -559,61 +804,42 @@ class ChatInputDemo(Component):
             )
             for index, message in enumerate(self.state.messages)
         )
-        return container(key="panel", border=True)(
-            subheader(key="title")("chat_input"),
+        return (
             *message_nodes,
             chat_input(key="widget", on_submit=self.submit)("Send a message"),
-            json(key="value")({"messages": self.state.messages}),
-            snippet("chat_input"),
         )
 
 
 class ChatMessageDemo(Component):
     def render(self):
-        return container(key="panel", border=True)(
-            subheader(key="title")("chat_message"),
+        return (
             chat_message(key="assistant", name="assistant")(
                 markdown(key="body")("Use this wrapper to compose chat UIs from simple children.")
             ),
             chat_message(key="user", name="user")(
                 markdown(key="body")("Messages stay regular Elements inside the container.")
             ),
-            json(key="value")({"names": ["assistant", "user"]}),
-            snippet("chat_message"),
         )
 
 
 class StatusDemo(Component):
     def render(self):
-        return container(key="panel", border=True)(
-            subheader(key="title")("status"),
-            status(key="widget", label="Syncing dataset", state="running", expanded=True)(
-                markdown(key="body")("3 files indexed, 1 pending."),
-            ),
-            json(key="value")({"label": "Syncing dataset", "state": "running"}),
-            snippet("status"),
+        return status(key="widget", label="Syncing dataset", state="running", expanded=True)(
+            markdown(key="body")("3 files indexed, 1 pending."),
         )
 
 
 class BadgeDemo(Component):
     def render(self):
-        return container(key="panel", border=True)(
-            subheader(key="title")("badge"),
-            badge(key="widget", color="green", icon=":material/check_circle:")("Stable wrapper"),
-            json(key="value")({"label": "Stable wrapper", "color": "green"}),
-            snippet("badge"),
-        )
+        return badge(key="widget", color="green", icon=":material/check_circle:")("Stable wrapper")
 
 
 class SpaceDemo(Component):
     def render(self):
-        return container(key="panel", border=True)(
-            subheader(key="title")("space"),
+        return (
             markdown(key="before")("Block before the spacer."),
             space(key="widget", size="large"),
             markdown(key="after")("Block after the spacer."),
-            json(key="value")({"size": "large"}),
-            snippet("space"),
         )
 
 
@@ -625,178 +851,150 @@ class HtmlDemo(Component):
             '<strong>html()</strong><br/>Inline markup passed directly to Streamlit.'
             '</div>'
         )
-        return container(key="panel", border=True)(
-            subheader(key="title")("html"),
-            html(key="widget", body=body),
-            json(key="value")({"body_preview": "Inline markup passed directly to Streamlit."}),
-            snippet("html"),
-        )
+        return html(key="widget", body=body)
 
 
 class IframeDemo(Component):
     def render(self):
-        return container(key="panel", border=True)(
-            subheader(key="title")("iframe"),
-            iframe(key="widget", src=IFRAME_DEMO_SRC, height=240),
-            json(key="value")({"src": str(IFRAME_DEMO_SRC)}),
-            snippet("iframe"),
-        )
+        return iframe(key="widget", src="https://example.com", height=240)
 
 
 class PdfDemo(Component):
     def render(self):
-        children = [
-            subheader(key="title")("pdf"),
-            json(key="value")({"available": PDF_DEMO_AVAILABLE}),
-            snippet("pdf"),
-        ]
-        if PDF_DEMO_AVAILABLE:
-            children.insert(1, pdf(key="widget", data=PDF_DEMO_DATA, height=240))
-        else:
-            children.insert(
-                1,
-                markdown(key="note")(
-                    "`st.pdf` is wrapped, but this local environment does not have the optional `streamlit[pdf]` extra installed."
-                ),
-            )
-        return container(key="panel", border=True)(*children)
+        return pdf(
+            key="widget",
+            data="https://academicpages.github.io/files/paper2.pdf",
+            height=240,
+        )
 
 
 class ExceptionDemo(Component):
     def render(self):
-        return container(key="panel", border=True)(
-            subheader(key="title")("exception"),
-            exception_display(key="widget", exception=RuntimeError("Wrapper smoke test")),
-            json(key="value")({"exception": "RuntimeError('Wrapper smoke test')"}),
-            snippet("exception"),
-        )
+        return exception(key="widget", exception=RuntimeError("Wrapper smoke test"))
 
 
 class HelpDemo(Component):
     def render(self):
-        return container(key="panel", border=True)(
-            subheader(key="title")("help"),
-            help_display(key="widget", obj=datetime.datetime),
-            json(key="value")({"object": "datetime.datetime"}),
-            snippet("help"),
-        )
+        return help(key="widget", obj=datetime.datetime)
 
 
 class PageLinkDemo(Component):
     def render(self):
-        return container(key="panel", border=True)(
-            subheader(key="title")("page_link"),
-            page_link(
-                key="widget",
-                page="https://streamlit.io",
-                label="Open Streamlit",
-                icon=":material/open_in_new:",
-            ),
-            json(key="value")({"page": "https://streamlit.io"}),
-            snippet("page_link"),
+        return page_link(
+            key="widget",
+            page="https://streamlit.io",
+            label="Open Streamlit",
+            icon=":material/open_in_new:",
         )
 
 
 class LogoDemo(Component):
     def render(self):
-        return container(key="panel", border=True)(
-            subheader(key="title")("logo"),
-            logo(key="widget", image=LOGO_DEMO_SRC, size="large"),
-            markdown(key="note")("This primitive updates the app chrome logo, not the body of the page."),
-            json(key="value")({"image": str(LOGO_DEMO_SRC), "size": "large"}),
-            snippet("logo"),
+        return (
+            markdown(key="hint")("This primitive updates the app chrome logo, not the body of the page."),
+            logo(
+                key="widget",
+                image="https://streamlit.io/images/brand/streamlit-mark-color.png",
+                size="large",
+            ),
         )
 
 
 class AreaChartDemo(Component):
     def render(self):
-        return container(key="panel", border=True)(
-            subheader(key="title")("area_chart"),
-            area_chart(key="widget", data=CHART_ROWS, x="month", y=["alpha", "beta"], height=260),
-            json(key="value")({"rows": len(CHART_ROWS), "series": ["alpha", "beta"]}),
-            snippet("area_chart"),
-        )
+        return area_chart(key="widget", data=[
+            {"month": "Jan", "alpha": 12, "beta": 7},
+            {"month": "Feb", "alpha": 18, "beta": 11},
+            {"month": "Mar", "alpha": 9, "beta": 15},
+            {"month": "Apr", "alpha": 22, "beta": 13},
+        ], x="month", y=["alpha", "beta"], height=260)
 
 
 class BarChartDemo(Component):
     def render(self):
-        return container(key="panel", border=True)(
-            subheader(key="title")("bar_chart"),
-            bar_chart(key="widget", data=CHART_ROWS, x="month", y=["alpha", "beta"], height=260),
-            json(key="value")({"rows": len(CHART_ROWS), "series": ["alpha", "beta"]}),
-            snippet("bar_chart"),
-        )
+        return bar_chart(key="widget", data=[
+            {"month": "Jan", "alpha": 12, "beta": 7},
+            {"month": "Feb", "alpha": 18, "beta": 11},
+            {"month": "Mar", "alpha": 9, "beta": 15},
+            {"month": "Apr", "alpha": 22, "beta": 13},
+        ], x="month", y=["alpha", "beta"], height=260)
 
 
 class LineChartDemo(Component):
     def render(self):
-        return container(key="panel", border=True)(
-            subheader(key="title")("line_chart"),
-            line_chart(key="widget", data=CHART_ROWS, x="month", y=["alpha", "beta"], height=260),
-            json(key="value")({"rows": len(CHART_ROWS), "series": ["alpha", "beta"]}),
-            snippet("line_chart"),
-        )
+        return line_chart(key="widget", data=[
+            {"month": "Jan", "alpha": 12, "beta": 7},
+            {"month": "Feb", "alpha": 18, "beta": 11},
+            {"month": "Mar", "alpha": 9, "beta": 15},
+            {"month": "Apr", "alpha": 22, "beta": 13},
+        ], x="month", y=["alpha", "beta"], height=260)
 
 
 class ScatterChartDemo(Component):
     def render(self):
-        return container(key="panel", border=True)(
-            subheader(key="title")("scatter_chart"),
-            scatter_chart(key="widget", data=SCATTER_ROWS, x="x", y="y", size="size", color="segment", height=260),
-            json(key="value")({"rows": len(SCATTER_ROWS), "color": "segment"}),
-            snippet("scatter_chart"),
-        )
+        return scatter_chart(key="widget", data=[
+            {"x": 1, "y": 3, "size": 10, "segment": "A"},
+            {"x": 2, "y": 8, "size": 18, "segment": "A"},
+            {"x": 3, "y": 5, "size": 12, "segment": "B"},
+            {"x": 4, "y": 11, "size": 20, "segment": "B"},
+        ], x="x", y="y", size="size", color="segment", height=260)
 
 
 class MapDemo(Component):
     def render(self):
-        return container(key="panel", border=True)(
-            subheader(key="title")("map"),
-            map_chart(key="widget", data=MAP_ROWS, latitude="lat", longitude="lon", zoom=1, height=320),
-            json(key="value")({"points": len(MAP_ROWS)}),
-            snippet("map"),
-        )
+        return map(key="widget", data=[
+            {"lat": 48.8566, "lon": 2.3522},
+            {"lat": 51.5072, "lon": -0.1276},
+            {"lat": 40.7128, "lon": -74.0060},
+        ], latitude="lat", longitude="lon", zoom=1, height=320)
 
 
 class GraphvizChartDemo(Component):
     def render(self):
-        return container(key="panel", border=True)(
-            subheader(key="title")("graphviz_chart"),
-            graphviz_chart(key="widget", figure_or_dot=GRAPHVIZ_DOT),
-            json(key="value")({"nodes": 4}),
-            snippet("graphviz_chart"),
-        )
+        return graphviz_chart(key="widget", figure_or_dot="""
+        digraph Demo {
+            rankdir=LR;
+            Streamlit -> st_components;
+            st_components -> primitives;
+            primitives -> browser;
+        }
+        """.strip())
 
 
 class PlotlyChartDemo(Component):
-    def __init__(self, **props):
-        super().__init__(**props)
-        self.state = dict(selection=None)
+    class DemoState(State):
+        selection = None
 
     def render(self):
         import plotly.express as px
 
-        fig = px.scatter(SCATTER_ROWS, x="x", y="y", size="size", color="segment")
-        return container(key="panel", border=True)(
-            subheader(key="title")("plotly_chart"),
+        fig = px.scatter([
+            {"x": 1, "y": 3, "size": 10, "segment": "A"},
+            {"x": 2, "y": 8, "size": 18, "segment": "A"},
+            {"x": 3, "y": 5, "size": 12, "segment": "B"},
+            {"x": 4, "y": 11, "size": 20, "segment": "B"},
+        ], x="x", y="y", size="size", color="segment")
+        return (
             markdown(key="hint")("Box- or lasso-select points to trigger `on_select`."),
             plotly_chart(key="widget", figure_or_data=fig, on_select=self.sync_state("selection"), height=360),
-            json(key="value")({"selection": self.state.selection}),
-            snippet("plotly_chart"),
         )
 
 
 class AltairChartDemo(Component):
-    def __init__(self, **props):
-        super().__init__(**props)
-        self.state = dict(selection=None)
+    class DemoState(State):
+        selection = None
 
     def render(self):
         import altair as alt
 
         pick = alt.selection_interval(name="pick")
         chart = (
-            alt.Chart(alt.Data(values=SCATTER_ROWS))
+            alt.Chart(alt.Data(values=[
+                {"x": 1, "y": 3, "size": 10, "segment": "A"},
+                {"x": 2, "y": 8, "size": 18, "segment": "A"},
+                {"x": 3, "y": 5, "size": 12, "segment": "B"},
+                {"x": 4, "y": 11, "size": 20, "segment": "B"},
+            ]))
             .mark_circle(size=120)
             .encode(
                 x="x:Q",
@@ -806,19 +1004,15 @@ class AltairChartDemo(Component):
             )
             .add_params(pick)
         )
-        return container(key="panel", border=True)(
-            subheader(key="title")("altair_chart"),
+        return (
             markdown(key="hint")("Drag a region on the chart to test `on_select`."),
             altair_chart(key="widget", altair_chart=chart, on_select=self.sync_state("selection"), selection_mode="pick", height=320),
-            json(key="value")({"selection": self.state.selection}),
-            snippet("altair_chart"),
         )
 
 
 class VegaLiteChartDemo(Component):
-    def __init__(self, **props):
-        super().__init__(**props)
-        self.state = dict(selection=None)
+    class DemoState(State):
+        selection = None
 
     def render(self):
         spec = {
@@ -835,26 +1029,27 @@ class VegaLiteChartDemo(Component):
                 ],
             },
         }
-        return container(key="panel", border=True)(
-            subheader(key="title")("vega_lite_chart"),
+        return (
             markdown(key="hint")("Drag a region on the chart to test `on_select`."),
             vega_lite_chart(
                 key="widget",
-                data=SCATTER_ROWS,
+                data=[
+                    {"x": 1, "y": 3, "size": 10, "segment": "A"},
+                    {"x": 2, "y": 8, "size": 18, "segment": "A"},
+                    {"x": 3, "y": 5, "size": 12, "segment": "B"},
+                    {"x": 4, "y": 11, "size": 20, "segment": "B"},
+                ],
                 spec=spec,
                 on_select=self.sync_state("selection"),
                 selection_mode="pick",
                 height=320,
             ),
-            json(key="value")({"selection": self.state.selection}),
-            snippet("vega_lite_chart"),
         )
 
 
 class PydeckChartDemo(Component):
-    def __init__(self, **props):
-        super().__init__(**props)
-        self.state = dict(selection=None)
+    class DemoState(State):
+        selection = None
 
     def render(self):
         import pydeck as pdk
@@ -864,7 +1059,11 @@ class PydeckChartDemo(Component):
             layers=[
                 pdk.Layer(
                     "ScatterplotLayer",
-                    data=MAP_ROWS,
+                    data=[
+                        {"lat": 48.8566, "lon": 2.3522},
+                        {"lat": 51.5072, "lon": -0.1276},
+                        {"lat": 40.7128, "lon": -74.0060},
+                    ],
                     get_position="[lon, lat]",
                     get_fill_color="[34, 197, 94, 180]",
                     get_radius=180000,
@@ -872,12 +1071,9 @@ class PydeckChartDemo(Component):
                 )
             ],
         )
-        return container(key="panel", border=True)(
-            subheader(key="title")("pydeck_chart"),
+        return (
             markdown(key="hint")("Click a point on the map to test `on_select`."),
             pydeck_chart(key="widget", pydeck_obj=deck, on_select=self.sync_state("selection"), height=360),
-            json(key="value")({"selection": self.state.selection}),
-            snippet("pydeck_chart"),
         )
 
 
@@ -885,17 +1081,18 @@ class PyplotDemo(Component):
     def render(self):
         import matplotlib.pyplot as plt
 
+        rows = [
+            {"month": "Jan", "alpha": 12, "beta": 7},
+            {"month": "Feb", "alpha": 18, "beta": 11},
+            {"month": "Mar", "alpha": 9, "beta": 15},
+            {"month": "Apr", "alpha": 22, "beta": 13},
+        ]
         fig, ax = plt.subplots(figsize=(5, 3))
-        ax.plot([row["month"] for row in CHART_ROWS], [row["alpha"] for row in CHART_ROWS], label="alpha")
-        ax.plot([row["month"] for row in CHART_ROWS], [row["beta"] for row in CHART_ROWS], label="beta")
+        ax.plot([row["month"] for row in rows], [row["alpha"] for row in rows], label="alpha")
+        ax.plot([row["month"] for row in rows], [row["beta"] for row in rows], label="beta")
         ax.set_ylabel("value")
         ax.legend()
-        return container(key="panel", border=True)(
-            subheader(key="title")("pyplot"),
-            pyplot(key="widget", fig=fig),
-            json(key="value")({"series": ["alpha", "beta"]}),
-            snippet("pyplot"),
-        )
+        return pyplot(key="widget", fig=fig)
 
 
 class BokehChartDemo(Component):
@@ -905,12 +1102,7 @@ class BokehChartDemo(Component):
         fig = figure(height=280, sizing_mode="stretch_width", title="Bokeh wrapper")
         fig.line([1, 2, 3, 4], [3, 7, 5, 9], line_width=3)
         fig.circle([1, 2, 3, 4], [3, 7, 5, 9], size=10)
-        return container(key="panel", border=True)(
-            subheader(key="title")("bokeh_chart"),
-            bokeh_chart(key="widget", figure=fig),
-            json(key="value")({"points": 4}),
-            snippet("bokeh_chart"),
-        )
+        return bokeh_chart(key="widget", figure=fig)
 
 
 class ClockFragment(Component, fragment=True, run_every=1):
@@ -923,31 +1115,27 @@ class ClockFragment(Component, fragment=True, run_every=1):
 
 
 class FragmentDemo(Component):
-    def __init__(self, **props):
-        super().__init__(**props)
-        self.state = dict(clicks=0)
+    class DemoState(State):
+        clicks = 0
 
     def click(self):
         self.state.clicks += 1
 
     def render(self):
-        return container(key="panel", border=True)(
-            subheader(key="title")("fragment"),
+        return (
             markdown(key="hint")(
                 "The clock below is a fragment-based component with `run_every=1`. "
                 "It should update once per second without needing any manual interaction."
             ),
             ClockFragment(key="clock"),
             button(key="clicks", on_click=self.click)("Regular parent button"),
-            json(key="value")({"parent_clicks": self.state.clicks}),
-            snippet("fragment"),
         )
 
 
 class DialogDemo(Component):
-    def __init__(self, **props):
-        super().__init__(**props)
-        self.state = dict(open=False, confirmed=0)
+    class DemoState(State):
+        open = False
+        confirmed = 0
 
     def open_dialog(self):
         self.state.open = True
@@ -961,26 +1149,23 @@ class DialogDemo(Component):
 
     def render(self):
         children = [
-            subheader(key="title")("dialog"),
             button(key="open", on_click=self.open_dialog, type="primary")("Open dialog"),
-            json(key="value")({"open": self.state.open, "confirmed": self.state.confirmed}),
-            snippet("dialog"),
         ]
         if self.state.open:
             children.insert(
-                2,
+                1,
                 dialog(key="widget", title="Confirm action", on_dismiss=self.close_dialog)(
                     markdown(key="body")("This modal is rendered through the `dialog` Element wrapper."),
                     button(key="confirm", on_click=self.confirm, type="primary")("Confirm"),
                 ),
             )
-        return container(key="panel", border=True)(*children)
+        return tuple(children)
 
 
 class WriteStreamDemo(Component):
-    def __init__(self, **props):
-        super().__init__(**props)
-        self.state = dict(pending=False, runs=0)
+    class DemoState(State):
+        pending = False
+        runs = 0
 
     def start_stream(self):
         self.state.pending = True
@@ -993,7 +1178,6 @@ class WriteStreamDemo(Component):
 
     def render(self):
         children = [
-            subheader(key="title")("write_stream"),
             markdown(key="hint")(
                 "Click the button to stream a short sentence with a small delay between chunks."
             ),
@@ -1002,21 +1186,17 @@ class WriteStreamDemo(Component):
         if self.state.pending:
             children.append(write_stream(key="widget", stream=self.stream(), cursor="▋"))
             self.state.pending = False
-        children.extend(
-            [
-                json(key="value")({"runs": self.state.runs, "result": "Streaming from st-components"}),
-                snippet("write_stream"),
-            ]
-        )
-        return container(key="panel", border=True)(*children)
+        return tuple(children)
 
 
 class FormDemo(Component):
+    class DemoState(State):
+        submitted = None
+
     def __init__(self, **props):
         super().__init__(**props)
         self.name_ref = Ref()
         self.notes_ref = Ref()
-        self.state = dict(submitted=None)
 
     def submit(self):
         self.state.submitted = {
@@ -1025,186 +1205,179 @@ class FormDemo(Component):
         }
 
     def render(self):
-        return container(key="panel", border=True)(
-            subheader(key="title")("form"),
-            form(key="widget", clear_on_submit=False)(
-                text_input(key="name", ref=self.name_ref)("Name"),
-                text_area(key="notes", ref=self.notes_ref, height=100)("Notes"),
-                form_submit_button(key="submit", on_click=self.submit, type="primary")("Submit"),
-            ),
-            json(key="value")({"submitted": self.state.submitted}),
-            snippet("form"),
+        return form(key="widget", clear_on_submit=False)(
+            text_input(key="name", ref=self.name_ref)("Name"),
+            text_area(key="notes", ref=self.notes_ref, height=100)("Notes"),
+            form_submit_button(key="submit", on_click=self.submit, type="primary")("Submit"),
         )
 
 
 class FormSubmitButtonDemo(Component):
-    def __init__(self, **props):
-        super().__init__(**props)
-        self.state = dict(submissions=0)
+    class DemoState(State):
+        submissions = 0
 
     def submit(self):
         self.state.submissions += 1
 
     def render(self):
-        return container(key="panel", border=True)(
-            subheader(key="title")("form_submit_button"),
-            form(key="widget_form")(
-                text_input(key="title", value="Draft release notes")("Title"),
-                form_submit_button(key="widget", on_click=self.submit, type="primary")("Save form"),
-            ),
-            json(key="value")({"submissions": self.state.submissions}),
-            snippet("form_submit_button"),
+        return form(key="widget_form")(
+            text_input(key="title", value="Draft release notes")("Title"),
+            form_submit_button(key="widget", on_click=self.submit, type="primary")("Save form"),
         )
 
 
 class MenuButtonDemo(Component):
-    def __init__(self, **props):
-        super().__init__(**props)
-        self.state = dict(value=None)
+    class DemoState(State):
+        choice = None
 
     def render(self):
-        return container(key="panel", border=True)(
-            subheader(key="title")("menu_button"),
-            menu_button(
-                key="widget",
-                options=["Draft", "Review", "Ship"],
-                on_click=self.sync_state("value"),
-                type="primary",
-            )("Actions"),
-            json(key="value")({"value": self.state.value}),
-            snippet("menu_button"),
-        )
+        return menu_button(
+            key="widget",
+            options=["Draft", "Review", "Ship"],
+            on_click=self.sync_state("choice"),
+            type="primary",
+        )("Actions")
 
 
 class PillsDemo(Component):
-    def __init__(self, **props):
-        super().__init__(**props)
-        self.state = dict(value="Medium")
+    class DemoState(State):
+        current = "Medium"
 
     def render(self):
-        return container(key="panel", border=True)(
-            subheader(key="title")("pills"),
-            pills(key="widget", options=["Low", "Medium", "High"], default=self.state.value, on_change=self.sync_state("value"))("Priority"),
-            json(key="value")({"value": self.state.value}),
-            snippet("pills"),
-        )
+        return pills(key="widget", options=["Low", "Medium", "High"], default=self.state.current, on_change=self.sync_state("current"))("Priority")
 
 
 class SegmentedControlDemo(Component):
-    def __init__(self, **props):
-        super().__init__(**props)
-        self.state = dict(value="List")
+    class DemoState(State):
+        current = "List"
 
     def render(self):
-        return container(key="panel", border=True)(
-            subheader(key="title")("segmented_control"),
-            segmented_control(
-                key="widget",
-                options=["List", "Board", "Calendar"],
-                default=self.state.value,
-                on_change=self.sync_state("value"),
-            )("View"),
-            json(key="value")({"value": self.state.value}),
-            snippet("segmented_control"),
-        )
+        return segmented_control(
+            key="widget",
+            options=["List", "Board", "Calendar"],
+            default=self.state.current,
+            on_change=self.sync_state("current"),
+        )("View")
 
 
 class FeedbackDemo(Component):
-    def __init__(self, **props):
-        super().__init__(**props)
-        self.state = dict(value=None)
+    class DemoState(State):
+        rating = None
 
     def render(self):
-        return container(key="panel", border=True)(
-            subheader(key="title")("feedback"),
-            feedback(key="widget", options="stars", on_change=self.sync_state("value")),
-            json(key="value")({"value": self.state.value}),
-            snippet("feedback"),
-        )
+        return feedback(key="widget", options="stars", on_change=self.sync_state("rating"))
 
 
 class DataEditorDemo(Component):
-    def __init__(self, **props):
-        super().__init__(**props)
-        self.state = dict(
-            value=[
-                {"task": "Write wrappers", "done": True, "priority": "High"},
-                {"task": "Test app", "done": False, "priority": "Medium"},
-            ]
-        )
+    class DemoState(State):
+        rows = [
+            {"task": "Write wrappers", "done": True, "priority": "High"},
+            {"task": "Test app", "done": False, "priority": "Medium"},
+        ]
 
     def render(self):
-        return container(key="panel", border=True)(
-            subheader(key="title")("data_editor"),
-            data_editor(key="widget", data=self.state.value, num_rows="dynamic", on_change=self.sync_state("value"), width="stretch"),
-            json(key="value")({"value": self.state.value}),
-            snippet("data_editor"),
-        )
+        return data_editor(key="widget", data=self.state.rows, num_rows="dynamic", on_change=self.sync_state("rows"), width="stretch")
 
 
 class PrimitivesApp(Component):
-    def __init__(self, **props):
-        super().__init__(**props)
-        self.state = dict(selected="button")
+    class DemoState(State):
+        selected = PRIMITIVES[0]
 
     def current_demo(self):
+        demo_ref = Ref()
         demos = {
-            "button": ButtonDemo(key="button_demo"),
-            "checkbox": CheckboxDemo(key="checkbox_demo"),
-            "toggle": ToggleDemo(key="toggle_demo"),
-            "radio": RadioDemo(key="radio_demo"),
-            "selectbox": SelectboxDemo(key="selectbox_demo"),
-            "multiselect": MultiselectDemo(key="multiselect_demo"),
-            "slider": SliderDemo(key="slider_demo"),
-            "select_slider": SelectSliderDemo(key="select_slider_demo"),
-            "text_input": TextInputDemo(key="text_input_demo"),
-            "number_input": NumberInputDemo(key="number_input_demo"),
-            "text_area": TextAreaDemo(key="text_area_demo"),
-            "date_input": DateInputDemo(key="date_input_demo"),
-            "datetime_input": DatetimeInputDemo(key="datetime_input_demo"),
-            "time_input": TimeInputDemo(key="time_input_demo"),
-            "color_picker": ColorPickerDemo(key="color_picker_demo"),
-            "file_uploader": FileUploaderDemo(key="file_uploader_demo"),
-            "camera_input": CameraInputDemo(key="camera_input_demo"),
-            "audio_input": AudioInputDemo(key="audio_input_demo"),
-            "chat_input": ChatInputDemo(key="chat_input_demo"),
-            "chat_message": ChatMessageDemo(key="chat_message_demo"),
-            "status": StatusDemo(key="status_demo"),
-            "badge": BadgeDemo(key="badge_demo"),
-            "space": SpaceDemo(key="space_demo"),
-            "html": HtmlDemo(key="html_demo"),
-            "iframe": IframeDemo(key="iframe_demo"),
-            "pdf": PdfDemo(key="pdf_demo"),
-            "exception": ExceptionDemo(key="exception_demo"),
-            "help": HelpDemo(key="help_demo"),
-            "page_link": PageLinkDemo(key="page_link_demo"),
-            "logo": LogoDemo(key="logo_demo"),
-            "area_chart": AreaChartDemo(key="area_chart_demo"),
-            "bar_chart": BarChartDemo(key="bar_chart_demo"),
-            "line_chart": LineChartDemo(key="line_chart_demo"),
-            "scatter_chart": ScatterChartDemo(key="scatter_chart_demo"),
-            "map": MapDemo(key="map_demo"),
-            "graphviz_chart": GraphvizChartDemo(key="graphviz_chart_demo"),
-            "plotly_chart": PlotlyChartDemo(key="plotly_chart_demo"),
-            "altair_chart": AltairChartDemo(key="altair_chart_demo"),
-            "vega_lite_chart": VegaLiteChartDemo(key="vega_lite_chart_demo"),
-            "pydeck_chart": PydeckChartDemo(key="pydeck_chart_demo"),
-            "pyplot": PyplotDemo(key="pyplot_demo"),
-            "bokeh_chart": BokehChartDemo(key="bokeh_chart_demo"),
-            "fragment": FragmentDemo(key="fragment_demo"),
-            "dialog": DialogDemo(key="dialog_demo"),
-            "write_stream": WriteStreamDemo(key="write_stream_demo"),
-            "form": FormDemo(key="form_demo"),
-            "form_submit_button": FormSubmitButtonDemo(key="form_submit_button_demo"),
-            "menu_button": MenuButtonDemo(key="menu_button_demo"),
-            "pills": PillsDemo(key="pills_demo"),
-            "segmented_control": SegmentedControlDemo(key="segmented_control_demo"),
-            "feedback": FeedbackDemo(key="feedback_demo"),
-            "data_editor": DataEditorDemo(key="data_editor_demo"),
+            "audio": AudioDemo(key="audio_demo", ref=demo_ref),
+            "audio_input": AudioInputDemo(key="audio_input_demo", ref=demo_ref),
+            "altair_chart": AltairChartDemo(key="altair_chart_demo", ref=demo_ref),
+            "area_chart": AreaChartDemo(key="area_chart_demo", ref=demo_ref),
+            "badge": BadgeDemo(key="badge_demo", ref=demo_ref),
+            "balloons": BalloonsDemo(key="balloons_demo", ref=demo_ref),
+            "bar_chart": BarChartDemo(key="bar_chart_demo", ref=demo_ref),
+            "bokeh_chart": BokehChartDemo(key="bokeh_chart_demo", ref=demo_ref),
+            "button": ButtonDemo(key="button_demo", ref=demo_ref),
+            "camera_input": CameraInputDemo(key="camera_input_demo", ref=demo_ref),
+            "caption": CaptionDemo(key="caption_demo", ref=demo_ref),
+            "chat_input": ChatInputDemo(key="chat_input_demo", ref=demo_ref),
+            "chat_message": ChatMessageDemo(key="chat_message_demo", ref=demo_ref),
+            "checkbox": CheckboxDemo(key="checkbox_demo", ref=demo_ref),
+            "code": CodeDemo(key="code_demo", ref=demo_ref),
+            "color_picker": ColorPickerDemo(key="color_picker_demo", ref=demo_ref),
+            "columns": ColumnsDemo(key="columns_demo", ref=demo_ref),
+            "container": ContainerDemo(key="container_demo", ref=demo_ref),
+            "data_editor": DataEditorDemo(key="data_editor_demo", ref=demo_ref),
+            "dataframe": DataframeDemo(key="dataframe_demo", ref=demo_ref),
+            "date_input": DateInputDemo(key="date_input_demo", ref=demo_ref),
+            "datetime_input": DatetimeInputDemo(key="datetime_input_demo", ref=demo_ref),
+            "dialog": DialogDemo(key="dialog_demo", ref=demo_ref),
+            "divider": DividerDemo(key="divider_demo", ref=demo_ref),
+            "download_button": DownloadButtonDemo(key="download_button_demo", ref=demo_ref),
+            "empty": EmptyDemo(key="empty_demo", ref=demo_ref),
+            "error": ErrorDemo(key="error_demo", ref=demo_ref),
+            "exception": ExceptionDemo(key="exception_demo", ref=demo_ref),
+            "expander": ExpanderDemo(key="expander_demo", ref=demo_ref),
+            "feedback": FeedbackDemo(key="feedback_demo", ref=demo_ref),
+            "file_uploader": FileUploaderDemo(key="file_uploader_demo", ref=demo_ref),
+            "form": FormDemo(key="form_demo", ref=demo_ref),
+            "form_submit_button": FormSubmitButtonDemo(key="form_submit_button_demo", ref=demo_ref),
+            "graphviz_chart": GraphvizChartDemo(key="graphviz_chart_demo", ref=demo_ref),
+            "fragment": FragmentDemo(key="fragment_demo", ref=demo_ref),
+            "header": HeaderDemo(key="header_demo", ref=demo_ref),
+            "help": HelpDemo(key="help_demo", ref=demo_ref),
+            "html": HtmlDemo(key="html_demo", ref=demo_ref),
+            "iframe": IframeDemo(key="iframe_demo", ref=demo_ref),
+            "image": ImageDemo(key="image_demo", ref=demo_ref),
+            "info": InfoDemo(key="info_demo", ref=demo_ref),
+            "json": JsonDemo(key="json_demo", ref=demo_ref),
+            "latex": LatexDemo(key="latex_demo", ref=demo_ref),
+            "line_chart": LineChartDemo(key="line_chart_demo", ref=demo_ref),
+            "link_button": LinkButtonDemo(key="link_button_demo", ref=demo_ref),
+            "logo": LogoDemo(key="logo_demo", ref=demo_ref),
+            "map": MapDemo(key="map_demo", ref=demo_ref),
+            "markdown": MarkdownDemo(key="markdown_demo", ref=demo_ref),
+            "menu_button": MenuButtonDemo(key="menu_button_demo", ref=demo_ref),
+            "metric": MetricDemo(key="metric_demo", ref=demo_ref),
+            "multiselect": MultiselectDemo(key="multiselect_demo", ref=demo_ref),
+            "number_input": NumberInputDemo(key="number_input_demo", ref=demo_ref),
+            "page_link": PageLinkDemo(key="page_link_demo", ref=demo_ref),
+            "pdf": PdfDemo(key="pdf_demo", ref=demo_ref),
+            "pills": PillsDemo(key="pills_demo", ref=demo_ref),
+            "plotly_chart": PlotlyChartDemo(key="plotly_chart_demo", ref=demo_ref),
+            "popover": PopoverDemo(key="popover_demo", ref=demo_ref),
+            "progress": ProgressDemo(key="progress_demo", ref=demo_ref),
+            "pydeck_chart": PydeckChartDemo(key="pydeck_chart_demo", ref=demo_ref),
+            "pyplot": PyplotDemo(key="pyplot_demo", ref=demo_ref),
+            "radio": RadioDemo(key="radio_demo", ref=demo_ref),
+            "scatter_chart": ScatterChartDemo(key="scatter_chart_demo", ref=demo_ref),
+            "segmented_control": SegmentedControlDemo(key="segmented_control_demo", ref=demo_ref),
+            "select_slider": SelectSliderDemo(key="select_slider_demo", ref=demo_ref),
+            "selectbox": SelectboxDemo(key="selectbox_demo", ref=demo_ref),
+            "sidebar": SidebarDemo(key="sidebar_demo", ref=demo_ref),
+            "slider": SliderDemo(key="slider_demo", ref=demo_ref),
+            "snow": SnowDemo(key="snow_demo", ref=demo_ref),
+            "space": SpaceDemo(key="space_demo", ref=demo_ref),
+            "spinner": SpinnerDemo(key="spinner_demo", ref=demo_ref),
+            "status": StatusDemo(key="status_demo", ref=demo_ref),
+            "subheader": SubheaderTextDemo(key="subheader_demo", ref=demo_ref),
+            "success": SuccessDemo(key="success_demo", ref=demo_ref),
+            "table": TableDemo(key="table_demo", ref=demo_ref),
+            "tabs": TabsDemo(key="tabs_demo", ref=demo_ref),
+            "text": TextDemo(key="text_demo", ref=demo_ref),
+            "text_area": TextAreaDemo(key="text_area_demo", ref=demo_ref),
+            "text_input": TextInputDemo(key="text_input_demo", ref=demo_ref),
+            "time_input": TimeInputDemo(key="time_input_demo", ref=demo_ref),
+            "title": TitleTextDemo(key="title_text_demo", ref=demo_ref),
+            "toast": ToastDemo(key="toast_demo", ref=demo_ref),
+            "toggle": ToggleDemo(key="toggle_demo", ref=demo_ref),
+            "vega_lite_chart": VegaLiteChartDemo(key="vega_lite_chart_demo", ref=demo_ref),
+            "video": VideoDemo(key="video_demo", ref=demo_ref),
+            "warning": WarningDemo(key="warning_demo", ref=demo_ref),
+            "write": WriteDemo(key="write_demo", ref=demo_ref),
+            "write_stream": WriteStreamDemo(key="write_stream_demo", ref=demo_ref),
         }
-        return demos[self.state.selected]
+        return demos[self.state.selected], demo_ref
 
     def render(self):
+        demo, demo_ref = self.current_demo()
         return container(key="page")(
             title(key="title")("Primitives smoke test"),
             caption(key="caption")(
@@ -1220,8 +1393,7 @@ class PrimitivesApp(Component):
                 index=PRIMITIVES.index(self.state.selected),
                 on_change=self.sync_state("selected"),
             )("Primitive"),
-            self.current_demo(),
-            source_view(__file__),
+            PrimitivePanel(key="current_panel", name=self.state.selected, demo=demo, demo_ref=demo_ref),
         )
 
 

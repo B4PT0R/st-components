@@ -22,4 +22,3 @@ class altair_chart(Element):
             **self.props.exclude("key", "children", "altair_chart", "ref", "on_select"),
         )
         store_element_value(element_path, value)
-        return value

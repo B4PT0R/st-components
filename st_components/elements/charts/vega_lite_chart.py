@@ -24,4 +24,3 @@ class vega_lite_chart(Element):
             **streamlit_kwargs,
         )
         store_element_value(element_path, value)
-        return value

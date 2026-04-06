@@ -42,7 +42,7 @@ class radio(Element):
         Element.__init__(self, key=key, label=label, options=options, ref=ref, index=index, format_func=format_func, help=help, on_change=on_change, args=args, kwargs=kwargs, disabled=disabled, horizontal=horizontal, captions=captions, label_visibility=label_visibility, width=width, bind=bind)
 
     def render(self):
-        return st.radio(label_or_prop(self), key=_get_widget_key(), on_change=widget_callback(self), **widget_props(self))
+        st.radio(label_or_prop(self), key=_get_widget_key(), on_change=widget_callback(self), **widget_props(self))
 
 
 class selectbox(Element):
@@ -70,7 +70,7 @@ class selectbox(Element):
         Element.__init__(self, key=key, label=label, options=options, ref=ref, index=index, format_func=format_func, help=help, on_change=on_change, args=args, kwargs=kwargs, placeholder=placeholder, disabled=disabled, label_visibility=label_visibility, accept_new_options=accept_new_options, filter_mode=filter_mode, width=width, bind=bind)
 
     def render(self):
-        return st.selectbox(label_or_prop(self), key=_get_widget_key(), on_change=widget_callback(self), **widget_props(self))
+        st.selectbox(label_or_prop(self), key=_get_widget_key(), on_change=widget_callback(self), **widget_props(self))
 
 
 class multiselect(Element):
@@ -99,7 +99,7 @@ class multiselect(Element):
         Element.__init__(self, key=key, label=label, options=options, ref=ref, default=default, format_func=format_func, help=help, on_change=on_change, args=args, kwargs=kwargs, max_selections=max_selections, placeholder=placeholder, disabled=disabled, label_visibility=label_visibility, accept_new_options=accept_new_options, filter_mode=filter_mode, width=width, bind=bind)
 
     def render(self):
-        return st.multiselect(label_or_prop(self), key=_get_widget_key(), on_change=widget_callback(self), **widget_props(self))
+        st.multiselect(label_or_prop(self), key=_get_widget_key(), on_change=widget_callback(self), **widget_props(self))
 
 
 class slider(Element):
@@ -126,7 +126,7 @@ class slider(Element):
         Element.__init__(self, key=key, label=label, min_value=min_value, max_value=max_value, value=value, step=step, format=format, ref=ref, help=help, on_change=on_change, args=args, kwargs=kwargs, disabled=disabled, label_visibility=label_visibility, width=width, bind=bind)
 
     def render(self):
-        return st.slider(label_or_prop(self), key=_get_widget_key(), on_change=widget_callback(self), **widget_props(self))
+        st.slider(label_or_prop(self), key=_get_widget_key(), on_change=widget_callback(self), **widget_props(self))
 
 
 class select_slider(Element):
@@ -151,7 +151,7 @@ class select_slider(Element):
         Element.__init__(self, key=key, label=label, options=options, value=value, format_func=format_func, ref=ref, help=help, on_change=on_change, args=args, kwargs=kwargs, disabled=disabled, label_visibility=label_visibility, width=width, bind=bind)
 
     def render(self):
-        return st.select_slider(label_or_prop(self), key=_get_widget_key(), on_change=widget_callback(self), **widget_props(self))
+        st.select_slider(label_or_prop(self), key=_get_widget_key(), on_change=widget_callback(self), **widget_props(self))
 
 
 class pills(Element):
@@ -178,7 +178,7 @@ class pills(Element):
         Element.__init__(self, key=key, label=label, options=options, ref=ref, selection_mode=selection_mode, default=default, required=required, format_func=format_func, help=help, on_change=on_change, args=args, kwargs=kwargs, disabled=disabled, label_visibility=label_visibility, width=width, bind=bind)
 
     def render(self):
-        return st.pills(label_or_prop(self), key=_get_widget_key(), on_change=widget_callback(self), **widget_props(self))
+        st.pills(label_or_prop(self), key=_get_widget_key(), on_change=widget_callback(self), **widget_props(self))
 
 
 class segmented_control(Element):
@@ -205,7 +205,7 @@ class segmented_control(Element):
         Element.__init__(self, key=key, label=label, options=options, ref=ref, selection_mode=selection_mode, default=default, required=required, format_func=format_func, help=help, on_change=on_change, args=args, kwargs=kwargs, disabled=disabled, label_visibility=label_visibility, width=width, bind=bind)
 
     def render(self):
-        return st.segmented_control(label_or_prop(self), key=_get_widget_key(), on_change=widget_callback(self), **widget_props(self))
+        st.segmented_control(label_or_prop(self), key=_get_widget_key(), on_change=widget_callback(self), **widget_props(self))
 
 
 class feedback(Element):
@@ -226,4 +226,4 @@ class feedback(Element):
 
     def render(self):
         options = self.children[0] if self.children else self.props.get("options", "thumbs")
-        return st.feedback(options, key=_get_widget_key(), on_change=widget_callback(self), **widget_props(self, "options"))
+        st.feedback(options, key=_get_widget_key(), on_change=widget_callback(self), **widget_props(self, "options"))

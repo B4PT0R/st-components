@@ -101,6 +101,26 @@ An `Element` is a render primitive.
 - It usually wraps one Streamlit primitive.
 - It does not own persistent local component state.
 - Stateful behavior should generally be built by composing Elements inside Components.
+- Its `render()` method is for Streamlit side effects, not for returning application data.
+
+### Render Contract
+
+The framework treats `Component` and `Element` renders differently:
+
+- `Component.render()` composes the tree. It may return Components, Elements, tuples, or plain renderable values.
+- `Element.render()` performs Streamlit rendering work in place.
+- If an `Element.render()` returns a value, that return value is not a separate state channel.
+
+In practice:
+
+- use the return value of `render()` to compose UI
+- use `set_element_value(...)` / `get_element_value(...)` when an Element needs to expose a current value or runtime handle
+
+This separation matters for wrappers around stateful widgets and runtime-backed elements:
+
+- a widget's current value lives in the element value channel
+- a runtime object such as a placeholder or progress handle can also live in that same channel
+- both are then reached uniformly through callback context, explicit path, or `Ref`
 
 ### Keys
 
@@ -157,7 +177,7 @@ This is the preferred place for view state, local mode, and coordination between
 
 ### Pattern 2: `on_change` handlers receive `value`
 
-Widgets already store their value in `st.session_state`. `st-components` keeps using that storage instead of duplicating it.
+Widgets already store their value in `st.session_state`. `st-components` keeps using that storage, but exposes the current logical element value through a separate framework-level access path.
 
 For ordinary `on_change` handlers, the current widget value is passed to your callback as `value`:
 
@@ -213,6 +233,12 @@ In practice this means:
 - `on_click()` for plain buttons
 
 `get_element_value()` still exists as the low-level primitive underneath this. Inside a widget callback, it resolves to the Element that triggered that callback through the callback context, so you can still use it when you need the current value indirectly or want to read another element by path.
+
+Conceptually, this is the value channel for Elements:
+
+- stateful widgets expose their current value there
+- runtime-backed Elements may expose a handle there
+- access stays the same either way
 
 ### Pattern 3: Use `Ref()` for logical reachability
 
@@ -428,13 +454,20 @@ def Counter(props):
 
 Returns the current value of a stateful Element.
 
-- inside the current element or its callback, `path` may be omitted
+- inside the current element or its callback, `path` may be omitted and the current callback/render context is used
 - elsewhere, pass the element path or an Element `Ref`
+- the same API also applies when an Element exposes a runtime handle instead of a plain widget value
 
 ```python
 get_element_value("app.form.name")
 get_element_value(name_ref)
 ```
+
+Examples:
+
+- widget value: `get_element_value("app.form.name")`
+- current callback target: `get_element_value()`
+- runtime handle through a ref: `bar_ref.value()`
 
 ### `get_component_state(path_or_ref)`
 
@@ -470,6 +503,12 @@ Available members:
 - `ref.state()` for Component refs
 
 The methods stay available, but the preferred style is usually to pass refs to helpers.
+
+For Element refs, `ref.value()` reads the same element value channel as `get_element_value(ref)`. Depending on the Element, that may be:
+
+- a widget value
+- a placeholder/container runtime handle
+- a progress handle or another Streamlit runtime object intentionally exposed by the wrapper
 
 ### `Element`
 

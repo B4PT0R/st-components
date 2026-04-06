@@ -72,4 +72,3 @@ class write_stream(Element):
     def render(self):
         result = st.write_stream(child_or_prop(self, "stream"), **self.props.exclude("key", "children", "stream", "ref"))
         set_element_value(get_element_path(), result)
-        return result

@@ -2,7 +2,7 @@ from typing import Any, Callable, Literal, Optional
 
 import streamlit as st
 
-from ...core import Element, Ref, get_key_stack, path_context, render
+from ...core import Element, Ref, get_element_path, get_key_stack, path_context, render, set_element_value
 from .._types import DialogWidth, DismissBehavior, Width, WidthWithoutContent
 
 
@@ -40,7 +40,7 @@ class dialog(Element):
                 for child in self.children:
                     render(child)
 
-        return body()
+        body()
 
 
 class chat_message(Element):
@@ -56,7 +56,9 @@ class chat_message(Element):
         Element.__init__(self, key=key, name=name, ref=ref, avatar=avatar, width=width)
 
     def render(self):
-        with st.chat_message(self.props.get("name", "assistant"), **self.props.exclude("key", "children", "name", "ref")):
+        message_obj = st.chat_message(self.props.get("name", "assistant"), **self.props.exclude("key", "children", "name", "ref"))
+        set_element_value(get_element_path(), message_obj)
+        with message_obj:
             for child in self.children:
                 render(child)
 
@@ -75,6 +77,8 @@ class status(Element):
         Element.__init__(self, key=key, label=label, ref=ref, expanded=expanded, state=state, width=width)
 
     def render(self):
-        with st.status(self.props.get("label", ""), **self.props.exclude("key", "children", "label", "ref")):
+        status_obj = st.status(self.props.get("label", ""), **self.props.exclude("key", "children", "label", "ref"))
+        set_element_value(get_element_path(), status_obj)
+        with status_obj:
             for child in self.children:
                 render(child)

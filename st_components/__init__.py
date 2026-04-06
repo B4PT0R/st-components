@@ -1,4 +1,7 @@
-from importlib.metadata import version as _package_version
+from importlib.metadata import PackageNotFoundError, version as _package_version
+from pathlib import Path
+
+import toml
 
 from .core import (
     App,
@@ -17,7 +20,21 @@ from .core import (
     use_state,
 )
 
-__version__ = _package_version("st-components")
+
+def _resolve_version():
+    pyproject = Path(__file__).resolve().parent.parent / "pyproject.toml"
+    if pyproject.is_file():
+        try:
+            return toml.loads(pyproject.read_text())["project"]["version"]
+        except Exception:
+            pass
+    try:
+        return _package_version("st-components")
+    except PackageNotFoundError:
+        return "0.0.0"
+
+
+__version__ = _resolve_version()
 
 __all__ = [
     "__version__",

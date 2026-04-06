@@ -26,7 +26,7 @@ class file_uploader(Element):
         Element.__init__(self, key=key, label=label, type=type, accept_multiple_files=accept_multiple_files, ref=ref, help=help, on_change=on_change, args=args, kwargs=kwargs, max_upload_size=max_upload_size, disabled=disabled, label_visibility=label_visibility, width=width)
 
     def render(self):
-        return st.file_uploader(label_or_prop(self), key=_get_widget_key(), on_change=widget_callback(self), **widget_props(self))
+        st.file_uploader(label_or_prop(self), key=_get_widget_key(), on_change=widget_callback(self), **widget_props(self))
 
 
 class camera_input(Element):
@@ -47,7 +47,7 @@ class camera_input(Element):
         Element.__init__(self, key=key, label=label, ref=ref, help=help, on_change=on_change, args=args, kwargs=kwargs, disabled=disabled, label_visibility=label_visibility, width=width)
 
     def render(self):
-        return st.camera_input(label_or_prop(self), key=_get_widget_key(), on_change=widget_callback(self), **widget_props(self))
+        st.camera_input(label_or_prop(self), key=_get_widget_key(), on_change=widget_callback(self), **widget_props(self))
 
 
 class audio_input(Element):
@@ -69,7 +69,7 @@ class audio_input(Element):
         Element.__init__(self, key=key, label=label, sample_rate=sample_rate, ref=ref, help=help, on_change=on_change, args=args, kwargs=kwargs, disabled=disabled, label_visibility=label_visibility, width=width)
 
     def render(self):
-        return st.audio_input(label_or_prop(self), key=_get_widget_key(), on_change=widget_callback(self), **widget_props(self))
+        st.audio_input(label_or_prop(self), key=_get_widget_key(), on_change=widget_callback(self), **widget_props(self))
 
 
 class chat_input(Element):
@@ -96,4 +96,4 @@ class chat_input(Element):
 
     def render(self):
         placeholder = self.children[0] if self.children else self.props.get("placeholder", "Your message")
-        return st.chat_input(placeholder, key=_get_widget_key(), on_submit=widget_callback(self, "on_submit"), **widget_props(self, "placeholder", "on_submit"))
+        st.chat_input(placeholder, key=_get_widget_key(), on_submit=widget_callback(self, "on_submit"), **widget_props(self, "placeholder", "on_submit"))

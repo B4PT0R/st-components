@@ -49,4 +49,3 @@ class data_editor(Element):
 
         value = st.data_editor(data, key=widget_key, on_change=wrapped_callback if callback is not None else None, **widget_props(self, "data"))
         set_element_value(element_path, value)
-        return value

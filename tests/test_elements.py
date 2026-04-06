@@ -8,7 +8,9 @@ from typing import Iterable, Literal
 from st_components.core import Component, Element, Ref, render, Context, get_component_state, get_element_value, refresh_element
 from st_components.core.access import _get_widget_key
 from st_components import elements
-from st_components.elements import dialog, write_stream
+from st_components.elements._utils import store_element_value
+from st_components.elements import chat_message, dialog, empty, progress as progress_element, write_stream
+from st_components.elements.runtime import show_balloons, show_progress, show_snow, show_spinner, show_toast
 from st_components.elements import input as input_elements
 from st_components.elements import layout as layout_elements
 from st_components.elements import display as display_elements
@@ -25,8 +27,17 @@ feedback_elements_module = importlib.import_module("st_components.elements.feedb
 from tests._mock import fake_ctx, _mock_st, _session_data
 
 
+def test_elements_module_all_matches_public_exports():
+    public_names = {
+        name for name, value in vars(elements).items()
+        if not name.startswith("_") and not inspect.ismodule(value)
+    }
+    public_names.discard("input_feedback")
+    assert set(elements.__all__) == public_names
+
+
 def test_get_element_value_from_path():
-    _session_data["app.form.name.widget"] = "Alice"
+    _session_data["app.form.name.value"] = "Alice"
     assert get_element_value("app.form.name") == "Alice"
 
 
@@ -37,7 +48,7 @@ def test_refresh_element_rotates_runtime_key():
     refreshed_key = _get_widget_key()
     Context.key_stack.clear()
 
-    assert original_key == "app.form.name.widget"
+    assert original_key == "app.form.name.value"
     assert refreshed_key != original_key
 
     _session_data[refreshed_key] = "Bob"
@@ -48,11 +59,11 @@ def test_refresh_element_accepts_ref():
     ref = Ref()
     ref._resolve("app.form.name", "element")
 
-    _session_data["app.form.name.widget"] = "Alice"
+    _session_data["app.form.name.value"] = "Alice"
     refresh_element(ref)
     refreshed_key = _get_widget_key("app.form.name")
 
-    assert refreshed_key != "app.form.name.widget"
+    assert refreshed_key != "app.form.name.value"
 
     _session_data[refreshed_key] = "Bob"
     assert get_element_value(ref) == "Bob"
@@ -60,7 +71,7 @@ def test_refresh_element_accepts_ref():
 
 def test_get_element_value_accepts_ref():
     ref = Ref()
-    _session_data["app.form.name.widget"] = "Alice"
+    _session_data["app.form.name.value"] = "Alice"
     ref._resolve("app.form.name", "element")
     assert get_element_value(ref) == "Alice"
 
@@ -88,7 +99,18 @@ def test_get_element_value_in_callback():
     Context.key_stack.clear()
 
     assert seen == ["Alice"], f"callback saw: {seen}"
-    assert _session_data["app.form.name.widget"] == "Alice"
+    assert _session_data["app.form.name.value"] == "Alice"
+
+
+def test_store_element_value_skips_canonical_widget_key():
+    Context.key_stack[:] = [fake_ctx("app"), fake_ctx("chart")]
+    try:
+        assert _get_widget_key() == "app.chart.value"
+        store_element_value("app.chart", {"selection": []})
+    finally:
+        Context.key_stack.clear()
+
+    assert "app.chart.value" not in _session_data
 
 
 def test_element_ref_value():
@@ -112,6 +134,251 @@ def test_element_ref_value():
     assert name_ref.path == "app.form.name"
     assert name_ref.kind == "element"
     assert name_ref.value() == "Alice"
+
+
+def test_empty_ref_stores_placeholder_runtime():
+    empty_ref = Ref()
+
+    class placeholder_ctx:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *args):
+            return False
+
+    placeholder = placeholder_ctx()
+    _mock_st.empty.side_effect = lambda: placeholder
+
+    class EmptyDemo(Component):
+        def render(self):
+            return empty(key="slot", ref=empty_ref)
+
+    Context.key_stack[:] = [fake_ctx("app")]
+    render(EmptyDemo(key="demo"))
+    Context.key_stack.clear()
+
+    assert empty_ref.value() is placeholder
+
+
+def test_spinner_runtime_helper_uses_placeholder_ref():
+    slot_ref = Ref()
+    slot_ref._resolve("app.demo.slot", "element")
+    events = []
+
+    class placeholder_ctx:
+        def __enter__(self):
+            events.append("placeholder_enter")
+            return self
+
+        def __exit__(self, *args):
+            events.append("placeholder_exit")
+            return False
+
+    class spinner_ctx:
+        def __enter__(self):
+            events.append("spinner_enter")
+            return self
+
+        def __exit__(self, *args):
+            events.append("spinner_exit")
+            return False
+
+    _session_data["app.demo.slot.value"] = placeholder_ctx()
+    _mock_st.spinner.side_effect = lambda text, **kwargs: events.append(("spinner", text, kwargs)) or spinner_ctx()
+
+    with show_spinner(ref=slot_ref, text="Syncing...", show_time=True):
+        events.append("body")
+
+    assert events == [
+        "placeholder_enter",
+        ("spinner", "Syncing...", {"show_time": True}),
+        "spinner_enter",
+        "body",
+        "spinner_exit",
+        "placeholder_exit",
+    ]
+
+
+def test_spinner_runtime_helper_rejects_non_context_ref():
+    slot_ref = Ref()
+    slot_ref._resolve("app.demo.slot", "element")
+    _session_data["app.demo.slot.value"] = object()
+
+    try:
+        with show_spinner(ref=slot_ref):
+            pass
+    except RuntimeError as err:
+        assert "placeholder" in str(err).lower()
+    else:
+        raise AssertionError("Expected show_spinner(ref=...) to reject non-context runtime handles")
+
+
+def test_progress_runtime_helper_updates_and_clears_placeholder_ref():
+    slot_ref = Ref()
+    slot_ref._resolve("app.demo.slot", "element")
+    events = []
+
+    class placeholder_ctx:
+        def __enter__(self):
+            events.append("placeholder_enter")
+            return self
+
+        def __exit__(self, *args):
+            events.append("placeholder_exit")
+            return False
+
+        def empty(self):
+            events.append("placeholder_empty")
+
+    _session_data["app.demo.slot.value"] = placeholder_ctx()
+    _mock_st.progress.side_effect = lambda value, **kwargs: events.append(("progress", value, kwargs)) or object()
+    bar = show_progress(ref=slot_ref, value=10, text="Starting", width="stretch")
+    returned = bar.update(50, text="Halfway")
+    cleared = bar.clear()
+
+    assert returned is bar
+    assert cleared is None
+    assert events == [
+        "placeholder_enter",
+        ("progress", 10, {"text": "Starting", "width": "stretch"}),
+        "placeholder_exit",
+        "placeholder_enter",
+        ("progress", 50, {"text": "Halfway", "width": "stretch"}),
+        "placeholder_exit",
+        "placeholder_empty",
+    ]
+
+
+def test_progress_element_ref_stores_runtime_handle():
+    progress_ref = Ref()
+    handle = object()
+    _mock_st.progress.side_effect = lambda value, **kwargs: handle
+
+    class ProgressDemo(Component):
+        def render(self):
+            return progress_element(key="bar", ref=progress_ref, value=10, text="Starting", width="stretch")
+
+    Context.key_stack[:] = [fake_ctx("app")]
+    render(ProgressDemo(key="demo"))
+    Context.key_stack.clear()
+
+    assert progress_ref.value() is handle
+
+
+def test_progress_runtime_helper_rejects_non_context_ref():
+    slot_ref = Ref()
+    slot_ref._resolve("app.demo.slot", "element")
+    _session_data["app.demo.slot.value"] = object()
+
+    try:
+        show_progress(ref=slot_ref, value=0)
+    except RuntimeError as err:
+        assert "placeholder" in str(err).lower()
+    else:
+        raise AssertionError("Expected show_progress(ref=...) to reject invalid runtime handles")
+
+
+def test_ephemeral_runtime_helpers_delegate_to_streamlit():
+    toast_calls = []
+    balloon_calls = []
+    snow_calls = []
+
+    _mock_st.toast.side_effect = lambda body, **kwargs: toast_calls.append((body, kwargs))
+    _mock_st.balloons.side_effect = lambda: balloon_calls.append("balloons")
+    _mock_st.snow.side_effect = lambda: snow_calls.append("snow")
+
+    show_toast("Saved draft", icon=":material/check:", duration="long")
+    show_balloons()
+    show_snow()
+
+    assert toast_calls == [("Saved draft", {"icon": ":material/check:", "duration": "long"})]
+    assert balloon_calls == ["balloons"]
+    assert snow_calls == ["snow"]
+
+
+def test_container_ref_stores_delta_generator():
+    container_ref = Ref()
+    seen = []
+
+    class box_ctx:
+        def __enter__(self):
+            seen.append("enter")
+            return self
+
+        def __exit__(self, *args):
+            seen.append("exit")
+            return False
+
+    container_obj = box_ctx()
+    _mock_st.container.side_effect = lambda **kwargs: container_obj
+
+    class ContainerDemo(Component):
+        def render(self):
+            return container(key="box", ref=container_ref)(
+                "inside",
+            )
+
+    Context.key_stack[:] = [fake_ctx("app")]
+    render(ContainerDemo(key="demo"))
+    Context.key_stack.clear()
+
+    assert container_ref.value() is container_obj
+    assert seen == ["enter", "exit"]
+
+
+def test_columns_and_tabs_refs_store_runtime_handles():
+    columns_ref = Ref()
+    tabs_ref = Ref()
+
+    class slot_ctx:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *args):
+            return False
+
+    column_slots = [slot_ctx(), slot_ctx()]
+    tab_slots = [slot_ctx(), slot_ctx()]
+    _mock_st.columns.side_effect = lambda *args, **kwargs: column_slots
+    _mock_st.tabs.side_effect = lambda *args, **kwargs: tab_slots
+
+    class LayoutDemo(Component):
+        def render(self):
+            return container(key="root")(
+                columns(key="cols", ref=columns_ref, spec=2)("left", "right"),
+                tabs(key="tabs", ref=tabs_ref, tabs=["A", "B"])("a", "b"),
+            )
+
+    Context.key_stack[:] = [fake_ctx("app")]
+    render(LayoutDemo(key="demo"))
+    Context.key_stack.clear()
+
+    assert columns_ref.value() == column_slots
+    assert tabs_ref.value() == tab_slots
+
+
+def test_chat_message_ref_stores_delta_generator():
+    message_ref = Ref()
+
+    class message_ctx:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *args):
+            return False
+
+    message_obj = message_ctx()
+    _mock_st.chat_message.side_effect = lambda *args, **kwargs: message_obj
+
+    class ChatDemo(Component):
+        def render(self):
+            return chat_message(key="msg", ref=message_ref, name="assistant")("hello")
+
+    Context.key_stack[:] = [fake_ctx("app")]
+    render(ChatDemo(key="demo"))
+    Context.key_stack.clear()
+
+    assert message_ref.value() is message_obj
 
 
 def test_component_ref_state():
@@ -227,13 +494,42 @@ def test_text_and_media_wrappers_expose_explicit_signatures():
 
 
 def test_feedback_wrappers_expose_explicit_signatures():
-    toast_params = inspect.signature(feedback_elements_module.toast).parameters
     progress_params = inspect.signature(feedback_elements_module.progress).parameters
+    toast_params = inspect.signature(feedback_elements_module.toast).parameters
     spinner_params = inspect.signature(feedback_elements_module.spinner).parameters
 
     assert toast_params["duration"].annotation == Literal["short", "long", "infinite"] | int
     assert progress_params["width"].annotation == feedback_elements_module.WidthWithoutContent
-    assert spinner_params["show_time"].annotation == bool
+    assert spinner_params["width"].annotation == feedback_elements_module.WidthWithoutContent
+
+
+def test_spinner_element_wraps_child_render():
+    events = []
+
+    class spinner_ctx:
+        def __enter__(self):
+            events.append("spinner_enter")
+            return self
+
+        def __exit__(self, *args):
+            events.append("spinner_exit")
+            return False
+
+    _mock_st.spinner.side_effect = lambda text, **kwargs: events.append(("spinner", text, kwargs)) or spinner_ctx()
+    _mock_st.write.side_effect = lambda value: events.append(("write", value))
+
+    from st_components.elements.feedback import spinner as spinner_element
+
+    Context.key_stack[:] = [fake_ctx("app")]
+    render(spinner_element(key="loading", text="Loading...", show_time=True)("child output"))
+    Context.key_stack.clear()
+
+    assert events == [
+        ("spinner", "Loading...", {"show_time": True, "width": "content"}),
+        "spinner_enter",
+        ("write", "child output"),
+        "spinner_exit",
+    ]
 
 
 def test_data_editor_wrapper():
@@ -396,8 +692,8 @@ def test_button_and_submit_button_use_standard_widget_key():
     Context.key_stack.clear()
 
     assert seen == [
-        "app.actions.save.widget",
-        "app.actions.submit.widget",
+        "app.actions.save.value",
+        "app.actions.submit.value",
     ]
 
 
@@ -528,7 +824,7 @@ def test_dialog_wrapper():
     assert dialog_calls == [("Confirm action", {"width": "small", "dismissible": True, "icon": None, "on_dismiss": "ignore"})], (
         f"got dialog calls: {dialog_calls}"
     )
-    assert text_input_keys == ["app.modal.confirm.name.widget"], (
+    assert text_input_keys == ["app.modal.confirm.name.value"], (
         f"got text input keys: {text_input_keys}"
     )
 

@@ -169,7 +169,7 @@ def test_class_component_fragment():
     fragment_wrappers[-1]()
 
     assert fragment_calls == ["10s", "10s"], f"unexpected fragment calls: {fragment_calls}"
-    assert seen_keys == ["app.profile.name.widget", "app.profile.name.widget"], f"got keys: {seen_keys}"
+    assert seen_keys == ["app.profile.name.value", "app.profile.name.value"], f"got keys: {seen_keys}"
 
 
 def test_function_component_fragment():
@@ -205,4 +205,4 @@ def test_function_component_fragment():
     fragment_wrappers[-1]()
 
     assert fragment_calls == ["5s", "5s"], f"unexpected fragment calls: {fragment_calls}"
-    assert seen_keys == ["app.profile.name.widget", "app.profile.name.widget"], f"got keys: {seen_keys}"
+    assert seen_keys == ["app.profile.name.value", "app.profile.name.value"], f"got keys: {seen_keys}"

@@ -27,7 +27,7 @@ class button(Element):
         Element.__init__(self, key=key, label=label, ref=ref, help=help, on_click=on_click, args=args, kwargs=kwargs, type=type, icon=icon, icon_position=icon_position, disabled=disabled, use_container_width=use_container_width, width=width, shortcut=shortcut)
 
     def render(self):
-        return st.button(label_or_prop(self), key=_get_widget_key(), on_click=widget_callback(self, "on_click"), **widget_props(self, "on_click"))
+        st.button(label_or_prop(self), key=_get_widget_key(), on_click=widget_callback(self, "on_click"), **widget_props(self, "on_click"))
 
 
 class download_button(Element):
@@ -55,7 +55,7 @@ class download_button(Element):
         Element.__init__(self, key=key, label=label, data=data, ref=ref, file_name=file_name, mime=mime, help=help, on_click=on_click, args=args, kwargs=kwargs, type=type, icon=icon, icon_position=icon_position, disabled=disabled, use_container_width=use_container_width, width=width, shortcut=shortcut)
 
     def render(self):
-        return st.download_button(label_or_prop(self), key=_get_widget_key(), **self.props.exclude("key", "children", "label", "ref"))
+        st.download_button(label_or_prop(self), key=_get_widget_key(), **self.props.exclude("key", "children", "label", "ref"))
 
 
 class link_button(Element):
@@ -81,7 +81,7 @@ class link_button(Element):
         Element.__init__(self, key=key, label=label, url=url, ref=ref, on_click=on_click, args=args, kwargs=kwargs, help=help, type=type, icon=icon, icon_position=icon_position, disabled=disabled, use_container_width=use_container_width, width=width, shortcut=shortcut)
 
     def render(self):
-        return st.link_button(label_or_prop(self), key=_get_widget_key(), **self.props.exclude("key", "children", "label", "ref"))
+        st.link_button(label_or_prop(self), key=_get_widget_key(), **self.props.exclude("key", "children", "label", "ref"))
 
 
 class form_submit_button(Element):
@@ -106,7 +106,7 @@ class form_submit_button(Element):
         Element.__init__(self, key=key, label=label, ref=ref, help=help, on_click=on_click, args=args, kwargs=kwargs, type=type, icon=icon, icon_position=icon_position, disabled=disabled, use_container_width=use_container_width, width=width, shortcut=shortcut)
 
     def render(self):
-        return st.form_submit_button(label_or_prop(self), key=_get_widget_key(), on_click=widget_callback(self, "on_click"), **widget_props(self, "on_click"))
+        st.form_submit_button(label_or_prop(self), key=_get_widget_key(), on_click=widget_callback(self, "on_click"), **widget_props(self, "on_click"))
 
 
 class menu_button(Element):
@@ -130,4 +130,4 @@ class menu_button(Element):
         Element.__init__(self, key=key, label=label, options=options, ref=ref, help=help, on_click=on_click, args=args, kwargs=kwargs, type=type, icon=icon, disabled=disabled, width=width, format_func=format_func)
 
     def render(self):
-        return st.menu_button(label_or_prop(self), key=_get_widget_key(), on_click=widget_callback(self, "on_click", pass_value=True), **widget_props(self, "on_click"))
+        st.menu_button(label_or_prop(self), key=_get_widget_key(), on_click=widget_callback(self, "on_click", pass_value=True), **widget_props(self, "on_click"))

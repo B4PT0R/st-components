@@ -22,4 +22,3 @@ class pydeck_chart(Element):
             **self.props.exclude("key", "children", "pydeck_obj", "ref", "on_select"),
         )
         store_element_value(element_path, value)
-        return value

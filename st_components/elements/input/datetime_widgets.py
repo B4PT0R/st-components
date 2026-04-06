@@ -29,7 +29,7 @@ class date_input(Element):
         Element.__init__(self, key=key, label=label, value=value, min_value=min_value, max_value=max_value, ref=ref, help=help, on_change=on_change, args=args, kwargs=kwargs, format=format, disabled=disabled, label_visibility=label_visibility, width=width, bind=bind)
 
     def render(self):
-        return st.date_input(label_or_prop(self), key=_get_widget_key(), on_change=widget_callback(self), **widget_props(self))
+        st.date_input(label_or_prop(self), key=_get_widget_key(), on_change=widget_callback(self), **widget_props(self))
 
 
 class time_input(Element):
@@ -53,7 +53,7 @@ class time_input(Element):
         Element.__init__(self, key=key, label=label, value=value, ref=ref, help=help, on_change=on_change, args=args, kwargs=kwargs, disabled=disabled, label_visibility=label_visibility, step=step, width=width, bind=bind)
 
     def render(self):
-        return st.time_input(label_or_prop(self), key=_get_widget_key(), on_change=widget_callback(self), **widget_props(self))
+        st.time_input(label_or_prop(self), key=_get_widget_key(), on_change=widget_callback(self), **widget_props(self))
 
 
 class color_picker(Element):
@@ -76,7 +76,7 @@ class color_picker(Element):
         Element.__init__(self, key=key, label=label, value=value, ref=ref, help=help, on_change=on_change, args=args, kwargs=kwargs, disabled=disabled, label_visibility=label_visibility, width=width, bind=bind)
 
     def render(self):
-        return st.color_picker(label_or_prop(self), key=_get_widget_key(), on_change=widget_callback(self), **widget_props(self))
+        st.color_picker(label_or_prop(self), key=_get_widget_key(), on_change=widget_callback(self), **widget_props(self))
 
 
 class datetime_input(Element):
@@ -103,4 +103,4 @@ class datetime_input(Element):
         Element.__init__(self, key=key, label=label, value=value, min_value=min_value, max_value=max_value, ref=ref, help=help, on_change=on_change, args=args, kwargs=kwargs, format=format, step=step, disabled=disabled, label_visibility=label_visibility, width=width, bind=bind)
 
     def render(self):
-        return st.datetime_input(label_or_prop(self), key=_get_widget_key(), on_change=widget_callback(self), **widget_props(self))
+        st.datetime_input(label_or_prop(self), key=_get_widget_key(), on_change=widget_callback(self), **widget_props(self))

@@ -84,7 +84,9 @@ class Element:
             bind_ref(self, element_path, "element")
             with key_context(self.key):
                 result = render_func()
-                return render(result) if isinstance(result, Element) else result
+                if isinstance(result, Primitive):
+                    return render(result)
+                return None
 
         decorated._decorated = True
         return decorated

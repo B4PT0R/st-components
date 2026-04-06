@@ -4,6 +4,35 @@ All notable changes to this project will be documented in this file.
 
 The format is based on Keep a Changelog, and this project uses SemVer.
 
+## [0.1.3] - 2026-04-06
+
+Runtime/value-channel cleanup and feedback primitive expansion.
+
+### Added
+
+- Declarative `spinner(...)` Element for wrapping slow-to-render children.
+- Declarative `progress(...)` Element that stores its runtime handle in the element value channel, so it can be reached later through `ref.value()`.
+- Runtime helpers for callback-only effects:
+  - `show_spinner(...)`
+  - `show_progress(...)`
+  - `show_balloons()`
+  - `show_snow()`
+  - `show_toast(...)`
+- Expanded `primitives` demo coverage and runtime-oriented examples for feedback/media/layout edge cases.
+
+### Changed
+
+- Clarified and standardized the render contract:
+  - `Component.render()` composes and may return Components, Elements, or plain renderable values
+  - `Element.render()` performs Streamlit side effects and does not use its return value as a data channel
+  - runtime values now flow explicitly through `set_element_value(...)` / `get_element_value(...)`
+- Standardized element value storage around the canonical `"{element_path}.value"` key.
+- Stateful widget value access and runtime handle access now share the same logical retrieval API:
+  - current callback context
+  - explicit element path
+  - `Ref`
+- Reworked the `primitives` example app so the demo components are more self-contained and pedagogical.
+
 ## [0.1.2] - 2026-04-05
 
 Python 3.10 compatibility patch.

@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "st-components"
-version = "0.1.2"
+version = "0.1.3"
 description = "React-style stateful components for Streamlit"
 readme = "README.md"
 requires-python = ">=3.10"
@@ -27,4 +27,5 @@ include = ["st_components*", "examples*"]
 
 [tool.setuptools.package-data]
 st_components = ["py.typed"]
+"examples" = ["assets/*"]
 "st_components.elements" = ["*.pyi"]

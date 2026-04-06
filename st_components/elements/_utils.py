@@ -15,6 +15,8 @@ def is_display_generator(value):
 
 
 def store_element_value(path, value):
+    if _get_widget_key(path) == f"{path}.value":
+        return
     if value is not None and not is_display_generator(value):
         set_element_value(path, value)
 
