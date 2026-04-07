@@ -4,6 +4,40 @@ All notable changes to this project will be documented in this file.
 
 The format is based on Keep a Changelog, and this project uses SemVer.
 
+## [0.1.5] - 2026-04-07
+
+Tree-model and hooks/context stabilization release.
+
+### Added
+
+- Expanded the hook surface with:
+  - `use_memo(...)`
+  - `use_effect(...)`
+  - `use_ref(...)`
+  - `use_callback(...)`
+  - `use_previous(...)`
+  - `use_id(...)`
+  - `use_context(...)`
+- Added scoped context support with:
+  - `create_context(...)`
+  - `ContextData`
+  - typed `Provider(data=...)` values normalized to the context schema
+- Added a dedicated `hooks` example and extended the multipage example to exercise tree-scoped context above `Router(...)`.
+
+### Changed
+
+- Reworked the structural tree model so `App`, `Router`, and `Page` are now real structural components.
+- Paths now follow the actual rendered tree and start at the fixed app root key:
+  - `app...`
+  - multipage paths now use component keys instead of the old `page[...]` namespace layer
+- Simplified `App` creation:
+  - removed the `root=` prop
+  - the app tree is now passed only through `children=` or `App(...)(...)`
+- Clarified context semantics:
+  - `create_context(...)` remains a free helper suitable for module-level declarations
+  - each provider replaces the current scoped context value instead of implicitly merging with the parent scope
+- Reworked the README and examples to match the stabilized tree, hooks, and context APIs.
+
 ## [0.1.4] - 2026-04-06
 
 API clarification and documentation pass.

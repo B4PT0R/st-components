@@ -1,7 +1,7 @@
 import sys
 from pathlib import Path
 
-from st_components import Component, get_app, get_shared_state
+from st_components import Component, get_app, get_shared_state, use_context
 from st_components.elements import (
     caption,
     code,
@@ -20,7 +20,7 @@ MULTIPAGE_DIR = Path(__file__).resolve().parents[1]
 if str(MULTIPAGE_DIR) not in sys.path:
     sys.path.insert(0, str(MULTIPAGE_DIR))
 
-from shared import WorkspaceSidebar
+from shared import AppModeContext, WorkspaceSidebar
 
 
 class ReportPage(Component):
@@ -33,9 +33,11 @@ class ReportPage(Component):
 
     def render(self):
         workspace = get_shared_state("workspace")
+        app_mode = use_context(AppModeContext)
         snapshot = {
             "page_type": "file-backed page",
             "notes": self.state.notes,
+            "app_mode": dict(app_mode),
             "shared_state": dict(workspace),
         }
 
@@ -53,6 +55,7 @@ class ReportPage(Component):
                 metric(key="focus", label="Shared focus", value=workspace.focus),
                 metric(key="visits", label="Shared visits", value=workspace.visits),
                 metric(key="mode", label="Page source", value="file"),
+                metric(key="app_mode", label="Context mode", value=app_mode.mode),
             ),
             text_area(
                 key="note",
@@ -62,10 +65,12 @@ class ReportPage(Component):
             )("File page notes"),
             markdown(key="body")(
                 "This file is a regular Streamlit page source. "
-                "The important part is that its internal st-components paths are still prefixed by the active page namespace."
+                "The important part is that its internal st-components paths stay in the normal tree model, "
+                "for example under `app.router.report...`."
                 "\n\n"
                 "The sidebar component is reused here without any special router API. "
                 "It stays synchronized because it reads and writes `get_shared_state(\"workspace\")`."
+                " The same app-level context also remains available here through `use_context(...)`."
             ),
             json(key="snapshot")(snapshot),
             code(key="code", language="python")(

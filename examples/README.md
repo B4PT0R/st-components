@@ -65,6 +65,15 @@ python -m st_components.examples functional
 streamlit run examples/functional.py
 ```
 
+## hooks.py
+
+Compact demo of the main hooks in one place: `use_state`, `use_context`, `use_memo`, `use_effect`, `use_ref`, `use_callback`, `use_previous`, and `use_id`, including a small typed context example.
+
+```bash
+python -m st_components.examples hooks
+streamlit run examples/hooks.py
+```
+
 ## primitives.py
 
 A kitchen-sink reference of every built-in element wrapper: inputs, layout, display, media, feedback, and charts.

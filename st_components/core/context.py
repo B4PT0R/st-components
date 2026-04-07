@@ -13,6 +13,7 @@ class CallbackState(modict):
 class RuntimeState(modict):
     key_stack: list = modict.factory(list)
     component_stack: list = modict.factory(list)
+    context_stacks: dict = modict.factory(dict)
     callback: CallbackState = modict.factory(CallbackState)
 
 
@@ -46,6 +47,10 @@ class _RenderContext:
     @property
     def callback(self) -> CallbackState:
         return self._state().callback
+
+    @property
+    def context_stacks(self) -> dict:
+        return self._state().context_stacks
 
 
 class _PageContext:
@@ -130,6 +135,21 @@ def path_context(keys):
         Context.key_stack[:] = previous
 
 
+@contextmanager
+def context_value_scope(context, value):
+    stacks = Context.context_stacks
+    context_id = context._id
+    values = stacks.setdefault(context_id, [])
+    values.append(value)
+    try:
+        yield value
+    finally:
+        if values:
+            values.pop(-1)
+        if not values and context_id in stacks:
+            del stacks[context_id]
+
+
 def get_key_stack():
     return list(Context.key_stack)
 
@@ -143,20 +163,21 @@ def get_rendering_component():
     return stack[-1] if stack else None
 
 
+def get_context_value(context):
+    values = Context.context_stacks.get(context._id, [])
+    if values:
+        return values[-1]
+    return context.default
+
+
 def get_element_path():
-    segments = []
-    if PageContext.active_namespace:
-        segments.append(f"page[{PageContext.active_namespace}]")
-    segments.extend(Context.key_stack)
+    segments = list(Context.key_stack)
     if segments:
         return ".".join(segments)
     return Context.callback.element_path
 
 
 def KEY(key):
-    segments = []
-    if PageContext.active_namespace:
-        segments.append(f"page[{PageContext.active_namespace}]")
-    segments.extend(Context.key_stack)
+    segments = list(Context.key_stack)
     segments.append(key)
     return ".".join(segments)

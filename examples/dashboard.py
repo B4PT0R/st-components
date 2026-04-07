@@ -285,4 +285,4 @@ class Dashboard(Component):
         )
 
 
-App(root=Dashboard(key="dashboard")).render()
+App()(Dashboard(key="dashboard")).render()

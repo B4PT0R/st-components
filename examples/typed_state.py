@@ -137,4 +137,4 @@ class Demo(Component):
         )
 
 
-App(root=Demo(key="demo")).render()
+App()(Demo(key="demo")).render()

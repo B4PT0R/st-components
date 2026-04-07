@@ -181,9 +181,9 @@ def test_component_did_update_on_state_change():
         def render(self):
             pass
 
-    App(root=Counter(key="counter")).render()
-    fibers()["counter"].state.count = 5
-    App(root=Counter(key="counter")).render()
+    App()(Counter(key="counter")).render()
+    fibers()["app.counter"].state.count = 5
+    App()(Counter(key="counter")).render()
 
     assert updates == [(0, 5)], f"unexpected updates: {updates}"
 
@@ -202,8 +202,8 @@ def test_component_did_update_only_when_state_changes():
         def render(self):
             pass
 
-    App(root=Counter(key="counter")).render()
-    App(root=Counter(key="counter")).render()
+    App()(Counter(key="counter")).render()
+    App()(Counter(key="counter")).render()
 
     assert updates[0] == 0, f"component_did_update fired {updates[0]} times"
 

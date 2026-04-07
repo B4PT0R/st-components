@@ -6,11 +6,19 @@ import toml
 import streamlit as st
 
 from .base import Component, Element, render
-from .context import page_namespace, reset_context_runtime
-from .models import Config, Theme
+from .context_api import ContextProvider
+from .context import component_context, key_context, reset_context_runtime
+from .models import Config, Props, Theme
 from .page import Page
 from .router import Router
-from .store import begin_render_cycle, declare_shared_state, end_render_cycle
+from .store import (
+    begin_render_cycle,
+    declare_shared_state,
+    end_render_cycle,
+    register_component,
+    track_rendered_fiber,
+    unregister_component,
+)
 
 
 _CURRENT_APP = None
@@ -22,7 +30,12 @@ def get_app():
     return _CURRENT_APP
 
 
-class App:
+class AppProps(Props):
+    key: str = "app"
+
+
+class App(Component):
+    __props_class__ = AppProps
     _THEME_STATE_KEY = "__st_components_app_theme__"
     _CSS_STATE_KEY = "__st_components_app_css__"
     _CONFIG_STATE_KEY = "__st_components_app_config__"
@@ -31,8 +44,8 @@ class App:
 
     def __init__(
         self,
-        root=None,
         *,
+        children=None,
         page_title=None,
         page_icon=None,
         layout=None,
@@ -44,7 +57,10 @@ class App:
         persist_theme=True,
         persist_config=True,
     ):
-        self.root = root
+        normalized_children = [] if children is None else list(children)
+        if len(normalized_children) > 1:
+            raise TypeError("App expects at most one root child in children=.")
+        super().__init__(key="app", children=normalized_children)
         self.pages = []
         self.page_title = page_title
         self.page_icon = page_icon
@@ -60,13 +76,25 @@ class App:
         self.config = self._initial_config(config)
         self.persist_theme = persist_theme
         self.persist_config = persist_config
+        self._active_router = None
+        self._active_page = None
+        self._active_router_wrappers = []
         global _CURRENT_APP
         _CURRENT_APP = self
+
+    def _decorate_render(self):
+        pass
+
+    @property
+    def root(self):
+        if not self.children:
+            return None
+        return self.children[0]
 
     def __call__(self, *children):
         if len(children) != 1:
             raise TypeError("App expects exactly one child root.")
-        self.root = children[0]
+        self.props.children = [children[0]]
         return self
 
     def create_shared_state(self, namespace, spec):
@@ -74,6 +102,13 @@ class App:
         return self
 
     def render_page(self, root):
+        if self._active_router is not None and self._active_page is not None:
+            return self._render_routed_root(
+                self._active_router,
+                self._active_page,
+                root,
+                wrappers=self._active_router_wrappers,
+            )
         return self._render_root(root)
 
     def _initial_theme(self, theme):
@@ -284,21 +319,54 @@ class App:
         if config:
             st.set_page_config(**config)
 
-    def _render_root(self, root):
+    def _prepare_app_fiber(self):
+        self._fiber_key = self.key
+        if not self.is_mounted:
+            self.mount()
+        if self.fiber.component_id != self._component_id:
+            unregister_component(self.fiber.component_id)
+            self.fiber.component_id = self._component_id
+        register_component(self._component_id, self)
+        track_rendered_fiber(self._fiber_key)
+
+    def _render_with_cycle(self, body):
         reset_context_runtime()
         begin_render_cycle()
         try:
-            return render(root)
+            self._prepare_app_fiber()
+            with key_context(self.key), component_context(self):
+                return body()
         finally:
             end_render_cycle()
 
-    def _run_inline_page_source(self, source):
+    def _render_root(self, root):
+        return self._render_with_cycle(lambda: render(root))
+
+    def _render_routed_root(self, router, page, root, *, wrappers=None):
+        def build_router_page_tree():
+            return router._render_component_body(
+                lambda: page._render_component_body(lambda: root)
+            )
+
+        def body():
+            current = build_router_page_tree
+            for wrapper in reversed(wrappers or []):
+                current = (
+                    lambda current=current, wrapper=wrapper: wrapper._render_component_body(current)
+                )
+            return render(current())
+
+        return self._render_with_cycle(body)
+
+    def _run_inline_page_source(self, source, *, router=None, page=None, wrappers=None):
         if inspect.isclass(source) and issubclass(source, Component):
             raise TypeError(
                 "Page inline sources must be instantiated Components, not Component classes."
             )
 
         if isinstance(source, (Component, Element)) or not callable(source):
+            if router is not None and page is not None:
+                return self._render_routed_root(router, page, source, wrappers=wrappers)
             return self._render_root(source)
 
         result = source()
@@ -307,10 +375,12 @@ class App:
                 "Page factories must return instantiated Components, not Component classes."
             )
         if result is not None:
+            if router is not None and page is not None:
+                return self._render_routed_root(router, page, result, wrappers=wrappers)
             return self._render_root(result)
         return None
 
-    def _build_streamlit_page(self, page):
+    def _build_streamlit_page(self, router, page, *, wrappers=None):
         source = page.source
         page_kwargs = page.navigation_props()
 
@@ -318,20 +388,18 @@ class App:
             streamlit_source = source
         else:
             def streamlit_source():
-                return self._run_inline_page_source(source)
+                return self._run_inline_page_source(source, router=router, page=page, wrappers=wrappers)
 
         streamlit_page = st.Page(streamlit_source, **page_kwargs)
-        return streamlit_page, page.namespace(), page
+        return streamlit_page, page
 
-    def _build_navigation_pages(self, router):
+    def _build_navigation_pages(self, router, *, wrappers=None):
         sections = {}
         pages = []
-        namespaces = {}
         page_map = {}
 
         for page in router.pages:
-            streamlit_page, namespace, original_page = self._build_streamlit_page(page)
-            namespaces[id(streamlit_page)] = namespace
+            streamlit_page, original_page = self._build_streamlit_page(router, page, wrappers=wrappers)
             page_map[id(streamlit_page)] = original_page
 
             section = original_page.section
@@ -343,26 +411,42 @@ class App:
         if sections:
             if pages:
                 sections = {"": pages, **sections}
-            return sections, namespaces, page_map
-        return pages, namespaces, page_map
+            return sections, page_map
+        return pages, page_map
+
+    def _unwrap_router_root(self):
+        wrappers = []
+        node = self.root
+
+        while isinstance(node, ContextProvider):
+            if len(node.children) != 1:
+                raise RuntimeError(
+                    "Providers above Router must wrap exactly one child root."
+                )
+            wrappers.append(node)
+            node = node.children[0]
+
+        if isinstance(node, Router):
+            return wrappers, node
+        return None, None
 
     def render(self):
         if self.root is None:
             raise RuntimeError("App.render() requires a root.")
 
-        if not isinstance(self.root, Router):
+        wrappers, router = self._unwrap_router_root()
+
+        if router is None:
             self._apply_page_config()
             self._apply_styles()
             return self._render_root(self.root)
 
-        router = self.root
-        navigation_pages, namespaces, page_map = self._build_navigation_pages(router)
+        navigation_pages, page_map = self._build_navigation_pages(router, wrappers=wrappers)
         current = st.navigation(
             navigation_pages,
             position=router.props.position,
             expanded=router.props.expanded,
         )
-        namespace = namespaces.get(id(current))
         current_page = page_map.get(id(current))
 
         config = self._app_page_config()
@@ -376,5 +460,15 @@ class App:
             st.set_page_config(**config)
         self._apply_styles()
 
-        with page_namespace(namespace):
+        previous_router = self._active_router
+        previous_page = self._active_page
+        previous_wrappers = self._active_router_wrappers
+        self._active_router = router
+        self._active_page = current_page
+        self._active_router_wrappers = wrappers or []
+        try:
             return current.run()
+        finally:
+            self._active_router = previous_router
+            self._active_page = previous_page
+            self._active_router_wrappers = previous_wrappers

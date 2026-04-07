@@ -22,6 +22,7 @@ def test_examples_runner_resolves_known_example():
 def test_examples_runner_lists_expected_examples():
     names = available_examples()
     assert "dashboard" in names
+    assert "hooks" in names
     assert "theme_editor" in names
     assert "multipage" in names
 
@@ -34,7 +35,7 @@ def test_examples_runner_builds_streamlit_command():
 
 
 def test_package_exposes_version():
-    assert st_components.__version__ == "0.1.3"
+    assert st_components.__version__ == "0.1.5"
 
 
 def test_examples_join_resolves_packaged_assets():

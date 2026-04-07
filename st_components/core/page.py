@@ -4,7 +4,7 @@ from typing import Literal
 
 from modict import modict
 
-from .base import Component, Element
+from .base import Component, Element, Fragment
 
 
 class PageProps(modict):
@@ -23,18 +23,11 @@ class PageProps(modict):
     children: list = modict.factory(list)
 
 
-class Page:
+class Page(Component):
+    __props_class__ = PageProps
 
     def __init__(self, **props):
-        self.props = PageProps(props)
-
-    @property
-    def children(self):
-        return self.props.children
-
-    @children.setter
-    def children(self, value):
-        self.props.children = list(value)
+        super().__init__(**props)
 
     def __call__(self, *children):
         if len(children) != 1:
@@ -50,7 +43,7 @@ class Page:
 
     @property
     def key(self):
-        return self.props.get("key")
+        return self.props.get("key") or self.namespace()
 
     @property
     def section(self):
@@ -82,8 +75,8 @@ class Page:
         return config
 
     def namespace(self):
-        if self.key:
-            return self.key
+        if self.props.get("key"):
+            return self.props.key
         if self.props.default:
             return "__default__"
         if self.props.url_path:
@@ -99,3 +92,6 @@ class Page:
         if isinstance(source, (Component, Element)):
             return getattr(source, "key", None) or source.__class__.__name__
         return source.__class__.__name__
+
+    def render(self):
+        return Fragment(key=self.key)()

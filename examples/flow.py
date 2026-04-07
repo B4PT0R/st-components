@@ -128,4 +128,4 @@ class FlowDemo(Component):
         )
 
 
-App(root=FlowDemo(key="app")).render()
+App()(FlowDemo(key="app")).render()

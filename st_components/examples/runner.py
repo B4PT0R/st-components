@@ -11,6 +11,7 @@ EXAMPLE_MODULES = {
     "flow": "examples.flow",
     "functional": "examples.functional",
     "functional_typed": "examples.functional_typed",
+    "hooks": "examples.hooks",
     "multipage": "examples.multipage.app",
     "primitives": "examples.primitives",
     "theme_editor": "examples.theme_editor",

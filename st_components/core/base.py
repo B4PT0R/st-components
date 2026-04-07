@@ -6,7 +6,7 @@ import streamlit as st
 
 from .context import KEY, component_context, get_key_stack, key_context, path_context
 from .access import get_element_value
-from .models import Fiber, Props, State
+from .models import Fiber, HookSlot, Props, State
 from .refs import bind_ref
 from .store import fibers, register_component, track_rendered_fiber, unregister_component
 
@@ -133,6 +133,8 @@ class Component:
         self._state = initial_cls() if initial_cls is not None else State()
         self._component_id = f"{type(self).__name__}:{uuid4().hex}"
         self._fiber_key = None
+        self._hook_index = 0
+        self._pending_hook_effects = {}
         self._decorate_render()
 
     @property
@@ -222,6 +224,72 @@ class Component:
 
         return sync
 
+    def _begin_hook_cycle(self):
+        self._hook_index = 0
+        self._pending_hook_effects = {}
+
+    def _claim_hook_slot(self, kind):
+        if not self.is_mounted:
+            raise RuntimeError("Hooks require a mounted Component.")
+
+        hooks = self.fiber.hooks
+        index = self._hook_index
+        self._hook_index += 1
+
+        if index == len(hooks):
+            slot = HookSlot(kind=kind)
+            hooks.append(slot)
+            return index, slot
+
+        slot = hooks[index]
+        if slot.kind != kind:
+            raise RuntimeError(
+                f"Hook order changed for component {type(self).__name__}: "
+                f"expected {slot.kind!r} at slot {index}, got {kind!r}."
+            )
+        return index, slot
+
+    def _use_hook_slot(self, kind):
+        _, slot = self._claim_hook_slot(kind)
+        return slot
+
+    def _queue_hook_effect(self, index, effect):
+        self._pending_hook_effects[index] = effect
+
+    def _flush_hook_effects(self):
+        if not self.is_mounted:
+            return
+
+        for index, effect in list(self._pending_hook_effects.items()):
+            slot = self.fiber.hooks[index]
+            if slot.cleanup is not None:
+                slot.cleanup()
+                slot.cleanup = None
+
+            cleanup = effect()
+            if cleanup is not None and not callable(cleanup):
+                raise TypeError(
+                    f"use_effect() cleanup must be callable or None, got {type(cleanup)}."
+                )
+            slot.cleanup = cleanup
+
+        self._pending_hook_effects = {}
+
+    def _cleanup_hook_effects(self):
+        if self.fiber is None:
+            return
+        for slot in self.fiber.hooks:
+            if slot.kind == "effect" and slot.cleanup is not None:
+                slot.cleanup()
+                slot.cleanup = None
+
+    def _end_hook_cycle(self):
+        if self.is_mounted and self._hook_index != len(self.fiber.hooks):
+            raise RuntimeError(
+                f"Hook count changed for component {type(self).__name__}: "
+                f"expected {len(self.fiber.hooks)}, got {self._hook_index}."
+            )
+
     def __call__(self, *children):
         self.props.children = list(children)
         return self
@@ -249,7 +317,9 @@ class Component:
         register_component(self._component_id, self)
         track_rendered_fiber(self._fiber_key)
         with key_context(self.key), component_context(self):
+            self._begin_hook_cycle()
             children = map(render_to_element, to_tuple(render_func()))
+            self._end_hook_cycle()
             return Fragment(key=self.key)(*children)
 
     def _render_in_fragment(self, render_func):

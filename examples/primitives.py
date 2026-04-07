@@ -1397,4 +1397,4 @@ class PrimitivesApp(Component):
         )
 
 
-App(root=PrimitivesApp(key="app")).render()
+App()(PrimitivesApp(key="app")).render()

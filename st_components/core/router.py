@@ -2,16 +2,21 @@ from typing import Literal
 
 from modict import modict
 
+from .base import Component, Fragment
+from .models import Props
 from .page import Page
 
 
-class RouterProps(modict):
+class RouterProps(Props):
+    key: str = "router"
     position: Literal["sidebar", "top", "hidden"] = "sidebar"
     expanded: bool = False
     children: list[Page] = modict.factory(list)
 
 
-class Router:
+class Router(Component):
+    class Props(RouterProps):
+        pass
 
     def __init__(self, **props):
         unsupported = {
@@ -31,15 +36,7 @@ class Router:
                 f"Router does not accept global page config props ({names}). "
                 "Pass them to App(...) instead."
             )
-        self.props = RouterProps(props)
-
-    @property
-    def children(self):
-        return self.props.children
-
-    @children.setter
-    def children(self, value):
-        self.props.children = list(value)
+        super().__init__(**props)
 
     def __call__(self, *children):
         for child in children:
@@ -52,4 +49,7 @@ class Router:
 
     @property
     def pages(self):
-        return self.props.children
+        return self.children
+
+    def render(self):
+        return Fragment(key=self.key)(*self.children)

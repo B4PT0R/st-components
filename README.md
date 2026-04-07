@@ -6,7 +6,7 @@ React-inspired stateful components for [Streamlit](https://streamlit.io), in pur
 
 - `Component` for reusable, stateful UI units
 - `Element` for thin wrappers around Streamlit primitives
-- `App` for render-cycle orchestration, shared theme/config, and root rendering
+- `App` for render-cycle orchestration, shared theme/config, and app-level rendering
 
 It keeps Streamlit's rerun model, but gives larger apps a clearer tree structure, local state, and more composable UI.
 
@@ -81,9 +81,9 @@ class Counter(Component):
 
 
 app = App()(
-    container(key="app")(
-        Counter(key="a"),
-        Counter(key="b"),
+    container(key="home")(
+        Counter(key="counter_1"),
+        Counter(key="counter_2"),
     )
 )
 
@@ -128,8 +128,8 @@ An `Element` is a render primitive.
 - It renders into a corresponding Streamlit widget
 - Its `render()` method returns None (the actual value of the widget lives in `st.session_state`, accessible by element path or ref).
 - You can't declare a state on it.
-- Stateful behavior should generally be built by composing Elements inside Components.
 
+Any Component tree must recursively resolve into a tree of pure Elements
 
 ### Render Contract
 
@@ -142,9 +142,8 @@ In practice:
 
 - use the `render()` of Components to compose UI
 - use Elements as atomic building blocks
-- a widget's current value lives in the element value channel
-- a runtime object such as a placeholder or handle returned by the element will also live in that same channel
-- both are then reached uniformly through callback context, explicit path, or `Ref` via `get_element_value`
+- an element's output value lives in the element value channel
+- this value can be accessed by callback context, explicit path, or `Ref` via `get_element_value`
 
 ### Keys
 
@@ -158,17 +157,23 @@ Keys are intentionally local:
 
 This means two nodes can both use `key="counter"` safely if they live in different branches.
 
+In the final tree, paths are derived structurally from real component keys. For example:
+
+- a simple top-level branch might render under `app.home.panel.toggle`
+- a multipage branch might render under `app.router.report.page.note`
+- a provided subtree might render under `app.theme_scope.toolbar`
+
 ## Onboarding Path
 
 If you're new to the library, this is the shortest useful path:
 
 1. Start with `App`, `Component`, and a few `elements`.
 2. Use `self.state` inside components for local UI state.
-3. `on_change` handlers receive the current widget value as `value`.
+3. Pipe event handlers to deal with app logic.
 4. Use `Ref()` only when you need path-based reachability later.
 5. Add typed `State` and `Props` models once the shape stabilizes.
 
-### Pattern 1: Keep local state in Components
+### Pattern 1: Declare a simple component with local state
 
 ```python
 from st_components import Component
@@ -235,7 +240,7 @@ class NameForm(Component):
         return text_input(
             key="name",
             value=self.state.name,
-            on_change=self.set_name,
+            on_change=self.sync_name,
         )("Name")
 ```
 
@@ -268,7 +273,7 @@ Conceptually, this is the value channel for Elements:
 
 ### Pattern 3: Use `Ref()` for logical reachability
 
-Refs are path-based references to a given component or element in the tree. You attach one to a component or element when you want to access its state or value without having to provide its full path. They don't point to the component instance directly, only to its state or value.
+Refs are path-based references to a given component or element in the tree. You attach one to a component or element when you want to access its state or value without having to provide its full path. They don't point to the instance directly, only to its location in the tree, which is enough to retrieve its state from the fiber (or its value from `st.session_state` directly in case of an element).
 
 ```python
 from st_components import App, Component, Ref, get_component_state, get_element_value
@@ -325,13 +330,13 @@ App()(RefDemo(key="refs")).render()
 ```python
 from st_components import App, Component
 
-class MyRoot(Component):
+class MyLayout(Component):
 
     def render(self):
         return "Hello World!"
 
 app = App()(
-    MyRoot(key="root")
+    MyLayout(key="layout")
 )
 app.render()
 ```
@@ -347,19 +352,21 @@ You may pass additional props to `App` for theming and configuration:
 from st_components import App, Theme, get_app
 
 app = App(theme=Theme(textColor="black"))(
-    MyRoot(key="root")
+    MyLayout(key="layout")
 )
 app.render()
 ```
 
 `App` creates a singleton instance and should usually be initialized only once in a project. If you need the current instance elsewhere, call `get_app()`.
 
+`App` is also the structural root of the rendered tree. Its key is fixed to `app`, so every mounted path starts with `app...`.
+
 Constructor:
 
 ```python
 App(
-    root=None,
     *,
+    children=None,
     page_title=None,
     page_icon=None,
     layout=None,
@@ -375,7 +382,7 @@ App(
 
 Accepted constructor props:
 
-- `root`: optional root node. Usually a `Component`, `Element`, or router root. You can also provide it later with `App()(MyRoot(key="root"))`.
+- `children`: optional list containing a single renderable (Component, Element or value). In practice, `App()(MyLayout(key="layout"))` is the recommended style because it keeps props and tree structure clearly separated.
 - `page_title`: forwarded to `st.set_page_config(page_title=...)`.
 - `page_icon`: forwarded to `st.set_page_config(page_icon=...)`.
 - `layout`: forwarded to `st.set_page_config(layout=...)`, typically `"centered"` or `"wide"`.
@@ -395,8 +402,6 @@ In practice:
 - use `config` for the supported `client`, `runner`, `browser`, and `server` sections
 
 Useful methods:
-
-- `App()(root)`: attach the single root node after construction. Equivalent to passing `root=...` to the constructor.
 - `.render()`: render the app.
 - `.create_shared_state(name, instance)`: declare a shared state namespace for the app, then return the app for chaining.
 - `.set_theme(theme)`: update the current theme in memory and in session state. Accepts a dict, a `Theme`, or `None`.
@@ -404,8 +409,10 @@ Useful methods:
 - `.set_css(css)`: update the current CSS in memory and in session state.
 - `.set_config(config)`: update the current Streamlit config in memory and in session state. Accepts a dict, a `Config`, or `None`.
 - `.save_config(config=None)`: optionally set a config, then persist it to `.streamlit/config.toml`.
-- `.render_page(root)`: render a page root through the current app instance. This is mainly useful from file-backed multipage sources via `get_app().render_page(...)`.
+- `.render_page(page_tree)`: render a page tree through the current app instance. This is mainly useful from file-backed multipage sources via `get_app().render_page(...)`, and it preserves the active multipage path prefix such as `app.router.report...`.
 - `get_app()`: return the current app instance from anywhere in the render tree.
+
+For multipage apps, `Router` and `Page` are normal structural components too. The current page therefore lives in the same path system as the rest of the tree, for example `app.router.overview.page...` or `app.router.report.page...`.
 
 ## Elements
 
@@ -545,9 +552,33 @@ app = App()(
 app.render()
 ```
 
-### `use_state`
+### Hooks
 
-You can also give local state to functional components through `use_state()`. This is the functional equivalent of `self.state` on class components:
+Hooks are the general mechanism for storing and managing information on the mounted component fiber rather than on the transient Python instance recreated on each rerun.
+
+This matters because component instances are not persistent across reruns, but fibers are. Hooks therefore give you a place to keep state, memoized values, technical refs, effects, and other render-adjacent data that must survive from one render cycle to the next.
+
+Hooks are relevant for both functional components and class-based components:
+
+- in functional components, they are the primary way to access persistent local state and render-cycle helpers
+- in class components, they complement `self.state` when you need persistent technical data that should not live in ordinary instance attributes
+
+Hooks are evaluated in call order during render, and their data persists on the mounted component fiber.
+
+Available hooks:
+
+- `use_state(...)`: local render state for functional components. This is the functional equivalent of `self.state`.
+- `use_context(context)`: read a tree-scoped ambient value from the nearest matching provider.
+- `use_memo(factory, deps=None)`: memoize a computed value between renders.
+- `use_effect(effect, deps=None)`: run an effect after render, with optional cleanup support.
+- `use_ref(initial=None)`: keep a mutable technical value across renders through `.current`.
+- `use_callback(callback, deps=None)`: memoize a callback identity. This is a small convenience wrapper over `use_memo(...)`.
+- `use_previous(value, initial=None)`: read the value from the previous render.
+- `use_id()`: get a stable id for the current hook slot in the mounted component.
+
+#### `use_state`
+
+Use `use_state()` when a functional component needs local render state:
 
 ```python
 from st_components import component, use_state
@@ -567,7 +598,7 @@ def Counter(props):
     )
 ```
 
-Or pass a typed `State` instance:
+You can also pass a typed `State` instance:
 
 ```python
 from st_components import State, component, use_state
@@ -592,6 +623,157 @@ def Counter(props):
         button(key="inc", on_click=increment)(f"+ {state.step}"),
     )
 ```
+
+#### `use_context`
+
+Use `create_context(initial_context_data)` to define a typed tree-scoped ambient value, wrap a subtree with `MyContext.Provider(...)`, then read it from any descendant with `use_context(MyContext)`.
+
+This is useful when a value should be shared across a branch without being threaded manually through several layers of props.
+
+Unlike `shared_state`, context is scoped by tree position rather than by global namespace. Two different branches can therefore provide different values for the same context at the same time.
+
+Contexts are typed through `ContextData`. The initial context object is the default value returned by `use_context(...)` when no provider is present, and later providers replace the current context for their subtree with a new instance of the same schema.
+
+You can pass either:
+
+- a `ContextData` instance, if you want a custom typed subclass
+- or a plain `dict`, which is automatically cast to the base `ContextData` class and then returned as such by `use_context(...)`
+
+The same rule applies to `Provider(data=...)`: it accepts either a `ContextData` instance or a plain `dict`, normalizes it to the context's original schema class, and rejects anything else. The provider does not implicitly merge with the previous scoped value.
+
+Resolution follows the rendered tree:
+
+- if a matching provider exists above the current component, `use_context(...)` returns the value from the nearest one
+- otherwise it returns the context default
+- nested providers override outer ones naturally for their own subtree
+
+```python
+from st_components import ContextData, component, create_context, use_context
+
+
+class ThemeData(ContextData):
+    mode: str = "light"
+
+
+ThemeContext = create_context(ThemeData(mode="light"))
+
+
+@component
+def Toolbar(props):
+    theme = use_context(ThemeContext)
+    return f"Theme: {theme.mode}"
+```
+
+```python
+App()(
+    ThemeContext.Provider(key="theme_scope", data={"mode": "dark"})(
+        Toolbar(key="toolbar")
+    )
+).render()
+```
+
+The provider is a normal structural component, so its key also appears in paths such as `app.theme_scope.toolbar`.
+
+#### `use_memo`
+
+Use `use_memo(factory, deps)` to reuse a computed value until its dependencies change.
+
+- `deps=None`: recompute on every render
+- `deps=[]`: compute once per mounted component
+- otherwise: recompute only when the deps tuple changes between renders
+
+```python
+from st_components import component, use_memo
+
+
+@component
+def Summary(props):
+    total = use_memo(
+        lambda: sum(props.values),
+        deps=[tuple(props.values)],
+    )
+    return f"Total: {total}"
+```
+
+#### `use_effect`
+
+Use `use_effect(effect, deps)` for post-render work.
+
+- the effect runs after render
+- if it returns a callable, that callable is used as cleanup
+- cleanup runs before the effect reruns and when the component unmounts
+
+```python
+from st_components import component, use_effect
+
+
+@component
+def Logger(props):
+    use_effect(
+        lambda: print(f"value changed to {props.value}"),
+        deps=[props.value],
+    )
+    return None
+```
+
+#### `use_ref`
+
+Use `use_ref(initial)` for mutable technical state that should persist across renders without being part of the render state.
+
+```python
+from st_components import component, use_ref
+
+
+@component
+def PreviousTracker(props):
+    previous = use_ref(None)
+    seen = previous.current
+    previous.current = props.value
+    return f"Previous: {seen}"
+```
+
+#### `use_callback`
+
+Use `use_callback(callback, deps)` when you want a stable callback identity between renders.
+
+Conceptually:
+
+```python
+use_callback(fn, deps) == use_memo(lambda: fn, deps)
+```
+
+#### `use_previous`
+
+Use `use_previous(value)` when you want the previous render's value directly.
+
+```python
+from st_components import component, use_previous
+
+
+@component
+def Delta(props):
+    previous = use_previous(props.value)
+    return f"Previous={previous}, Current={props.value}"
+```
+
+#### `use_id`
+
+Use `use_id()` when you need a stable per-hook identifier for the mounted component.
+
+Class components still have natural equivalents for some of these ideas:
+
+- `use_state(...)` -> `self.state`
+- `use_effect(...)` -> `component_did_mount()`, `component_did_update(prev_state)`, `component_did_unmount()`
+- `use_ref(...)` -> a persistent technical cell on the fiber, which is usually safer than a plain instance attribute if the value must survive reruns
+- `use_memo(...)` -> fiber-backed memoization, which is usually safer than instance-level caching if the value must survive reruns
+- `use_callback(...)` -> a normal instance method
+- `use_previous(...)` -> an instance attribute or `prev_state` inside `component_did_update(...)`
+- `use_id()` -> a fiber-backed stable identifier
+
+So the intended split is mostly:
+
+- hooks for persistent render-cycle data
+- `self.state` and lifecycle methods for the class-oriented API surface
 
 ### `get_element_value(path_or_ref=None, default=None)`
 
@@ -647,7 +829,7 @@ app = App(
         sidebar={"backgroundColor": "#111827"},
     ),
 )(
-    MyRoot(key="root"),
+    MyLayout(key="layout"),
 )
 ```
 
@@ -712,6 +894,8 @@ Current built-ins include:
 - multipage app helpers: `Router`, `Page`
 - theme tooling: `ThemeEditor`, `ThemeEditorButton`, `ThemeEditorDialog`
 
+`Router` and `Page` are structural components used by `App.render()` to compile Streamlit multipage navigation while still keeping normal component paths such as `app.router.report.page...`.
+
 
 
 ## Examples
@@ -722,6 +906,7 @@ The repository includes several runnable examples. They are the fastest way to s
 - `python -m st_components.examples dashboard`
 - `python -m st_components.examples functional`
 - `python -m st_components.examples flow`
+- `python -m st_components.examples hooks`
 - `python -m st_components.examples multipage`
 - `python -m st_components.examples theme_editor`
 - `python -m st_components.examples primitives`
@@ -732,8 +917,9 @@ What they are good for:
 - `primitives`: broad survey of available elements
 - `dashboard`: larger composed UI with more realistic structure
 - `functional`: `@component` and `use_state()` patterns
+- `hooks`: compact overview of the hook system in one screen
 - `flow`: structural built-ins such as switching and conditional rendering
-- `multipage`: router, pages, file-backed pages, and shared state
+- `multipage`: router, pages, file-backed pages, shared state, and a lightweight provider above the router
 - `theme_editor`: live theme tuning workflow
 
 You can also run example files directly from the repository with `streamlit run examples/<name>.py` when that is more convenient.
@@ -744,7 +930,8 @@ If you want the fastest onboarding path, start with:
 2. `python -m st_components.examples primitives`
 3. `python -m st_components.examples dashboard`
 4. `python -m st_components.examples functional`
-5. `python -m st_components.examples theme_editor`
+5. `python -m st_components.examples hooks`
+6. `python -m st_components.examples theme_editor`
 
 ## Usage Guidelines
 
@@ -776,6 +963,7 @@ Because every rerun recreates the tree, the stable identity of a component is it
 This is why cross-component coordination should usually use:
 
 - local state for behavior internal to one component
+- context for ambient values shared by one subtree
 - shared state for app-level coordination
 - refs only when you need path-based reachability to a specific mounted node
 

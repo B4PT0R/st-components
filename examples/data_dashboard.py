@@ -425,4 +425,4 @@ class DataDashboard(Component):
         )
 
 
-App(root=DataDashboard(key="ds_dashboard")).render()
+App()(DataDashboard(key="ds_dashboard")).render()

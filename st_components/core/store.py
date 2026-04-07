@@ -146,6 +146,7 @@ def end_render_cycle():
             continue
         component = resolve_component(fiber.component_id) if fiber is not None else None
         if component is not None:
+            component._cleanup_hook_effects()
             component.component_did_unmount()
         if fiber is not None:
             unregister_component(fiber.component_id)
@@ -157,6 +158,12 @@ def end_render_cycle():
         component = resolve_component(fiber.component_id) if fiber is not None else None
         if component is not None:
             component.component_did_update(previous_states[fiber_key])
+
+    for fiber_key in rendered_fibers:
+        fiber = fibers().get(fiber_key)
+        component = resolve_component(fiber.component_id) if fiber is not None else None
+        if component is not None:
+            component._flush_hook_effects()
 
     for fiber_key in rendered_fibers:
         fiber = fibers().get(fiber_key)

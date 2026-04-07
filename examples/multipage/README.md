@@ -10,6 +10,8 @@ This example demonstrates the multipage API around `Router`:
 - `Router` contains only `Page` children and is responsible for wiring `st.navigation(...)`.
 - `Page(...)(OverviewPage(key="root"))` declares an inline page from an instantiated component.
 - `Page(...)("pages/report_page.py")` declares a file-backed page that Streamlit executes directly.
+- rendered paths now follow the normal component tree model, for example `app.router.overview.root...` or `app.router.report.root...`.
+- a lightweight `Provider` is mounted above the router so both pages, including the file-backed one, can read the same ambient context.
 - `App(page_title=..., page_icon=..., layout=...)` configures the shared web page envelope for the app.
 - `nav_title` and `nav_icon` configure the navigation label and icon for each page.
 - `app.create_shared_state("workspace", WorkspaceState())` declares the global shared state in one central place.

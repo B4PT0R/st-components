@@ -1,4 +1,4 @@
-from st_components import Component, State, get_shared_state
+from st_components import Component, ContextData, State, create_context, get_shared_state, use_context
 from st_components.elements import button, caption, container, markdown, sidebar, text_input
 
 
@@ -7,6 +7,13 @@ class WorkspaceState(State):
     current_message: str = "Hello from shared state"
     team: str = "Core"
     focus: int = 7
+
+
+class AppModeData(ContextData):
+    mode: str = "unset"
+
+
+AppModeContext = create_context(AppModeData(mode="unset"), name="app_mode")
 
 
 class WorkspaceSidebar(Component):
@@ -32,11 +39,15 @@ class WorkspaceSidebar(Component):
 
     def render(self):
         workspace = get_shared_state("workspace")
+        app_mode = use_context(AppModeContext)
         return sidebar(key="sidebar")(
             container(key="workspace")(
                 markdown(key="title")("### Workspace sidebar"),
                 caption(key="caption")(
                     "This sidebar component is instantiated in each page and synchronized through shared state."
+                ),
+                caption(key="mode")(
+                    f"Ambient context mode: `{app_mode.mode}`"
                 ),
                 text_input(
                     key="team",

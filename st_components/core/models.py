@@ -1,4 +1,4 @@
-from typing import Literal
+from typing import Any, Literal
 
 from modict import modict
 
@@ -16,11 +16,26 @@ class State(modict):
     pass
 
 
+class ContextData(modict):
+    pass
+
+
+class HookSlot(modict):
+    _config = modict.config(require_all="never")
+
+    kind: str = modict.field(required="always")
+    initialized: bool = False
+    value: Any = None
+    deps: Any = None
+    cleanup: Any = None
+
+
 class Fiber(modict):
     state: State = modict.factory(State)
     component_id: str | None = None
     previous_state: State | None = None
     keep_alive: bool = False
+    hooks: list[HookSlot] = modict.factory(list)
 
 
 class Fibers(modict[str, Fiber]):

@@ -27,4 +27,4 @@ class BasicDemo(Component):
         )
 
 
-App(root=BasicDemo(key="app")).render()
+App()(BasicDemo(key="app")).render()

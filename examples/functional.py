@@ -118,4 +118,4 @@ def FunctionalDemo(props):
     )
 
 
-App(root=FunctionalDemo(key="app")).render()
+App()(FunctionalDemo(key="app")).render()
