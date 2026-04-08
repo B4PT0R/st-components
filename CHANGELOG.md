@@ -4,6 +4,28 @@ All notable changes to this project will be documented in this file.
 
 The format is based on Keep a Changelog, and this project uses SemVer.
 
+## [0.1.6] - 2026-04-08
+
+Element fiber, unified state API, and API surface cleanup.
+
+### Added
+
+- `ElementFiber` — every rendered `Element` now has a lightweight fiber in `st.session_state` holding its path, widget key, hooks, and a post-processed value cache.
+- Hook support in `Element.render()`: `use_effect`, `use_memo`, `use_ref`, `use_callback`, `use_previous`, `use_id`, and `use_context` all work inside custom element subclasses (same rules as in `Component`, except `use_state` which is reserved for functional components).
+- `get_state(path_or_ref=None)` — unified state accessor that works for both Elements and Components:
+  - for an Element it returns an `ElementState` with a `value` field
+  - for a Component it returns its `State` dict
+  - returns `None` if the path doesn't resolve to a live fiber
+- `ElementState` — a `State` subclass with a single `value` field, returned by `ElementFiber.state`.
+
+### Changed
+
+- **Unified element value storage**: all Streamlit-keyed widget values are now stored under `{path}.raw` (previously `.value`). The `.raw` suffix makes the Streamlit-owned key explicit and leaves `.value` unambiguous as the post-processed accessor via `ElementState.value`.
+- **`get_state` replaces `get_element_value` and `get_component_state`**: both old functions still exist for backwards compatibility but the unified `get_state` is now the documented API.
+- **`Ref.state()` is now the only state accessor on `Ref`**: `ref.value()` has been removed. Use `ref.state().value` to read an element value through a ref.
+- `ElementFiber.state` is a computed modict field that reads from the fiber's cache if set, or falls back to `st.session_state[widget_key]`.
+- README and examples updated throughout to use `get_state(...)` and `ref.state().value`.
+
 ## [0.1.5] - 2026-04-07
 
 Tree-model and hooks/context stabilization release.

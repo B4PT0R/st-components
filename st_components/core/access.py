@@ -6,12 +6,14 @@ from .context import Context, get_element_path
 _WIDGET_REVISIONS_KEY = "__st_components_widget_revisions__"
 
 
-def set_element_value(path, value):
-    state[f"{path}.value"] = value
+def _raw_key(path: str) -> str:
+    """Key under which layout element Streamlit objects are stored (e.g. container, form)."""
+    return f"{path}.raw"
 
 
 def _base_value_key(path: str) -> str:
-    return f"{path}.value"
+    """Key under which input widget Streamlit values are stored."""
+    return f"{path}.raw"
 
 
 def _resolve_path(path_or_ref=None, *, expected_kind=None, fn_name="operation"):
@@ -59,6 +61,14 @@ def _get_widget_key(path=None):
     return f"{base_key}#{revision}"
 
 
+def set_element_value(path, value):
+    from .store import fibers
+    from .models import ElementFiber
+    fiber = fibers().get(path)
+    if isinstance(fiber, ElementFiber):
+        fiber["cache"] = value
+
+
 def reset_element(path=None):
     element_path = _resolve_path(path, expected_kind="element", fn_name="reset_element")
     if element_path is None:
@@ -70,22 +80,42 @@ def reset_element(path=None):
     current_key = _get_widget_key(element_path)
     if base_key in state:
         del state[base_key]
-    if current_key in state:
+    if current_key in state and current_key != base_key:
         del state[current_key]
 
     revisions = _widget_revisions()
     revisions[base_key] = revisions.get(base_key, 0) + 1
     state[_WIDGET_REVISIONS_KEY] = revisions
 
+    from .store import fibers
+    from .models import ElementFiber
+    from modict import MISSING
+    fiber = fibers().get(element_path)
+    if isinstance(fiber, ElementFiber):
+        fiber["cache"] = MISSING
+
+
+def get_state(path_or_ref=None):
+    from .store import fibers
+    path = _resolve_path(path_or_ref) if path_or_ref is not None else get_element_path()
+    if path is None:
+        return None
+    fiber = fibers().get(path)
+    if fiber is None:
+        return None
+    return fiber.state
+
+
 def get_element_value(path=None, default=None):
-    element_path = _resolve_path(path, expected_kind="element", fn_name="get_element_value")
+    element_path = _resolve_path(path, expected_kind="element", fn_name="get_element_value") if path is not None else get_element_path()
     if element_path is None:
-        raise RuntimeError(
-            "get_element_value() requires an element path or an active element/widget callback context."
-        )
-    value_key = _base_value_key(element_path)
-    if value_key in state:
-        return state.get(value_key, default)
+        if Context.callback.widget_key is not None:
+            return state.get(Context.callback.widget_key, default)
+        return default
+
+    result = get_state(element_path)
+    if result is not None and result.value is not None:
+        return result.value
 
     if path is None and Context.callback.widget_key is not None:
         return state.get(Context.callback.widget_key, default)
@@ -94,15 +124,4 @@ def get_element_value(path=None, default=None):
 
 
 def get_component_state(path):
-    component_path = _resolve_path(path, expected_kind="component", fn_name="get_component_state")
-    if component_path is None:
-        raise RuntimeError(
-            "get_component_state() requires a component path or a component Ref."
-        )
-
-    from .store import fibers
-
-    fiber = fibers().get(component_path)
-    if fiber is None:
-        raise RuntimeError(f"No mounted component found at path {component_path!r}.")
-    return fiber.state
+    return get_state(path)

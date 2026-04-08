@@ -7,19 +7,19 @@ class RefValue:
         self.current = current
 
 
-def _current_component():
+def _current_node():
     current = get_rendering_component()
-    if not isinstance(current, Component):
-        raise RuntimeError("Hooks must be called while rendering a Component.")
+    if current is None:
+        raise RuntimeError("Hooks must be called while rendering a Component or Element.")
     return current
 
 
 def _use_hook_slot(kind):
-    return _current_component()._use_hook_slot(kind)
+    return _current_node()._use_hook_slot(kind)
 
 
 def _claim_hook_slot(kind):
-    return _current_component()._claim_hook_slot(kind)
+    return _current_node()._claim_hook_slot(kind)
 
 
 def _normalize_deps(deps):
@@ -29,7 +29,10 @@ def _normalize_deps(deps):
 
 
 def use_state(other=None, /, **kwargs):
-    current = _current_component()
+    from .base import Element
+    current = _current_node()
+    if isinstance(current, Element):
+        raise RuntimeError("use_state() cannot be used inside Element.render(). Elements do not have framework state.")
     slot = current._use_hook_slot("state")
 
     if not slot.initialized:
@@ -43,7 +46,7 @@ def use_state(other=None, /, **kwargs):
 
 
 def use_context(context):
-    _current_component()
+    _current_node()
     return get_context_value(context)
 
 
@@ -51,7 +54,7 @@ def use_memo(factory, deps=None):
     if not callable(factory):
         raise TypeError(f"use_memo() expects a callable factory, got {type(factory)}")
 
-    slot = _current_component()._use_hook_slot("memo")
+    slot = _current_node()._use_hook_slot("memo")
     normalized_deps = _normalize_deps(deps)
 
     if not slot.initialized or normalized_deps is None or slot.deps != normalized_deps:
@@ -63,7 +66,7 @@ def use_memo(factory, deps=None):
 
 
 def use_ref(initial=None):
-    slot = _current_component()._use_hook_slot("ref")
+    slot = _current_node()._use_hook_slot("ref")
 
     if not slot.initialized:
         slot.value = RefValue(initial)
@@ -86,11 +89,12 @@ def use_previous(value, initial=None):
 
 
 def use_id():
-    current = _current_component()
+    current = _current_node()
     index, slot = current._claim_hook_slot("id")
 
     if not slot.initialized:
-        slot.value = f"{current._fiber_key or type(current).__name__}:hook:{index}"
+        fiber_key = getattr(current, "_fiber_key", None) or type(current).__name__
+        slot.value = f"{fiber_key}:hook:{index}"
         slot.initialized = True
 
     return slot.value
@@ -100,7 +104,7 @@ def use_effect(effect, deps=None):
     if not callable(effect):
         raise TypeError(f"use_effect() expects a callable effect, got {type(effect)}")
 
-    current = _current_component()
+    current = _current_node()
     index, slot = current._claim_hook_slot("effect")
     normalized_deps = _normalize_deps(deps)
 

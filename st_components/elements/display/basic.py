@@ -46,7 +46,7 @@ class pdf(Element):
         Element.__init__(self, key=key, data=data, ref=ref, height=height)
 
     def render(self):
-        st.pdf(child_or_prop(self, "data"), key=KEY("st_pdf"), **self.props.exclude("key", "children", "data", "ref"))
+        st.pdf(child_or_prop(self, "data"), key=KEY("raw"), **self.props.exclude("key", "children", "data", "ref"))
 
 
 class exception(Element):

@@ -1,4 +1,4 @@
-from .access import get_component_state, get_element_value, reset_element, set_element_value
+from .access import get_component_state, get_element_value, get_state, reset_element, set_element_value
 from .app import App, get_app
 from .base import Component, Element, Fragment, Primitive, render, render_to_element
 from .context import (
@@ -19,7 +19,7 @@ from .context import (
 from .context_api import ContextProvider, ContextValue, create_context
 from .function_component import component
 from .hooks import use_callback, use_context, use_effect, use_id, use_memo, use_previous, use_ref, use_state
-from .models import Config, ContextData, Fiber, HookSlot, Props, State, Theme
+from .models import Config, ContextData, ElementFiber, ElementState, Fiber, HookSlot, Props, State, Theme
 from .page import Page, PageProps
 from .refs import Ref, bind_ref
 from .router import Router, RouterProps
@@ -69,9 +69,12 @@ __all__ = [
     "fibers",
     "get_active_page_namespace",
     "get_app",
+    "ElementFiber",
+    "ElementState",
     "get_component_state",
     "get_element_path",
     "get_element_value",
+    "get_state",
     "get_key_stack",
     "get_rendering_component",
     "get_shared_state",

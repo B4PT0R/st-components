@@ -3,7 +3,8 @@ from copy import deepcopy
 
 from modict import modict
 from streamlit import session_state as state
-from .models import Fibers, PreviousStates, SharedStates, State
+from modict import MISSING
+from .models import ElementFiber, Fiber, Fibers, PreviousStates, SharedStates, State
 
 try:
     from streamlit.runtime.scriptrunner import get_script_run_ctx
@@ -119,11 +120,13 @@ def mark_subtree_keep_alive(prefix):
 def begin_render_cycle():
     for fiber in fibers().values():
         fiber.keep_alive = False
+        if isinstance(fiber, ElementFiber):
+            fiber["cache"] = MISSING
     state.__render_cycle_fibers__ = set()
     state.__render_cycle_previous_states__ = PreviousStates({
         fiber_key: deepcopy(fiber.previous_state)
         for fiber_key, fiber in fibers().items()
-        if fiber.previous_state is not None
+        if isinstance(fiber, Fiber) and fiber.previous_state is not None
     })
 
 
@@ -144,30 +147,43 @@ def end_render_cycle():
         fiber = fibers().get(fiber_key)
         if fiber is not None and fiber.keep_alive:
             continue
-        component = resolve_component(fiber.component_id) if fiber is not None else None
-        if component is not None:
-            component._cleanup_hook_effects()
-            component.component_did_unmount()
-        if fiber is not None:
-            unregister_component(fiber.component_id)
-        if fiber_key in fibers():
-            del fibers()[fiber_key]
+        if isinstance(fiber, ElementFiber):
+            if fiber is not None:
+                for slot in fiber.hooks:
+                    if slot.kind == "effect" and slot.cleanup is not None:
+                        slot.cleanup()
+                        slot.cleanup = None
+            if fiber_key in fibers():
+                del fibers()[fiber_key]
+        else:
+            component = resolve_component(fiber.component_id) if fiber is not None else None
+            if component is not None:
+                component._cleanup_hook_effects()
+                component.component_did_unmount()
+            if fiber is not None:
+                unregister_component(fiber.component_id)
+            if fiber_key in fibers():
+                del fibers()[fiber_key]
 
     for fiber_key in updated_fiber_keys:
         fiber = fibers().get(fiber_key)
+        if not isinstance(fiber, Fiber):
+            continue
         component = resolve_component(fiber.component_id) if fiber is not None else None
         if component is not None:
             component.component_did_update(previous_states[fiber_key])
 
     for fiber_key in rendered_fibers:
         fiber = fibers().get(fiber_key)
+        if not isinstance(fiber, Fiber):
+            continue
         component = resolve_component(fiber.component_id) if fiber is not None else None
         if component is not None:
             component._flush_hook_effects()
 
     for fiber_key in rendered_fibers:
         fiber = fibers().get(fiber_key)
-        if fiber is not None:
+        if fiber is not None and isinstance(fiber, Fiber):
             fiber.previous_state = deepcopy(fiber.state)
 
     del state.__render_cycle_fibers__

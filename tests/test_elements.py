@@ -7,6 +7,8 @@ from typing import Iterable, Literal
 
 from st_components.core import Component, Element, Ref, render, Context, get_component_state, get_element_value, reset_element
 from st_components.core.access import _get_widget_key
+from st_components.core.models import ElementFiber
+from st_components.core.store import fibers
 from st_components import elements
 from st_components.elements._utils import store_element_value
 from st_components.elements import chat_message, dialog, empty, progress as progress_element, write_stream
@@ -37,7 +39,7 @@ def test_elements_module_all_matches_public_exports():
 
 
 def test_get_element_value_from_path():
-    _session_data["app.form.name.value"] = "Alice"
+    _session_data["app.form.name.raw"] = "Alice"
     assert get_element_value("app.form.name") == "Alice"
 
 
@@ -48,7 +50,7 @@ def test_reset_element_rotates_runtime_key():
     refreshed_key = _get_widget_key()
     Context.key_stack.clear()
 
-    assert original_key == "app.form.name.value"
+    assert original_key == "app.form.name.raw"
     assert refreshed_key != original_key
 
     _session_data[refreshed_key] = "Bob"
@@ -59,11 +61,11 @@ def test_reset_element_accepts_ref():
     ref = Ref()
     ref._resolve("app.form.name", "element")
 
-    _session_data["app.form.name.value"] = "Alice"
+    _session_data["app.form.name.raw"] = "Alice"
     reset_element(ref)
     refreshed_key = _get_widget_key("app.form.name")
 
-    assert refreshed_key != "app.form.name.value"
+    assert refreshed_key != "app.form.name.raw"
 
     _session_data[refreshed_key] = "Bob"
     assert get_element_value(ref) == "Bob"
@@ -71,7 +73,7 @@ def test_reset_element_accepts_ref():
 
 def test_get_element_value_accepts_ref():
     ref = Ref()
-    _session_data["app.form.name.value"] = "Alice"
+    _session_data["app.form.name.raw"] = "Alice"
     ref._resolve("app.form.name", "element")
     assert get_element_value(ref) == "Alice"
 
@@ -99,18 +101,18 @@ def test_get_element_value_in_callback():
     Context.key_stack.clear()
 
     assert seen == ["Alice"], f"callback saw: {seen}"
-    assert _session_data["app.form.name.value"] == "Alice"
+    assert _session_data["app.form.name.raw"] == "Alice"
 
 
 def test_store_element_value_skips_canonical_widget_key():
     Context.key_stack[:] = [fake_ctx("app"), fake_ctx("chart")]
     try:
-        assert _get_widget_key() == "app.chart.value"
+        assert _get_widget_key() == "app.chart.raw"
         store_element_value("app.chart", {"selection": []})
     finally:
         Context.key_stack.clear()
 
-    assert "app.chart.value" not in _session_data
+    assert "app.chart.raw" not in _session_data
 
 
 def test_element_ref_value():
@@ -133,7 +135,7 @@ def test_element_ref_value():
 
     assert name_ref.path == "app.form.name"
     assert name_ref.kind == "element"
-    assert name_ref.value() == "Alice"
+    assert name_ref.state().value == "Alice"
 
 
 def test_empty_ref_stores_placeholder_runtime():
@@ -157,7 +159,7 @@ def test_empty_ref_stores_placeholder_runtime():
     render(EmptyDemo(key="demo"))
     Context.key_stack.clear()
 
-    assert empty_ref.value() is placeholder
+    assert empty_ref.state().value is placeholder
 
 
 def test_spinner_runtime_helper_uses_placeholder_ref():
@@ -183,7 +185,11 @@ def test_spinner_runtime_helper_uses_placeholder_ref():
             events.append("spinner_exit")
             return False
 
-    _session_data["app.demo.slot.value"] = placeholder_ctx()
+    placeholder = placeholder_ctx()
+    fiber = ElementFiber(path="app.demo.slot", widget_key="app.demo.slot.raw")
+    fiber["cache"] = placeholder
+    fibers()["app.demo.slot"] = fiber
+    _session_data["app.demo.slot.raw"] = placeholder
     _mock_st.spinner.side_effect = lambda text, **kwargs: events.append(("spinner", text, kwargs)) or spinner_ctx()
 
     with show_spinner(ref=slot_ref, text="Syncing...", show_time=True):
@@ -202,7 +208,11 @@ def test_spinner_runtime_helper_uses_placeholder_ref():
 def test_spinner_runtime_helper_rejects_non_context_ref():
     slot_ref = Ref()
     slot_ref._resolve("app.demo.slot", "element")
-    _session_data["app.demo.slot.value"] = object()
+    non_ctx = object()
+    fiber = ElementFiber(path="app.demo.slot", widget_key="app.demo.slot.raw")
+    fiber["cache"] = non_ctx
+    fibers()["app.demo.slot"] = fiber
+    _session_data["app.demo.slot.raw"] = non_ctx
 
     try:
         with show_spinner(ref=slot_ref):
@@ -230,7 +240,11 @@ def test_progress_runtime_helper_updates_and_clears_placeholder_ref():
         def empty(self):
             events.append("placeholder_empty")
 
-    _session_data["app.demo.slot.value"] = placeholder_ctx()
+    placeholder = placeholder_ctx()
+    fiber = ElementFiber(path="app.demo.slot", widget_key="app.demo.slot.raw")
+    fiber["cache"] = placeholder
+    fibers()["app.demo.slot"] = fiber
+    _session_data["app.demo.slot.raw"] = placeholder
     _mock_st.progress.side_effect = lambda value, **kwargs: events.append(("progress", value, kwargs)) or object()
     bar = show_progress(ref=slot_ref, value=10, text="Starting", width="stretch")
     returned = bar.update(50, text="Halfway")
@@ -262,13 +276,17 @@ def test_progress_element_ref_stores_runtime_handle():
     render(ProgressDemo(key="demo"))
     Context.key_stack.clear()
 
-    assert progress_ref.value() is handle
+    assert progress_ref.state().value is handle
 
 
 def test_progress_runtime_helper_rejects_non_context_ref():
     slot_ref = Ref()
     slot_ref._resolve("app.demo.slot", "element")
-    _session_data["app.demo.slot.value"] = object()
+    non_ctx = object()
+    fiber = ElementFiber(path="app.demo.slot", widget_key="app.demo.slot.raw")
+    fiber["cache"] = non_ctx
+    fibers()["app.demo.slot"] = fiber
+    _session_data["app.demo.slot.raw"] = non_ctx
 
     try:
         show_progress(ref=slot_ref, value=0)
@@ -322,7 +340,7 @@ def test_container_ref_stores_delta_generator():
     render(ContainerDemo(key="demo"))
     Context.key_stack.clear()
 
-    assert container_ref.value() is container_obj
+    assert container_ref.state().value is container_obj
     assert seen == ["enter", "exit"]
 
 
@@ -353,8 +371,8 @@ def test_columns_and_tabs_refs_store_runtime_handles():
     render(LayoutDemo(key="demo"))
     Context.key_stack.clear()
 
-    assert columns_ref.value() == column_slots
-    assert tabs_ref.value() == tab_slots
+    assert columns_ref.state().value == column_slots
+    assert tabs_ref.state().value == tab_slots
 
 
 def test_chat_message_ref_stores_delta_generator():
@@ -378,7 +396,7 @@ def test_chat_message_ref_stores_delta_generator():
     render(ChatDemo(key="demo"))
     Context.key_stack.clear()
 
-    assert message_ref.value() is message_obj
+    assert message_ref.state().value is message_obj
 
 
 def test_component_ref_state():
@@ -424,7 +442,7 @@ def test_get_component_state_accepts_path_and_ref():
 def test_unresolved_ref_error():
     ref = Ref()
     try:
-        ref.value()
+        ref.state().value
     except RuntimeError as err:
         assert "unresolved" in str(err).lower()
     else:
@@ -573,7 +591,7 @@ def test_data_editor_wrapper():
         input_elements._resolve_data_editor_value = original_resolver
 
     assert editor_ref.path == "app.table.editor"
-    assert editor_ref.value() == edited_rows
+    assert editor_ref.state().value == edited_rows
     assert seen == [edited_rows], f"callback saw: {seen}"
 
 
@@ -602,7 +620,7 @@ def test_chat_input_wrapper():
     Context.key_stack.clear()
 
     assert composer_ref.path == "app.thread.composer"
-    assert composer_ref.value() == "Ship it"
+    assert composer_ref.state().value == "Ship it"
     assert seen == ["Ship it"], f"callback saw: {seen}"
 
 
@@ -636,7 +654,7 @@ def test_menu_button_wrapper():
     Context.key_stack.clear()
 
     assert action_ref.path == "app.toolbar.actions"
-    assert action_ref.value() == "Ship"
+    assert action_ref.state().value == "Ship"
     assert seen == ["Ship"], f"callback saw: {seen}"
 
 
@@ -692,8 +710,8 @@ def test_button_and_submit_button_use_standard_widget_key():
     Context.key_stack.clear()
 
     assert seen == [
-        "app.actions.save.value",
-        "app.actions.submit.value",
+        "app.actions.save.raw",
+        "app.actions.submit.raw",
     ]
 
 
@@ -753,7 +771,7 @@ def test_plotly_chart_wrapper():
     Context.key_stack.clear()
 
     assert chart_ref.path == "app.dashboard.chart"
-    assert chart_ref.value() == selection
+    assert chart_ref.state().value == selection
     assert seen == [selection], f"callback saw: {seen}"
 
 
@@ -787,7 +805,7 @@ def test_dataframe_wrapper_on_select():
     Context.key_stack.clear()
 
     assert table_ref.path == "app.dashboard.table"
-    assert table_ref.value() == selection
+    assert table_ref.state().value == selection
     assert seen == [selection], f"callback saw: {seen}"
 
 
@@ -824,7 +842,7 @@ def test_dialog_wrapper():
     assert dialog_calls == [("Confirm action", {"width": "small", "dismissible": True, "icon": None, "on_dismiss": "ignore"})], (
         f"got dialog calls: {dialog_calls}"
     )
-    assert text_input_keys == ["app.modal.confirm.name.value"], (
+    assert text_input_keys == ["app.modal.confirm.name.raw"], (
         f"got text input keys: {text_input_keys}"
     )
 
@@ -846,7 +864,7 @@ def test_write_stream_wrapper():
     Context.key_stack.clear()
 
     assert stream_ref.path == "app.demo.writer"
-    assert stream_ref.value() == "Hello world"
+    assert stream_ref.state().value == "Hello world"
 
 
 def test_none_children_filtered_by_props_validator():

@@ -1,5 +1,5 @@
 import datetime
-from st_components import App, Component, Ref, get_component_state, get_element_value
+from st_components import App, Component, Ref, get_state
 from st_components.elements import (
     button, caption, code, columns, container, divider, expander, header, info,
     json, markdown, metric, sidebar, slider, subheader, success, tabs, text,
@@ -164,18 +164,18 @@ class RefInspectorDemo(Component):
     def capture_refs(self):
         self.state.snapshot = {
             "name_ref_path": self.name_ref.path,
-            "name_ref_value": get_element_value(self.name_ref),
+            "name_ref_value": get_state(self.name_ref).value,
             "notes_ref_path": self.notes_ref.path,
-            "notes_ref_value": get_element_value(self.notes_ref),
+            "notes_ref_value": get_state(self.notes_ref).value,
             "counter_ref_path": self.counter_ref.path,
-            "counter_ref_state": dict(get_component_state(self.counter_ref)),
+            "counter_ref_state": dict(get_state(self.counter_ref)),
         }
 
     def render(self):
         return container(key="panel", border=True)(
             subheader(key="h")("3. Reach things later with Ref()"),
             caption(key="c")(
-                "Refs store logical paths, not Python instances. Render first, then pass them to helpers like get_element_value(...) or get_component_state(...)."
+                "Refs store logical paths, not Python instances. Render first, then call get_state(ref) to read the current state of any element or component."
             ),
             text_input(
                 key="name",
@@ -201,8 +201,8 @@ class RefInspectorDemo(Component):
                 "CounterCard(key=\"counter\", ref=counter_ref)\n"
                 "\n"
                 "snapshot = {\n"
-                "    \"name\": get_element_value(name_ref),\n"
-                "    \"count\": get_component_state(counter_ref).value,\n"
+                "    \"name\": get_state(name_ref).value,\n"
+                "    \"count\": get_state(counter_ref).value,\n"
                 "}"
             ),
         )

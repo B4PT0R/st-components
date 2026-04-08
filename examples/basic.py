@@ -1,5 +1,6 @@
 from st_components import Component, App
-from st_components.elements import button, container
+from st_components.core import fibers
+from st_components.elements import button, container, json
 
 from examples._source import source_view
 
@@ -23,8 +24,10 @@ class BasicDemo(Component):
     def render(self):
         return container(key="page")(
             Counter(key="counter"),
+            "Current fibers (click to expand):",
+            json(key="json",expanded=False)(fibers()),
             source_view(__file__),
         )
 
 
-App()(BasicDemo(key="app")).render()
+App()(BasicDemo(key="demo")).render()

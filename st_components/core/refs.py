@@ -1,4 +1,4 @@
-from .access import get_component_state, get_element_value, reset_element
+from .access import get_state, reset_element
 
 
 class Ref:
@@ -16,12 +16,6 @@ class Ref:
             raise RuntimeError("Ref is unresolved. Attach it to a Component or Element and render the tree first.")
         return self.path
 
-    def value(self, default=None):
-        path = self._require_path()
-        if self.kind != "element":
-            raise RuntimeError("Ref.value() is only available for Element refs.")
-        return get_element_value(path, default)
-
     def reset(self):
         path = self._require_path()
         if self.kind != "element":
@@ -29,10 +23,7 @@ class Ref:
         reset_element(path)
 
     def state(self):
-        path = self._require_path()
-        if self.kind != "component":
-            raise RuntimeError("Ref.state() is only available for Component refs.")
-        return get_component_state(path)
+        return get_state(self._require_path())
 
     def get(self, key, default=None):
         return self.state().get(key, default)

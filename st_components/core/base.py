@@ -6,7 +6,7 @@ import streamlit as st
 
 from .context import KEY, component_context, get_key_stack, key_context, path_context
 from .access import get_element_value
-from .models import Fiber, HookSlot, Props, State
+from .models import ElementFiber, Fiber, HookSlot, Props, State
 from .refs import bind_ref
 from .store import fibers, register_component, track_rendered_fiber, unregister_component
 
@@ -52,6 +52,9 @@ class Element:
     def __init__(self, **props):
         props_cls = getattr(type(self), "__props_class__", Props)
         self.props = props_cls(props)
+        self._hook_index = 0
+        self._pending_hook_effects = {}
+        self._fiber_key = None
         self._decorate_render()
 
     @property
@@ -74,6 +77,81 @@ class Element:
         self.props.children = list(children)
         return self
 
+    @property
+    def element_fiber(self):
+        if self._fiber_key is None:
+            return None
+        fiber = fibers().get(self._fiber_key)
+        if isinstance(fiber, ElementFiber):
+            return fiber
+        return None
+
+    def _begin_hook_cycle(self):
+        self._hook_index = 0
+        self._pending_hook_effects = {}
+
+    def _claim_hook_slot(self, kind):
+        if self.element_fiber is None:
+            raise RuntimeError("Hooks require a mounted Element.")
+
+        hooks = self.element_fiber.hooks
+        index = self._hook_index
+        self._hook_index += 1
+
+        if index == len(hooks):
+            slot = HookSlot(kind=kind)
+            hooks.append(slot)
+            return index, slot
+
+        slot = hooks[index]
+        if slot.kind != kind:
+            raise RuntimeError(
+                f"Hook order changed for element {type(self).__name__}: "
+                f"expected {slot.kind!r} at slot {index}, got {kind!r}."
+            )
+        return index, slot
+
+    def _use_hook_slot(self, kind):
+        _, slot = self._claim_hook_slot(kind)
+        return slot
+
+    def _queue_hook_effect(self, index, effect):
+        self._pending_hook_effects[index] = effect
+
+    def _flush_hook_effects(self):
+        fiber = self.element_fiber
+        if fiber is None:
+            return
+        for index, effect in list(self._pending_hook_effects.items()):
+            slot = fiber.hooks[index]
+            if slot.cleanup is not None:
+                slot.cleanup()
+                slot.cleanup = None
+            cleanup = effect()
+            if cleanup is not None and not callable(cleanup):
+                raise TypeError(
+                    f"use_effect() cleanup must be callable or None, got {type(cleanup)}."
+                )
+            slot.cleanup = cleanup
+        self._pending_hook_effects = {}
+
+    def _cleanup_hook_effects(self):
+        fiber = self.element_fiber
+        if fiber is None:
+            return
+        for slot in fiber.hooks:
+            if slot.kind == "effect" and slot.cleanup is not None:
+                slot.cleanup()
+                slot.cleanup = None
+
+    def _end_hook_cycle(self):
+        fiber = self.element_fiber
+        if fiber is not None and self._hook_index != len(fiber.hooks):
+            raise RuntimeError(
+                f"Hook count changed for element {type(self).__name__}: "
+                f"expected {len(fiber.hooks)}, got {self._hook_index}."
+            )
+
     def _decorate_render(self):
         if not hasattr(self.render, "_decorated"):
             self.render = self._render_decorator(self.render)
@@ -81,9 +159,29 @@ class Element:
     def _render_decorator(self, render_func):
         def decorated():
             element_path = KEY(self.key)
+            self._fiber_key = element_path
             bind_ref(self, element_path, "element")
-            with key_context(self.key):
-                render_func()
+
+            from .store import fibers, track_rendered_fiber
+            from .models import ElementFiber
+
+            from .access import _get_widget_key
+            if element_path not in fibers():
+                fibers()[element_path] = ElementFiber(path=element_path)
+            fibers()[element_path]["widget_key"] = _get_widget_key(element_path)
+
+            track_rendered_fiber(element_path)
+
+            with key_context(self.key), component_context(self):
+                self._begin_hook_cycle()
+                result = render_func()
+                if result is not None:
+                    raise TypeError(
+                        f"Element.render() must return None, got {type(result).__name__!r} "
+                        f"from {type(self).__name__}. Elements render imperatively via st.* calls."
+                    )
+                self._end_hook_cycle()
+                self._flush_hook_effects()
 
         decorated._decorated = True
         return decorated

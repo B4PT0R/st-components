@@ -3,7 +3,7 @@ import inspect
 import textwrap
 import time as pytime
 
-from st_components import App, Component, Ref, State, elements, get_element_value
+from st_components import App, Component, Ref, State, elements, get_state
 from st_components.elements import (
     audio,
     altair_chart,
@@ -355,7 +355,7 @@ class ProgressDemo(Component):
             return "Done!"
 
     def run_element_job(self):
-        bar = self.bar_ref.value()
+        bar = self.bar_ref.state().value
         next_progress = self.state.current_progress + 10
         if next_progress > 100:
             next_progress = 0
@@ -374,7 +374,7 @@ class ProgressDemo(Component):
     def render(self):
         return (
             markdown(key="hint")(
-                "On the left, `progress(...)` is pre-rendered in the tree and updated via `ref.value()`. On the right, `show_progress(...)` uses a placeholder as a callback-only alternative."
+                "On the left, `progress(...)` is pre-rendered in the tree and updated via `ref.state().value`. On the right, `show_progress(...)` uses a placeholder as a callback-only alternative."
             ),
             columns(key="content", spec=2)(
                 container(key="element_panel", border=True)(
@@ -1200,8 +1200,8 @@ class FormDemo(Component):
 
     def submit(self):
         self.state.submitted = {
-            "name": get_element_value(self.name_ref, ""),
-            "notes": get_element_value(self.notes_ref, ""),
+            "name": get_state(self.name_ref).value or "",
+            "notes": get_state(self.notes_ref).value or "",
         }
 
     def render(self):

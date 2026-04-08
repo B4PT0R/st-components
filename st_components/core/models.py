@@ -1,6 +1,6 @@
 from typing import Any, Literal
 
-from modict import modict
+from modict import modict, MISSING
 
 
 class Props(modict):
@@ -38,8 +38,46 @@ class Fiber(modict):
     hooks: list[HookSlot] = modict.factory(list)
 
 
-class Fibers(modict[str, Fiber]):
-    pass
+class ElementState(State):
+    value: Any = None
+
+
+class ElementFiber(modict):
+    path: str = modict.field(required="always")
+    widget_key: str | None = None  # set during render via _get_widget_key(); handles revision suffix
+    keep_alive: bool = False
+    hooks: list[HookSlot] = modict.factory(list)
+
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        if "cache" not in self:
+            self["cache"] = MISSING
+
+    @modict.computed(cache=False)
+    def state(self):
+        from streamlit import session_state as ss
+        cache = self.get("cache", MISSING)
+        if cache is not MISSING:
+            return ElementState(value=cache)
+        value = ss.get(self.widget_key) if self.widget_key else None
+        return ElementState(value=value)
+
+
+class Fibers(modict):
+    def __setitem__(self, key, value):
+        # Coerce plain dicts to Fiber for backward compat; leave modict subclasses (ElementFiber) as-is
+        if isinstance(value, dict) and not isinstance(value, modict):
+            value = Fiber(**value)
+        super().__setitem__(key, value)
+
+    def __init__(self, data=None, /, **kwargs):
+        super().__init__()
+        if data is not None:
+            items = data.items() if isinstance(data, dict) else data
+            for k, v in items:
+                self[k] = v
+        for k, v in kwargs.items():
+            self[k] = v
 
 
 class SharedStates(modict[str, State]):

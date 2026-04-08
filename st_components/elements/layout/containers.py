@@ -24,7 +24,7 @@ class container(Element):
         Element.__init__(self, key=key, ref=ref, border=border, width=width, height=height, horizontal=horizontal, horizontal_alignment=horizontal_alignment, vertical_alignment=vertical_alignment, gap=gap, autoscroll=autoscroll)
 
     def render(self):
-        container_obj = st.container(key=KEY("st_container"), **self.props.exclude("key", "children", "ref"))
+        container_obj = st.container(key=KEY("raw"), **self.props.exclude("key", "children", "ref"))
         set_element_value(get_element_path(), container_obj)
         with container_obj:
             for child in self.children:
@@ -93,7 +93,7 @@ class form(Element):
         Element.__init__(self, key=key, ref=ref, clear_on_submit=clear_on_submit, enter_to_submit=enter_to_submit, border=border, width=width, height=height)
 
     def render(self):
-        form_obj = st.form(KEY("st_form"), **self.props.exclude("key", "children", "ref"))
+        form_obj = st.form(KEY("raw"), **self.props.exclude("key", "children", "ref"))
         set_element_value(get_element_path(), form_obj)
         with form_obj:
             for child in self.children:
