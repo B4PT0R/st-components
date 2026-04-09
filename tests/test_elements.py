@@ -1,16 +1,16 @@
 """
-Tests for get_element_value(), get_component_state(), Ref, and built-in element wrappers.
+Tests for get_state(), widget_output(), Ref, reset_element(), and built-in element wrappers.
 """
 import inspect
 import importlib
 from typing import Iterable, Literal
 
-from st_components.core import Component, Element, Ref, render, Context, get_component_state, get_element_value, reset_element
-from st_components.core.access import _get_widget_key
-from st_components.core.models import ElementFiber
+from st_components.core import callback, Component, Element, Ref, render, Context, reset_element, widget_output, get_state
+from st_components.elements.factory import widget_callback
+from st_components.core.access import widget_key
+from st_components.core.models import ElementFiber, ElementState
 from st_components.core.store import fibers
 from st_components import elements
-from st_components.elements._utils import store_element_value
 from st_components.elements import chat_message, dialog, empty, progress as progress_element, write_stream
 from st_components.elements.runtime import show_balloons, show_progress, show_snow, show_spinner, show_toast
 from st_components.elements import input as input_elements
@@ -38,23 +38,15 @@ def test_elements_module_all_matches_public_exports():
     assert set(elements.__all__) == public_names
 
 
-def test_get_element_value_from_path():
-    _session_data["app.form.name.raw"] = "Alice"
-    assert get_element_value("app.form.name") == "Alice"
-
-
 def test_reset_element_rotates_runtime_key():
     Context.key_stack[:] = [fake_ctx("app"), fake_ctx("form"), fake_ctx("name")]
-    original_key = _get_widget_key()
+    original_key = widget_key()
     reset_element()
-    refreshed_key = _get_widget_key()
+    refreshed_key = widget_key()
     Context.key_stack.clear()
 
     assert original_key == "app.form.name.raw"
     assert refreshed_key != original_key
-
-    _session_data[refreshed_key] = "Bob"
-    assert get_element_value("app.form.name") == "Bob"
 
 
 def test_reset_element_accepts_ref():
@@ -63,29 +55,18 @@ def test_reset_element_accepts_ref():
 
     _session_data["app.form.name.raw"] = "Alice"
     reset_element(ref)
-    refreshed_key = _get_widget_key("app.form.name")
+    refreshed_key = widget_key("app.form.name")
 
     assert refreshed_key != "app.form.name.raw"
 
-    _session_data[refreshed_key] = "Bob"
-    assert get_element_value(ref) == "Bob"
 
-
-def test_get_element_value_accepts_ref():
-    ref = Ref()
-    _session_data["app.form.name.raw"] = "Alice"
-    ref._resolve("app.form.name", "element")
-    assert get_element_value(ref) == "Alice"
-
-
-def test_get_element_value_in_callback():
+def test_callback_receives_value():
     seen = []
 
     def fake_text_input(label, key=None, on_change=None, value=None, **kwargs):
-        _session_data[key] = value
         if on_change is not None:
             on_change()
-        return value
+        return _session_data.get(key, value)
 
     _mock_st.text_input.side_effect = fake_text_input
 
@@ -96,6 +77,8 @@ def test_get_element_value_in_callback():
         def render(self):
             return text_input(key="name", value="Alice", on_change=self.on_name_change)("Name")
 
+    # Pre-set session_state as Streamlit would before the rerun
+    _session_data["app.form.name.raw"] = "Alice"
     Context.key_stack[:] = [fake_ctx("app")]
     render(Form(key="form"))
     Context.key_stack.clear()
@@ -104,24 +87,13 @@ def test_get_element_value_in_callback():
     assert _session_data["app.form.name.raw"] == "Alice"
 
 
-def test_store_element_value_skips_canonical_widget_key():
-    Context.key_stack[:] = [fake_ctx("app"), fake_ctx("chart")]
-    try:
-        assert _get_widget_key() == "app.chart.raw"
-        store_element_value("app.chart", {"selection": []})
-    finally:
-        Context.key_stack.clear()
-
-    assert "app.chart.raw" not in _session_data
-
 
 def test_element_ref_value():
     name_ref = Ref()
 
     def fake_text_input(label, key=None, value=None, **kwargs):
         assert "ref" not in kwargs, f"ref leaked to streamlit kwargs: {kwargs}"
-        _session_data[key] = value
-        return value
+        return _session_data.get(key, value)
 
     _mock_st.text_input.side_effect = fake_text_input
 
@@ -129,13 +101,15 @@ def test_element_ref_value():
         def render(self):
             return text_input(key="name", ref=name_ref, value="Alice")("Name")
 
+    # Pre-set as Streamlit would before the rerun
+    _session_data["app.form.name.raw"] = "Alice"
     Context.key_stack[:] = [fake_ctx("app")]
     render(Form(key="form"))
     Context.key_stack.clear()
 
     assert name_ref.path == "app.form.name"
     assert name_ref.kind == "element"
-    assert name_ref.state().value == "Alice"
+    assert name_ref.state().output == "Alice"
 
 
 def test_empty_ref_stores_placeholder_runtime():
@@ -159,7 +133,7 @@ def test_empty_ref_stores_placeholder_runtime():
     render(EmptyDemo(key="demo"))
     Context.key_stack.clear()
 
-    assert empty_ref.state().value is placeholder
+    assert empty_ref.state().handle is placeholder
 
 
 def test_spinner_runtime_helper_uses_placeholder_ref():
@@ -187,7 +161,7 @@ def test_spinner_runtime_helper_uses_placeholder_ref():
 
     placeholder = placeholder_ctx()
     fiber = ElementFiber(path="app.demo.slot", widget_key="app.demo.slot.raw")
-    fiber["cache"] = placeholder
+    with fiber.state._writable(): fiber.state.handle = placeholder
     fibers()["app.demo.slot"] = fiber
     _session_data["app.demo.slot.raw"] = placeholder
     _mock_st.spinner.side_effect = lambda text, **kwargs: events.append(("spinner", text, kwargs)) or spinner_ctx()
@@ -210,7 +184,7 @@ def test_spinner_runtime_helper_rejects_non_context_ref():
     slot_ref._resolve("app.demo.slot", "element")
     non_ctx = object()
     fiber = ElementFiber(path="app.demo.slot", widget_key="app.demo.slot.raw")
-    fiber["cache"] = non_ctx
+    with fiber.state._writable(): fiber.state.handle = non_ctx
     fibers()["app.demo.slot"] = fiber
     _session_data["app.demo.slot.raw"] = non_ctx
 
@@ -242,7 +216,7 @@ def test_progress_runtime_helper_updates_and_clears_placeholder_ref():
 
     placeholder = placeholder_ctx()
     fiber = ElementFiber(path="app.demo.slot", widget_key="app.demo.slot.raw")
-    fiber["cache"] = placeholder
+    with fiber.state._writable(): fiber.state.handle = placeholder
     fibers()["app.demo.slot"] = fiber
     _session_data["app.demo.slot.raw"] = placeholder
     _mock_st.progress.side_effect = lambda value, **kwargs: events.append(("progress", value, kwargs)) or object()
@@ -276,7 +250,7 @@ def test_progress_element_ref_stores_runtime_handle():
     render(ProgressDemo(key="demo"))
     Context.key_stack.clear()
 
-    assert progress_ref.state().value is handle
+    assert progress_ref.state().handle is handle
 
 
 def test_progress_runtime_helper_rejects_non_context_ref():
@@ -284,7 +258,7 @@ def test_progress_runtime_helper_rejects_non_context_ref():
     slot_ref._resolve("app.demo.slot", "element")
     non_ctx = object()
     fiber = ElementFiber(path="app.demo.slot", widget_key="app.demo.slot.raw")
-    fiber["cache"] = non_ctx
+    with fiber.state._writable(): fiber.state.handle = non_ctx
     fibers()["app.demo.slot"] = fiber
     _session_data["app.demo.slot.raw"] = non_ctx
 
@@ -340,7 +314,7 @@ def test_container_ref_stores_delta_generator():
     render(ContainerDemo(key="demo"))
     Context.key_stack.clear()
 
-    assert container_ref.state().value is container_obj
+    assert container_ref.state().handle is container_obj
     assert seen == ["enter", "exit"]
 
 
@@ -371,8 +345,8 @@ def test_columns_and_tabs_refs_store_runtime_handles():
     render(LayoutDemo(key="demo"))
     Context.key_stack.clear()
 
-    assert columns_ref.state().value == column_slots
-    assert tabs_ref.state().value == tab_slots
+    assert columns_ref.state().handle == column_slots
+    assert tabs_ref.state().handle == tab_slots
 
 
 def test_chat_message_ref_stores_delta_generator():
@@ -396,7 +370,7 @@ def test_chat_message_ref_stores_delta_generator():
     render(ChatDemo(key="demo"))
     Context.key_stack.clear()
 
-    assert message_ref.state().value is message_obj
+    assert message_ref.state().handle is message_obj
 
 
 def test_component_ref_state():
@@ -417,10 +391,9 @@ def test_component_ref_state():
     assert counter_ref.path == "app.counter"
     assert counter_ref.kind == "component"
     assert counter_ref.state().count == 3
-    assert counter_ref.get("count") == 3
 
 
-def test_get_component_state_accepts_path_and_ref():
+def test_get_state_accepts_path_and_ref():
     counter_ref = Ref()
 
     class Counter(Component):
@@ -435,14 +408,14 @@ def test_get_component_state_accepts_path_and_ref():
     render(Counter(key="counter", ref=counter_ref))
     Context.key_stack.clear()
 
-    assert get_component_state("app.counter").count == 3
-    assert get_component_state(counter_ref).count == 3
+    assert get_state("app.counter").count == 3
+    assert get_state(counter_ref).count == 3
 
 
 def test_unresolved_ref_error():
     ref = Ref()
     try:
-        ref.state().value
+        ref.state().output
     except RuntimeError as err:
         assert "unresolved" in str(err).lower()
     else:
@@ -551,6 +524,11 @@ def test_spinner_element_wraps_child_render():
 
 
 def test_data_editor_wrapper():
+    import sys
+    import importlib
+    importlib.import_module("st_components.elements.input.data_editor")
+    data_editor_module = sys.modules["st_components.elements.input.data_editor"]
+
     editor_ref = Ref()
     seen = []
     edited_rows = [{"task": "Ship it", "done": True}]
@@ -562,14 +540,13 @@ def test_data_editor_wrapper():
 
     def fake_data_editor(data, key=None, on_change=None, **kwargs):
         assert "ref" not in kwargs, f"ref leaked to streamlit kwargs: {kwargs}"
-        _session_data[key] = editing_state
         if on_change is not None:
             on_change()
         return edited_rows
 
     _mock_st.data_editor.side_effect = fake_data_editor
-    original_resolver = input_elements._resolve_data_editor_value
-    input_elements._resolve_data_editor_value = lambda data, state: edited_rows
+    original_resolver = data_editor_module.data_editor._resolve_output
+    data_editor_module.data_editor._resolve_output = staticmethod(lambda data, state: edited_rows)
 
     class TableForm(Component):
         def on_edit(self, value):
@@ -584,15 +561,20 @@ def test_data_editor_wrapper():
             )
 
     try:
+        # Pre-set session_state as Streamlit would before the rerun
+        _session_data["app.table.editor.raw"] = editing_state
         Context.key_stack[:] = [fake_ctx("app")]
         render(TableForm(key="table"))
         Context.key_stack.clear()
-    finally:
-        input_elements._resolve_data_editor_value = original_resolver
 
-    assert editor_ref.path == "app.table.editor"
-    assert editor_ref.state().value == edited_rows
-    assert seen == [edited_rows], f"callback saw: {seen}"
+        # Assertions inside try: state.output is a computed that reads session_state
+        # and applies postprocess — both must still be active at assertion time.
+        assert editor_ref.path == "app.table.editor"
+        assert editor_ref.state().output == edited_rows
+        assert seen == [edited_rows], f"callback saw: {seen}"
+    finally:
+        data_editor_module.data_editor._resolve_output = original_resolver
+        del _session_data["app.table.editor.raw"]
 
 
 def test_chat_input_wrapper():
@@ -601,7 +583,6 @@ def test_chat_input_wrapper():
 
     def fake_chat_input(placeholder, key=None, on_submit=None, **kwargs):
         assert "ref" not in kwargs, f"ref leaked to streamlit kwargs: {kwargs}"
-        _session_data[key] = "Ship it"
         if on_submit is not None:
             on_submit()
         return "Ship it"
@@ -615,12 +596,14 @@ def test_chat_input_wrapper():
         def render(self):
             return chat_input(key="composer", ref=composer_ref, on_submit=self.on_submit)("Type a message")
 
+    # Pre-set session_state as Streamlit would before the rerun
+    _session_data["app.thread.composer.raw"] = "Ship it"
     Context.key_stack[:] = [fake_ctx("app")]
     render(Composer(key="thread"))
     Context.key_stack.clear()
 
     assert composer_ref.path == "app.thread.composer"
-    assert composer_ref.state().value == "Ship it"
+    assert composer_ref.state().output == "Ship it"
     assert seen == ["Ship it"], f"callback saw: {seen}"
 
 
@@ -630,7 +613,6 @@ def test_menu_button_wrapper():
 
     def fake_menu_button(label, options, key=None, on_click=None, **kwargs):
         assert "ref" not in kwargs, f"ref leaked to streamlit kwargs: {kwargs}"
-        _session_data[key] = "Ship"
         if on_click is not None:
             on_click()
         return "Ship"
@@ -649,12 +631,14 @@ def test_menu_button_wrapper():
                 on_click=self.on_click,
             )("Actions")
 
+    # Pre-set session_state as Streamlit would before the rerun
+    _session_data["app.toolbar.actions.raw"] = "Ship"
     Context.key_stack[:] = [fake_ctx("app")]
     render(Actions(key="toolbar"))
     Context.key_stack.clear()
 
     assert action_ref.path == "app.toolbar.actions"
-    assert action_ref.state().value == "Ship"
+    assert action_ref.state().output == "Ship"
     assert seen == ["Ship"], f"callback saw: {seen}"
 
 
@@ -669,7 +653,7 @@ def test_button_wrapper_on_click():
     _mock_st.button.side_effect = fake_button
 
     class Actions(Component):
-        def on_click(self):
+        def on_click(self, value):
             seen.append("clicked")
 
         def render(self):
@@ -698,10 +682,10 @@ def test_button_and_submit_button_use_standard_widget_key():
     _mock_st.button.side_effect = fake_button
     _mock_st.form_submit_button.side_effect = fake_form_submit_button
 
-    def on_save():
+    def on_save(value):
         seen.append(Context.callback.widget_key)
 
-    def on_submit():
+    def on_submit(value):
         seen.append(Context.callback.widget_key)
 
     Context.key_stack[:] = [fake_ctx("app"), fake_ctx("actions")]
@@ -726,7 +710,7 @@ def test_form_submit_button_wrapper_on_click():
     _mock_st.form_submit_button.side_effect = fake_form_submit_button
 
     class Actions(Component):
-        def on_click(self):
+        def on_click(self, value):
             seen.append("submitted")
 
         def render(self):
@@ -744,12 +728,13 @@ def test_form_submit_button_wrapper_on_click():
 def test_plotly_chart_wrapper():
     chart_ref = Ref()
     seen = []
-    selection = {"selection": {"points": [{"x": 2, "y": 8}]}}
+    inner = {"points": [{"x": 2, "y": 8}]}
+    selection = {"selection": inner}
 
     def fake_plotly_chart(figure_or_data, key=None, on_select=None, **kwargs):
         assert "ref" not in kwargs, f"ref leaked to streamlit kwargs: {kwargs}"
         if callable(on_select):
-            on_select(selection)
+            on_select()
         return selection
 
     _mock_st.plotly_chart.side_effect = fake_plotly_chart
@@ -766,24 +751,27 @@ def test_plotly_chart_wrapper():
                 on_select=self.on_select,
             )
 
+    # Pre-set session_state as Streamlit would before the rerun
+    _session_data["app.dashboard.chart.raw"] = selection
     Context.key_stack[:] = [fake_ctx("app")]
     render(Dashboard(key="dashboard"))
     Context.key_stack.clear()
 
     assert chart_ref.path == "app.dashboard.chart"
-    assert chart_ref.state().value == selection
+    assert chart_ref.state().output == selection
     assert seen == [selection], f"callback saw: {seen}"
 
 
 def test_dataframe_wrapper_on_select():
     table_ref = Ref()
     seen = []
-    selection = {"selection": {"rows": [1]}}
+    inner = {"rows": [1]}
+    selection = {"selection": inner}
 
     def fake_dataframe(data, key=None, on_select=None, **kwargs):
         assert "ref" not in kwargs, f"ref leaked to streamlit kwargs: {kwargs}"
         if callable(on_select):
-            on_select(selection)
+            on_select()
         return selection
 
     _mock_st.dataframe.side_effect = fake_dataframe
@@ -800,12 +788,14 @@ def test_dataframe_wrapper_on_select():
                 on_select=self.on_select,
             )
 
+    # Pre-set session_state as Streamlit would before the rerun
+    _session_data["app.dashboard.table.raw"] = selection
     Context.key_stack[:] = [fake_ctx("app")]
     render(Table(key="dashboard"))
     Context.key_stack.clear()
 
     assert table_ref.path == "app.dashboard.table"
-    assert table_ref.state().value == selection
+    assert table_ref.state().output == selection
     assert seen == [selection], f"callback saw: {seen}"
 
 
@@ -864,16 +854,20 @@ def test_write_stream_wrapper():
     Context.key_stack.clear()
 
     assert stream_ref.path == "app.demo.writer"
-    assert stream_ref.state().value == "Hello world"
+    assert stream_ref.state().output == "Hello world"
 
 
 def test_none_children_filtered_by_props_validator():
-    from st_components.core.base import Fragment
+    from st_components.core import Component
 
-    frag = Fragment(key="f")
-    frag(None, "a", None, "b", None)
-    assert frag.props.children == ["a", "b"]
-    assert frag.children == ["a", "b"]
+    class DummyComp(Component):
+        def render(self):
+            pass
+
+    comp = DummyComp(key="f")
+    comp(None, "a", None, "b", None)
+    assert comp.props.children == ["a", "b"]
+    assert comp.children == ["a", "b"]
 
 
 def test_none_children_skipped_at_render():
@@ -900,3 +894,132 @@ def test_none_children_skipped_at_render():
     assert None not in rendered
     assert "a" in rendered
     assert "b" in rendered
+
+
+# ---------------------------------------------------------------------------
+# widget_output()
+# ---------------------------------------------------------------------------
+
+def test_widget_output_returns_session_state_value():
+    _session_data["app.form.name.raw"] = "Alice"
+    Context.key_stack[:] = [fake_ctx("app"), fake_ctx("form"), fake_ctx("name")]
+    from modict import MISSING
+    result = widget_output()
+    Context.key_stack.clear()
+    assert result == "Alice"
+
+
+def test_widget_output_returns_missing_when_key_absent():
+    from modict import MISSING
+    Context.key_stack[:] = [fake_ctx("app"), fake_ctx("form"), fake_ctx("nothere")]
+    result = widget_output()
+    Context.key_stack.clear()
+    assert result is MISSING
+
+
+def test_widget_output_accepts_explicit_path():
+    from modict import MISSING
+    _session_data["some.element.raw"] = 42
+    result = widget_output("some.element")
+    assert result == 42
+
+
+def test_widget_output_accepts_element_ref():
+    from modict import MISSING
+    ref = Ref()
+    ref._resolve("app.widget", "element")
+    _session_data["app.widget.raw"] = "hello"
+    result = widget_output(ref)
+    assert result == "hello"
+
+
+def test_widget_output_in_callback_context_falls_back_to_widget_key():
+    from modict import MISSING
+    from st_components.core.context import callback_context
+    _session_data["app.btn.raw"] = True
+    with callback_context(element_path="app.btn", widget_key="app.btn.raw"):
+        result = widget_output()
+    assert result is True
+
+
+# ---------------------------------------------------------------------------
+# ElementState frozen protection
+# ---------------------------------------------------------------------------
+
+def test_element_state_frozen_outside_writable():
+    state = ElementState()
+    try:
+        state.output = "forbidden"
+    except Exception as err:
+        assert "frozen" in str(err).lower() or "immutable" in str(err).lower() or isinstance(err, (TypeError, AttributeError))
+    else:
+        raise AssertionError("Expected write to frozen ElementState to raise")
+
+
+def test_element_state_writable_context_allows_write():
+    state = ElementState()
+    with state._writable():
+        state.output = "allowed"
+    assert state.output == "allowed"
+
+
+def test_element_state_frozen_restored_after_writable():
+    state = ElementState()
+    with state._writable():
+        state.output = "x"
+    try:
+        state.output = "y"
+    except Exception:
+        pass
+    else:
+        raise AssertionError("ElementState should be frozen again after _writable() exits")
+
+
+def test_element_state_writable_is_reentrant():
+    state = ElementState()
+    with state._writable():
+        with state._writable():
+            state.output = "inner"
+        # outer context still open — must not have re-frozen
+        state.output = "outer"
+    assert state.output == "outer"
+
+
+# ---------------------------------------------------------------------------
+# Ref.reset() edge cases
+# ---------------------------------------------------------------------------
+
+def test_ref_reset_raises_on_unresolved():
+    ref = Ref()
+    try:
+        ref.reset()
+    except RuntimeError as err:
+        assert "unresolved" in str(err).lower()
+    else:
+        raise AssertionError("Expected unresolved ref reset to raise")
+
+
+def test_ref_reset_raises_on_component_ref():
+    ref = Ref()
+    ref._resolve("app.mycomp", "component")
+    try:
+        ref.reset()
+    except RuntimeError as err:
+        assert "element" in str(err).lower()
+    else:
+        raise AssertionError("Expected component ref reset to raise")
+
+
+# ---------------------------------------------------------------------------
+# reset_element() edge cases
+# ---------------------------------------------------------------------------
+
+def test_reset_element_raises_on_component_ref():
+    ref = Ref()
+    ref._resolve("app.mycomp", "component")
+    try:
+        reset_element(ref)
+    except RuntimeError:
+        pass
+    else:
+        raise AssertionError("Expected reset_element() on component ref to raise")

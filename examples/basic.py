@@ -11,7 +11,7 @@ class Counter(Component):
         super().__init__(**props)
         self.state = dict(count=0)
 
-    def increment(self):
+    def increment(self, _):
         self.state.count += 1
 
     def render(self):

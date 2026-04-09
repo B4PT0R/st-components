@@ -4,7 +4,7 @@ import streamlit as st
 
 
 def _placeholder_from_ref(ref, helper_name: str):
-    placeholder = ref.state().value
+    placeholder = ref.state().handle
     if placeholder is None:
         raise RuntimeError(f"{helper_name}() requires a rendered placeholder Ref with a runtime handle.")
     if not hasattr(placeholder, "__enter__") or not hasattr(placeholder, "__exit__"):

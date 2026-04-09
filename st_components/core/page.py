@@ -4,7 +4,7 @@ from typing import Literal
 
 from modict import modict
 
-from .base import Component, Element, Fragment
+from .base import Anchor, Component, Element
 
 
 class PageProps(modict):
@@ -94,4 +94,4 @@ class Page(Component):
         return source.__class__.__name__
 
     def render(self):
-        return Fragment(key=self.key)()
+        return Anchor(key=self.key)()

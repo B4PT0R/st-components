@@ -4,6 +4,26 @@ All notable changes to this project will be documented in this file.
 
 The format is based on Keep a Changelog, and this project uses SemVer.
 
+## [0.2.0] - 2026-04-09
+
+Element authoring toolkit: `element_factory`, context-based widget helpers, and simplified `get_output` API.
+
+### Added
+
+- **`st_components/elements/factory.py`** — new module providing a complete toolkit for authoring custom element wrappers:
+  - `element_factory(streamlit_fn, *, child_prop, callback_prop, default_prop, props_schema, spec_prop, spec_type, has_key)` — generates a typed `Element` subclass from a `st.*` callable and a few metadata args. Handles three rendering patterns automatically: plain widgets, single context-manager containers (e.g. `st.expander`), and multi-container functions (e.g. `st.columns`, `st.tabs`) where children are zipped with the returned context managers. The `spec_prop` / `spec_type` parameters control how the spec argument is derived from children count (`"int"` → `len(children)`, `"list"` → `[str(i) for i in range(len(children))]`); `has_key=False` skips the `key=widget_key()` argument for functions that don't accept it.
+  - `widget_child(prop_name, default=None)` — returns `props.children[0]` if children are present, otherwise `props.get(prop_name, default)`.
+  - `widget_props(*excluded)` — returns all props minus `key`, `children`, `ref`, and any extra names to exclude.
+  - `widget_callback(prop_name="on_change")` — reads the named prop from the current render context and wraps it with `callback()`.
+  - Re-exports `Element`, `callback`, `widget_key`, `widget_output` for one-stop imports in element modules.
+
+### Changed
+
+- **`get_output(raw)` replaces `get_output_default()`**: the single override hook now receives `raw` (the raw session_state value, or `None` before the widget is first registered). The base implementation returns `raw`. Element subclasses that need a non-`None` initial value override `get_output` and use `self.props.get(prop)` when `raw is None`.
+- **`callback(fn)` is now in `core/access.py`** (not `core/__init__.py`); `widget_callback` definition moved from `core/access.py` into `factory.py`.
+- `_utils.py` deleted — its content (`widget_child`, `widget_props`, `_props`) merged into `factory.py`.
+- All built-in input elements (`checkbox`, `toggle`, `text_input`, `text_area`, `number_input`, `slider`, `select_slider`, `radio`, `selectbox`, `multiselect`, `pills`, `segmented_control`, `feedback`) updated to use the new context-based helpers and `get_output` pattern.
+
 ## [0.1.6] - 2026-04-08
 
 Element fiber, unified state API, and API surface cleanup.

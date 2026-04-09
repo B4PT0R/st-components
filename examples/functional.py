@@ -40,7 +40,7 @@ def Callout(props):
 def FunctionalCounter(props):
     state = use_state(count=props.get("initial", 0))
 
-    def increment():
+    def increment(_):
         state.count += 1
 
     return container(key="box", border=True)(
@@ -57,7 +57,7 @@ def FunctionalDemo(props):
     def sync_name(value):
         state.name = value
 
-    def increment():
+    def increment(_):
         state.clicks += 1
 
     snapshot = {
@@ -108,7 +108,7 @@ def FunctionalDemo(props):
                 "def FunctionalCounter(props):\n"
                 "    state = use_state(count=0)\n"
                 "\n"
-                "    def increment():\n"
+                "    def increment(_):\n"
                 "        state.count += 1\n"
                 "\n"
                 "    return button(key=\"inc\", on_click=increment)(...)"

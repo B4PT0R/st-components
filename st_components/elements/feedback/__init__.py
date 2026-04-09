@@ -1,4 +1,4 @@
-from .._types import Width, WidthWithoutContent
+from ..prop_types import Width, WidthWithoutContent
 from .messages import error, info, success, toast, warning
 from .progress import balloons, progress, snow, spinner
 

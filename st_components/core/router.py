@@ -2,7 +2,7 @@ from typing import Literal
 
 from modict import modict
 
-from .base import Component, Fragment
+from .base import Anchor, Component
 from .models import Props
 from .page import Page
 
@@ -52,4 +52,4 @@ class Router(Component):
         return self.children
 
     def render(self):
-        return Fragment(key=self.key)(*self.children)
+        return Anchor(key=self.key)(*self.children)

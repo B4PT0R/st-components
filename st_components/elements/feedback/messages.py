@@ -3,7 +3,7 @@ from typing import Any, Literal, Optional
 import streamlit as st
 
 from ...core import Element, Ref
-from .._types import WidthWithoutContent
+from ..prop_types import WidthWithoutContent
 
 
 def body_or_prop(element):

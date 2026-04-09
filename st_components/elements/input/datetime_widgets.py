@@ -2,8 +2,11 @@ from datetime import date, time, timedelta
 from typing import Any, Optional
 
 from ...core import Element, Ref
-from ...core.access import _get_widget_key
-from ._common import BindOption, LabelVisibility, WidgetCallback, Width, WidthWithoutContent, label_or_prop, st, widget_callback, widget_props
+from ...core.access import widget_key
+import streamlit as st
+from ..prop_types import BindOption, LabelVisibility, WidgetCallback, Width, WidthWithoutContent
+from ..factory import widget_callback
+from ..factory import widget_child, widget_props
 
 
 class date_input(Element):
@@ -27,7 +30,7 @@ class date_input(Element):
         Element.__init__(self, key=key, label=label, value=value, min_value=min_value, max_value=max_value, ref=ref, help=help, on_change=on_change, format=format, disabled=disabled, label_visibility=label_visibility, width=width, bind=bind)
 
     def render(self):
-        st.date_input(label_or_prop(self), key=_get_widget_key(), on_change=widget_callback(self), **widget_props(self))
+        st.date_input(widget_child("label", ""), key=widget_key(), on_change=widget_callback(), **widget_props("label", "on_change"))
 
 
 class time_input(Element):
@@ -49,7 +52,7 @@ class time_input(Element):
         Element.__init__(self, key=key, label=label, value=value, ref=ref, help=help, on_change=on_change, disabled=disabled, label_visibility=label_visibility, step=step, width=width, bind=bind)
 
     def render(self):
-        st.time_input(label_or_prop(self), key=_get_widget_key(), on_change=widget_callback(self), **widget_props(self))
+        st.time_input(widget_child("label", ""), key=widget_key(), on_change=widget_callback(), **widget_props("label", "on_change"))
 
 
 class color_picker(Element):
@@ -70,7 +73,7 @@ class color_picker(Element):
         Element.__init__(self, key=key, label=label, value=value, ref=ref, help=help, on_change=on_change, disabled=disabled, label_visibility=label_visibility, width=width, bind=bind)
 
     def render(self):
-        st.color_picker(label_or_prop(self), key=_get_widget_key(), on_change=widget_callback(self), **widget_props(self))
+        st.color_picker(widget_child("label", ""), key=widget_key(), on_change=widget_callback(), **widget_props("label", "on_change"))
 
 
 class datetime_input(Element):
@@ -95,4 +98,4 @@ class datetime_input(Element):
         Element.__init__(self, key=key, label=label, value=value, min_value=min_value, max_value=max_value, ref=ref, help=help, on_change=on_change, format=format, step=step, disabled=disabled, label_visibility=label_visibility, width=width, bind=bind)
 
     def render(self):
-        st.datetime_input(label_or_prop(self), key=_get_widget_key(), on_change=widget_callback(self), **widget_props(self))
+        st.datetime_input(widget_child("label", ""), key=widget_key(), on_change=widget_callback(), **widget_props("label", "on_change"))

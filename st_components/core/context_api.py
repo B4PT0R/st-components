@@ -56,7 +56,7 @@ class ContextProvider(Component):
             self.props.context, next_data
         ):
             self._begin_hook_cycle()
-            children = map(render_to_element, to_tuple(render_func()))
+            children = [render_to_element(child, i) for i, child in enumerate(to_tuple(render_func()))]
             self._end_hook_cycle()
             return ContextFragment(
                 key=self.key,

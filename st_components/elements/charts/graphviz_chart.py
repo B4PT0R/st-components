@@ -3,8 +3,8 @@ from typing import Any, Optional
 import streamlit as st
 
 from ...core import Element, Ref
-from .._types import Height, Width
-from .._utils import child_or_prop
+from ..prop_types import Height, Width
+from ..factory import widget_child
 
 
 class graphviz_chart(Element):
@@ -12,4 +12,4 @@ class graphviz_chart(Element):
         Element.__init__(self, key=key, figure_or_dot=figure_or_dot, ref=ref, use_container_width=use_container_width, width=width, height=height)
 
     def render(self):
-        st.graphviz_chart(child_or_prop(self, "figure_or_dot"), **self.props.exclude("key", "children", "figure_or_dot", "ref"))
+        st.graphviz_chart(widget_child("figure_or_dot"), **self.props.exclude("key", "children", "figure_or_dot", "ref"))

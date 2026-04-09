@@ -1,4 +1,4 @@
-from .._types import Height, HeightWithoutContent, PlotlySelectionMode, PydeckSelectionMode, SelectionBehavior, Width, WidthWithoutContent
+from ..prop_types import Height, HeightWithoutContent, PlotlySelectionMode, PydeckSelectionMode, SelectionBehavior, Width, WidthWithoutContent
 from .altair_chart import altair_chart
 from .area_chart import area_chart
 from .bar_chart import bar_chart

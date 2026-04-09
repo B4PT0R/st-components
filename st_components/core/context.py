@@ -53,6 +53,7 @@ class _RenderContext:
         return self._state().context_stacks
 
 
+
 class _PageContext:
     """Page-scoped state: active namespace for multipage routing."""
 

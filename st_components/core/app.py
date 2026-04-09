@@ -39,8 +39,6 @@ class App(Component):
     _THEME_STATE_KEY = "__st_components_app_theme__"
     _CSS_STATE_KEY = "__st_components_app_css__"
     _CONFIG_STATE_KEY = "__st_components_app_config__"
-    _PERSIST_THEME_KEY = "__st_components_persist_theme__"
-    _PERSIST_CONFIG_KEY = "__st_components_persist_config__"
 
     def __init__(
         self,
@@ -54,8 +52,6 @@ class App(Component):
         theme=None,
         css=None,
         config=None,
-        persist_theme=True,
-        persist_config=True,
     ):
         normalized_children = [] if children is None else list(children)
         if len(normalized_children) > 1:
@@ -74,8 +70,6 @@ class App(Component):
         self.theme = self._initial_theme(theme)
         self.css = self._initial_css(css)
         self.config = self._initial_config(config)
-        self.persist_theme = persist_theme
-        self.persist_config = persist_config
         self._active_router = None
         self._active_page = None
         self._active_router_wrappers = []
@@ -142,7 +136,6 @@ class App(Component):
     def save_theme(self, theme=None):
         if theme is not None:
             self.set_theme(theme)
-        st.session_state[self._PERSIST_THEME_KEY] = True
         self._persist_theme_config()
         return self
 
@@ -171,7 +164,6 @@ class App(Component):
     def save_config(self, config=None):
         if config is not None:
             self.set_config(config)
-        st.session_state[self._PERSIST_CONFIG_KEY] = True
         self._persist_app_config()
         return self
 
@@ -207,8 +199,6 @@ class App(Component):
         if rendered != existing_text:
             config_path.parent.mkdir(parents=True, exist_ok=True)
             config_path.write_text(rendered)
-        st.session_state[self._PERSIST_THEME_KEY] = False
-
     def _persist_app_config(self):
         config = self._config_dict()
         if not config:
@@ -225,8 +215,6 @@ class App(Component):
         if rendered != existing_text:
             config_path.parent.mkdir(parents=True, exist_ok=True)
             config_path.write_text(rendered)
-        st.session_state[self._PERSIST_CONFIG_KEY] = False
-
     def _apply_theme_runtime(self):
         theme = self._theme_dict()
         if not theme:
@@ -291,10 +279,6 @@ class App(Component):
     def _apply_styles(self):
         self._apply_config_runtime()
         self._apply_theme_runtime()
-        if self.persist_theme or st.session_state.get(self._PERSIST_THEME_KEY, False):
-            self._persist_theme_config()
-        if self.persist_config or st.session_state.get(self._PERSIST_CONFIG_KEY, False):
-            self._persist_app_config()
 
         css_blocks = self._css_blocks()
         if css_blocks:

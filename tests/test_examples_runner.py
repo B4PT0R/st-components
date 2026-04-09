@@ -35,7 +35,7 @@ def test_examples_runner_builds_streamlit_command():
 
 
 def test_package_exposes_version():
-    assert st_components.__version__ == "0.1.5"
+    assert st_components.__version__ == "0.1.6"
 
 
 def test_examples_join_resolves_packaged_assets():

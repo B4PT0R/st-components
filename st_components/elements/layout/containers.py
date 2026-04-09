@@ -2,8 +2,8 @@ from typing import Any, Literal, Optional, Sequence
 
 import streamlit as st
 
-from ...core import Element, KEY, Ref, get_element_path, render, set_element_value
-from .._types import Gap, Height, HorizontalAlignment, VerticalAlignment, Width, WidthWithoutContent
+from ...core import Element, KEY, Ref, render
+from ..prop_types import Gap, Height, HorizontalAlignment, VerticalAlignment, Width, WidthWithoutContent
 
 
 class container(Element):
@@ -25,7 +25,7 @@ class container(Element):
 
     def render(self):
         container_obj = st.container(key=KEY("raw"), **self.props.exclude("key", "children", "ref"))
-        set_element_value(get_element_path(), container_obj)
+        self.state.handle = container_obj
         with container_obj:
             for child in self.children:
                 render(child)
@@ -50,7 +50,7 @@ class columns(Element):
         if spec is None:
             spec = len(self.children)
         cols = st.columns(spec=spec, **self.props.exclude("key", "children", "spec", "ref"))
-        set_element_value(get_element_path(), cols)
+        self.state.handle = cols
         for child, col in zip(self.children, cols):
             with col:
                 render(child)
@@ -72,7 +72,7 @@ class tabs(Element):
     def render(self):
         labels = self.props.get("tabs", self.props.get("labels", [str(i) for i in range(len(self.children))]))
         tab_objs = st.tabs(labels, **self.props.exclude("key", "children", "tabs", "labels", "ref"))
-        set_element_value(get_element_path(), tab_objs)
+        self.state.handle = tab_objs
         for child, tab_obj in zip(self.children, tab_objs):
             with tab_obj:
                 render(child)
@@ -94,7 +94,7 @@ class form(Element):
 
     def render(self):
         form_obj = st.form(KEY("raw"), **self.props.exclude("key", "children", "ref"))
-        set_element_value(get_element_path(), form_obj)
+        self.state.handle = form_obj
         with form_obj:
             for child in self.children:
                 render(child)
@@ -116,7 +116,7 @@ class expander(Element):
 
     def render(self):
         expander_obj = st.expander(**self.props.exclude("key", "children", "ref"))
-        set_element_value(get_element_path(), expander_obj)
+        self.state.handle = expander_obj
         with expander_obj:
             for child in self.children:
                 render(child)
@@ -141,7 +141,7 @@ class popover(Element):
 
     def render(self):
         popover_obj = st.popover(**self.props.exclude("key", "children", "ref"))
-        set_element_value(get_element_path(), popover_obj)
+        self.state.handle = popover_obj
         with popover_obj:
             for child in self.children:
                 render(child)

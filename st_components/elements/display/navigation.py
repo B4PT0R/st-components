@@ -3,8 +3,8 @@ from typing import Any, Literal, Optional
 import streamlit as st
 
 from ...core import Element, Ref
-from .._types import IconPosition, Width
-from .._utils import child_or_prop
+from ..prop_types import IconPosition, Width
+from ..factory import widget_child
 
 
 class page_link(Element):
@@ -26,7 +26,7 @@ class page_link(Element):
         Element.__init__(self, key=key, page=page, ref=ref, label=label, icon=icon, icon_position=icon_position, help=help, disabled=disabled, use_container_width=use_container_width, width=width, query_params=query_params)
 
     def render(self):
-        st.page_link(child_or_prop(self, "page"), **self.props.exclude("key", "children", "page", "ref"))
+        st.page_link(widget_child("page"), **self.props.exclude("key", "children", "page", "ref"))
 
 
 class logo(Element):
@@ -34,4 +34,4 @@ class logo(Element):
         Element.__init__(self, key=key, image=image, ref=ref, size=size, link=link, icon_image=icon_image)
 
     def render(self):
-        st.logo(child_or_prop(self, "image"), **self.props.exclude("key", "children", "image", "ref"))
+        st.logo(widget_child("image"), **self.props.exclude("key", "children", "image", "ref"))

@@ -2,10 +2,10 @@ from typing import Any, Iterable, Literal, Optional
 
 import streamlit as st
 
-from ...core import Element, Ref, get_element_path
-from ...core.access import _get_widget_key
-from .._types import DataSelectionMode, DeltaArrow, Height, LabelVisibility, Width, WidthWithoutContent
-from .._utils import child_or_prop, selection_prop, store_element_value
+from ...core import Element, Ref
+from ...core.access import callback, widget_key
+from ..prop_types import DataSelectionMode, DeltaArrow, Height, LabelVisibility, Width, WidthWithoutContent
+from ..factory import widget_child
 
 
 class dataframe(Element):
@@ -30,14 +30,13 @@ class dataframe(Element):
         Element.__init__(self, key=key, ref=ref, data=data, width=width, height=height, use_container_width=use_container_width, hide_index=hide_index, column_order=column_order, column_config=column_config, on_select=on_select, selection_mode=selection_mode, selection_default=selection_default, row_height=row_height, placeholder=placeholder)
 
     def render(self):
-        element_path = get_element_path()
-        value = st.dataframe(
-            child_or_prop(self, "data"),
-            key=_get_widget_key(element_path),
-            on_select=selection_prop(self),
+        on_select = self.props.get("on_select", "ignore")
+        st.dataframe(
+            widget_child("data"),
+            key=widget_key(),
+            on_select=callback(on_select) if callable(on_select) else on_select,
             **self.props.exclude("key", "children", "data", "ref", "on_select"),
         )
-        store_element_value(element_path, value)
 
 
 class table(Element):
@@ -56,7 +55,7 @@ class table(Element):
         Element.__init__(self, key=key, ref=ref, data=data, border=border, width=width, height=height, hide_index=hide_index, hide_header=hide_header)
 
     def render(self):
-        st.table(child_or_prop(self, "data"), **self.props.exclude("key", "children", "data", "ref"))
+        st.table(widget_child("data"), **self.props.exclude("key", "children", "data", "ref"))
 
 
 class metric(Element):
@@ -83,4 +82,4 @@ class metric(Element):
         Element.__init__(self, key=key, label=label, ref=ref, value=value, delta=delta, delta_color=delta_color, help=help, label_visibility=label_visibility, border=border, width=width, height=height, chart_data=chart_data, chart_type=chart_type, delta_arrow=delta_arrow, format=format, delta_description=delta_description)
 
     def render(self):
-        st.metric(child_or_prop(self, "label", ""), **self.props.exclude("key", "children", "label", "ref"))
+        st.metric(widget_child("label", ""), **self.props.exclude("key", "children", "label", "ref"))

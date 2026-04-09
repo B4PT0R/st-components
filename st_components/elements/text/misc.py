@@ -3,8 +3,8 @@ from typing import Optional
 import streamlit as st
 
 from ...core import Element, Ref
-from .._types import BadgeColor, SpaceSize, Width, WidthWithoutContent
-from ._common import body_or_prop
+from ..prop_types import BadgeColor, SpaceSize, Width, WidthWithoutContent
+from ..factory import widget_child
 
 
 class divider(Element):
@@ -20,7 +20,7 @@ class badge(Element):
         Element.__init__(self, key=key, body=label, ref=ref, icon=icon, color=color, width=width, help=help)
 
     def render(self):
-        st.badge(body_or_prop(self), **self.props.exclude("key", "children", "body", "ref"))
+        st.badge(widget_child("body", ""), **self.props.exclude("key", "children", "body", "ref"))
 
 
 class space(Element):

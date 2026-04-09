@@ -30,7 +30,7 @@ class CounterState(State):
 def Counter(props):
     state = use_state(CounterState())
 
-    def increment():
+    def increment(_):
         state.count += state.step
 
     return columns(key="row")(
@@ -70,7 +70,7 @@ class CardState(State):
 def Card(props: CardProps):
     state = use_state(CardState())
 
-    def toggle():
+    def toggle(_):
         state.open = not state.open
         state.views += 1
 

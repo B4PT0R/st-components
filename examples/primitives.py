@@ -174,12 +174,12 @@ class BalloonsDemo(Component):
         consumed = None
         last_mode = None
 
-    def trigger_element(self):
+    def trigger_element(self, _):
         self.state.element_runs += 1
         self.state.pending = self.state.element_runs
         self.state.last_mode = "element"
 
-    def trigger_helper(self):
+    def trigger_helper(self, _):
         show_balloons()
         self.state.helper_runs += 1
         self.state.last_mode = "helper"
@@ -354,8 +354,8 @@ class ProgressDemo(Component):
         else:
             return "Done!"
 
-    def run_element_job(self):
-        bar = self.bar_ref.state().value
+    def run_element_job(self, _):
+        bar = self.bar_ref.state().handle
         next_progress = self.state.current_progress + 10
         if next_progress > 100:
             next_progress = 0
@@ -363,7 +363,7 @@ class ProgressDemo(Component):
         bar.progress(next_progress, text=self.progress_message(next_progress), width="stretch")
         self.state.element_runs += 1
 
-    def run_callback_job(self):
+    def run_callback_job(self, _):
         bar = show_progress(ref=self.slot_ref, value=0, text="Starting...", width="stretch")
         for prog in range(10,110,10):
             pytime.sleep(0.5)
@@ -374,7 +374,7 @@ class ProgressDemo(Component):
     def render(self):
         return (
             markdown(key="hint")(
-                "On the left, `progress(...)` is pre-rendered in the tree and updated via `ref.state().value`. On the right, `show_progress(...)` uses a placeholder as a callback-only alternative."
+                "On the left, `progress(...)` is pre-rendered in the tree and updated via `ref.state().handle`. On the right, `show_progress(...)` uses a placeholder as a callback-only alternative."
             ),
             columns(key="content", spec=2)(
                 container(key="element_panel", border=True)(
@@ -405,12 +405,12 @@ class SnowDemo(Component):
         consumed = None
         last_mode = None
 
-    def trigger_element(self):
+    def trigger_element(self, _):
         self.state.element_runs += 1
         self.state.pending = self.state.element_runs
         self.state.last_mode = "element"
 
-    def trigger_helper(self):
+    def trigger_helper(self, _):
         show_snow()
         self.state.helper_runs += 1
         self.state.last_mode = "helper"
@@ -450,11 +450,11 @@ class SpinnerDemo(Component):
         super().__init__(**props)
         self.slot_ref = Ref()
 
-    def run_element_preview(self):
+    def run_element_preview(self, _):
         self.state.element_runs += 1
         self.state.pending_element = self.state.element_runs
 
-    def run_callback_preview(self):
+    def run_callback_preview(self, _):
         with show_spinner(ref=self.slot_ref, text="Loading preview", show_time=True):
             for _ in range(3):
                 pytime.sleep(0.6)
@@ -531,12 +531,12 @@ class ToastDemo(Component):
         consumed = None
         last_mode = None
 
-    def trigger_element(self):
+    def trigger_element(self, _):
         self.state.element_runs += 1
         self.state.pending = self.state.element_runs
         self.state.last_mode = "element"
 
-    def trigger_helper(self):
+    def trigger_helper(self, _):
         show_toast("Saved draft", duration="short")
         self.state.helper_runs += 1
         self.state.last_mode = "helper"
@@ -578,7 +578,7 @@ class ButtonDemo(Component):
     class DemoState(State):
         clicks = 0
 
-    def click(self):
+    def click(self, _):
         self.state.clicks += 1
 
     def render(self):
@@ -691,7 +691,6 @@ class DateInputDemo(Component):
         current = datetime.date.today()
 
     def render(self):
-        value = self.state.current.isoformat() if self.state.current is not None else None
         return date_input(key="widget", value=self.state.current, on_change=self.sync_state("current"))("Date")
 
 
@@ -700,7 +699,6 @@ class DatetimeInputDemo(Component):
         current = datetime.datetime.now().replace(second=0, microsecond=0)
 
     def render(self):
-        value = self.state.current.isoformat() if self.state.current is not None else None
         return datetime_input(key="widget", value=self.state.current, on_change=self.sync_state("current"))("Schedule")
 
 
@@ -709,7 +707,6 @@ class TimeInputDemo(Component):
         current = datetime.time(hour=9, minute=30)
 
     def render(self):
-        value = self.state.current.isoformat() if self.state.current is not None else None
         return time_input(key="widget", value=self.state.current, on_change=self.sync_state("current"))("Time")
 
 
@@ -785,7 +782,7 @@ class AudioInputDemo(Component):
 
 class ChatInputDemo(Component):
     class DemoState(State):
-        messages = ["The callback receives the submitted message as `value`."]
+        messages = ["The callback receives the submitted message directly."]
 
     def submit(self, value):
         message = value
@@ -1118,7 +1115,7 @@ class FragmentDemo(Component):
     class DemoState(State):
         clicks = 0
 
-    def click(self):
+    def click(self, _):
         self.state.clicks += 1
 
     def render(self):
@@ -1137,13 +1134,13 @@ class DialogDemo(Component):
         open = False
         confirmed = 0
 
-    def open_dialog(self):
+    def open_dialog(self, _):
         self.state.open = True
 
-    def close_dialog(self):
+    def close_dialog(self, _):
         self.state.open = False
 
-    def confirm(self):
+    def confirm(self, _):
         self.state.confirmed += 1
         self.state.open = False
 
@@ -1167,7 +1164,7 @@ class WriteStreamDemo(Component):
         pending = False
         runs = 0
 
-    def start_stream(self):
+    def start_stream(self, _):
         self.state.pending = True
         self.state.runs += 1
 
@@ -1198,7 +1195,7 @@ class FormDemo(Component):
         self.name_ref = Ref()
         self.notes_ref = Ref()
 
-    def submit(self):
+    def submit(self, _):
         self.state.submitted = {
             "name": get_state(self.name_ref).value or "",
             "notes": get_state(self.notes_ref).value or "",
@@ -1216,7 +1213,7 @@ class FormSubmitButtonDemo(Component):
     class DemoState(State):
         submissions = 0
 
-    def submit(self):
+    def submit(self, _):
         self.state.submissions += 1
 
     def render(self):

@@ -326,10 +326,8 @@ class RegressionPlayground(Component):
         self.state.n = int(value)
         self._fit()
 
-    def reset(self):
-        self.state.true_slope = 1.5
-        self.state.noise = 0.5
-        self.state.n = 80
+    def reset(self, _):
+        self.set_state(true_slope=1.5, noise=0.5, n=80)
         self._fit()
 
     # ----- render -----

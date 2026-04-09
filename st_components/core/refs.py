@@ -25,9 +25,6 @@ class Ref:
     def state(self):
         return get_state(self._require_path())
 
-    def get(self, key, default=None):
-        return self.state().get(key, default)
-
 
 def bind_ref(target, path, kind):
     ref = target.props.get("ref")

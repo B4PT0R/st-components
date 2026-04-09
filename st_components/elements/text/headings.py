@@ -3,8 +3,8 @@ from typing import Any, Optional
 import streamlit as st
 
 from ...core import Element, Ref
-from .._types import Anchor, Divider, TextAlignment, Width
-from ._common import body_or_prop
+from ..prop_types import Anchor, Divider, TextAlignment, Width
+from ..factory import widget_child
 
 
 class title(Element):
@@ -12,7 +12,7 @@ class title(Element):
         Element.__init__(self, key=key, body=body, anchor=anchor, ref=ref, help=help, width=width, text_alignment=text_alignment)
 
     def render(self):
-        st.title(body_or_prop(self), **self.props.exclude("key", "children", "body", "ref"))
+        st.title(widget_child("body", ""), **self.props.exclude("key", "children", "body", "ref"))
 
 
 class header(Element):
@@ -20,7 +20,7 @@ class header(Element):
         Element.__init__(self, key=key, body=body, anchor=anchor, ref=ref, help=help, divider=divider, width=width, text_alignment=text_alignment)
 
     def render(self):
-        st.header(body_or_prop(self), **self.props.exclude("key", "children", "body", "ref"))
+        st.header(widget_child("body", ""), **self.props.exclude("key", "children", "body", "ref"))
 
 
 class subheader(Element):
@@ -28,4 +28,4 @@ class subheader(Element):
         Element.__init__(self, key=key, body=body, anchor=anchor, ref=ref, help=help, divider=divider, width=width, text_alignment=text_alignment)
 
     def render(self):
-        st.subheader(body_or_prop(self), **self.props.exclude("key", "children", "body", "ref"))
+        st.subheader(widget_child("body", ""), **self.props.exclude("key", "children", "body", "ref"))

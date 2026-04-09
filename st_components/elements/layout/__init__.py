@@ -1,4 +1,4 @@
-from .._types import ButtonType, DialogWidth, DismissBehavior, Gap, Height, HorizontalAlignment, VerticalAlignment, Width, WidthWithoutContent
+from ..prop_types import ButtonType, DialogWidth, DismissBehavior, Gap, Height, HorizontalAlignment, VerticalAlignment, Width, WidthWithoutContent
 from .containers import columns, container, expander, form, popover, tabs
 from .misc import empty, sidebar
 from .overlays import chat_message, dialog, status

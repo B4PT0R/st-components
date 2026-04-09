@@ -73,8 +73,8 @@ def HooksDemo(props):
 
     use_effect(effect, deps=[state.name, state.count])
 
-    increment = use_callback(lambda: state.update(count=state.count + 1), deps=[state.count])
-    reset = use_callback(lambda: state.update(count=0), deps=[])
+    increment = use_callback(lambda st: state.update(count=state.count + 1), deps=[state.count])
+    reset = use_callback(lambda st: state.update(count=0), deps=[])
 
     snapshot = {
         "render_id": render_id,
@@ -132,7 +132,7 @@ def HooksDemo(props):
                 "technical = use_ref({'effect_runs': 0})\n"
                 "derived = use_memo(lambda: ..., deps=[state.name, state.count])\n"
                 "use_effect(lambda: technical.current.__setitem__('effect_runs', technical.current['effect_runs'] + 1), deps=[state.name, state.count])\n"
-                "increment = use_callback(lambda: state.update(count=state.count + 1), deps=[state.count])\n"
+                "increment = use_callback(lambda st: state.update(count=state.count + 1), deps=[state.count])\n"
                 "render_id = use_id()"
             ),
         ),

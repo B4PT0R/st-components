@@ -1,4 +1,4 @@
-from .._types import UseColumnWidth, Width, WidthWithoutContent
+from ..prop_types import UseColumnWidth, Width, WidthWithoutContent
 from .core import audio, image, video
 
 __all__ = [

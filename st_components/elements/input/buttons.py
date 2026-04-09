@@ -1,8 +1,11 @@
 from typing import Any, Literal, Optional
 
 from ...core import Element, Ref
-from ...core.access import _get_widget_key
-from ._common import ButtonType, IconPosition, WidgetCallback, Width, label_or_prop, st, widget_callback, widget_props
+from ...core.access import widget_key
+import streamlit as st
+from ..prop_types import ButtonType, IconPosition, WidgetCallback, Width
+from ..factory import widget_callback
+from ..factory import widget_child, widget_props
 
 
 class button(Element):
@@ -25,7 +28,7 @@ class button(Element):
         Element.__init__(self, key=key, label=label, ref=ref, help=help, on_click=on_click, type=type, icon=icon, icon_position=icon_position, disabled=disabled, use_container_width=use_container_width, width=width, shortcut=shortcut)
 
     def render(self):
-        st.button(label_or_prop(self), key=_get_widget_key(), on_click=widget_callback(self, "on_click"), **widget_props(self, "on_click"))
+        st.button(widget_child("label", ""), key=widget_key(), on_click=widget_callback("on_click"), **widget_props("label", "on_click"))
 
 
 class download_button(Element):
@@ -51,7 +54,7 @@ class download_button(Element):
         Element.__init__(self, key=key, label=label, data=data, ref=ref, file_name=file_name, mime=mime, help=help, on_click=on_click, type=type, icon=icon, icon_position=icon_position, disabled=disabled, use_container_width=use_container_width, width=width, shortcut=shortcut)
 
     def render(self):
-        st.download_button(label_or_prop(self), key=_get_widget_key(), **self.props.exclude("key", "children", "label", "ref"))
+        st.download_button(widget_child("label", ""), key=widget_key(), **self.props.exclude("key", "children", "label", "ref"))
 
 
 class link_button(Element):
@@ -75,7 +78,7 @@ class link_button(Element):
         Element.__init__(self, key=key, label=label, url=url, ref=ref, on_click=on_click, help=help, type=type, icon=icon, icon_position=icon_position, disabled=disabled, use_container_width=use_container_width, width=width, shortcut=shortcut)
 
     def render(self):
-        st.link_button(label_or_prop(self), key=_get_widget_key(), **self.props.exclude("key", "children", "label", "ref"))
+        st.link_button(widget_child("label", ""), key=widget_key(), **self.props.exclude("key", "children", "label", "ref"))
 
 
 class form_submit_button(Element):
@@ -98,7 +101,7 @@ class form_submit_button(Element):
         Element.__init__(self, key=key, label=label, ref=ref, help=help, on_click=on_click, type=type, icon=icon, icon_position=icon_position, disabled=disabled, use_container_width=use_container_width, width=width, shortcut=shortcut)
 
     def render(self):
-        st.form_submit_button(label_or_prop(self), key=_get_widget_key(), on_click=widget_callback(self, "on_click"), **widget_props(self, "on_click"))
+        st.form_submit_button(widget_child("label", ""), key=widget_key(), on_click=widget_callback("on_click"), **widget_props("label", "on_click"))
 
 
 class menu_button(Element):
@@ -120,4 +123,4 @@ class menu_button(Element):
         Element.__init__(self, key=key, label=label, options=options, ref=ref, help=help, on_click=on_click, type=type, icon=icon, disabled=disabled, width=width, format_func=format_func)
 
     def render(self):
-        st.menu_button(label_or_prop(self), key=_get_widget_key(), on_click=widget_callback(self, "on_click", pass_value=True), **widget_props(self, "on_click"))
+        st.menu_button(widget_child("label", ""), key=widget_key(), on_click=widget_callback("on_click"), **widget_props("label", "on_click"))

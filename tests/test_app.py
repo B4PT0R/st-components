@@ -19,7 +19,7 @@ from st_components.builtins import (
     ThemeEditorDialog,
 )
 from st_components.core import App, Component, ContextData, State, clear_shared_state, fibers, shared_states, use_context
-from st_components import Config, Props, Theme, create_context, get_app, get_shared_state
+from st_components import Config, Props, Ref, Theme, create_context, get_app, get_shared_state, get_state, set_state
 
 from tests._mock import _mock_st
 
@@ -79,15 +79,7 @@ def test_component_sync_state_shortcut():
 
     form = Form(key="form")
     sync_name = form.sync_state("name")
-
-    import st_components.core.base as base_module
-
-    original_get_element_value = base_module.get_element_value
-    base_module.get_element_value = lambda: "Alice"
-    try:
-        sync_name()
-    finally:
-        base_module.get_element_value = original_get_element_value
+    sync_name("Alice")
 
     assert form.state.name == "Alice"
 
@@ -136,7 +128,7 @@ def test_theme_editor_button_opens_and_closes_dialog():
     rendered = widget.render()
     dialog_fragment = rendered.children[1]
     assert widget.state.open is False
-    assert dialog_fragment.children[0].value is None
+    assert dialog_fragment.children[0].props.value is None
 
     widget._open()
     rendered = widget.render()
@@ -148,7 +140,7 @@ def test_theme_editor_button_opens_and_closes_dialog():
     rendered = widget.render()
     dialog_fragment = rendered.children[1]
     assert widget.state.open is False
-    assert dialog_fragment.children[0].value is None
+    assert dialog_fragment.children[0].props.value is None
 
 
 def test_theme_editor_load_preserves_runtime_theme_defaults():
@@ -196,7 +188,7 @@ def test_set_theme_does_not_persist_without_save(tmp_path, monkeypatch):
         def render(self):
             return None
 
-    app = App(persist_theme=False)(Root(key="root"))
+    app = App()(Root(key="root"))
     app.set_theme({"primaryColor": "#123456"})
     app.render()
 
@@ -211,7 +203,7 @@ def test_save_theme_persists_current_theme(tmp_path, monkeypatch):
         def render(self):
             return None
 
-    app = App(persist_theme=False)(Root(key="root"))
+    app = App()(Root(key="root"))
     app.set_theme({"primaryColor": "#123456"})
     app.save_theme()
 
@@ -227,7 +219,7 @@ def test_set_config_does_not_persist_without_save(tmp_path, monkeypatch):
         def render(self):
             return None
 
-    app = App(persist_config=False)(Root(key="root"))
+    app = App()(Root(key="root"))
     app.set_config({"client": {"toolbarMode": "minimal"}})
     app.render()
 
@@ -242,7 +234,7 @@ def test_save_config_persists_current_config(tmp_path, monkeypatch):
         def render(self):
             return None
 
-    app = App(persist_config=False)(Root(key="root"))
+    app = App()(Root(key="root"))
     app.set_config({"client": {"toolbarMode": "minimal", "showSidebarNavigation": False}})
     app.save_config()
 
@@ -259,7 +251,7 @@ def test_save_config_persists_runtime_relevant_sections(tmp_path, monkeypatch):
         def render(self):
             return None
 
-    app = App(persist_config=False)(Root(key="root"))
+    app = App()(Root(key="root"))
     app.set_config(
         {
             "runner": {"fastReruns": False},
@@ -304,12 +296,14 @@ def test_app_writes_theme_to_config_and_preserves_other_sections(tmp_path, monke
         def render(self):
             return None
 
-    App(
+    app = App(
         theme={
             "primaryColor": "#123456",
             "sidebar": {"backgroundColor": "#eeeeee"},
         },
-    )(Root(key="root")).render()
+    )(Root(key="root"))
+    app.save_theme()
+    app.render()
 
     config = toml.loads(config_path.read_text())
     assert config["server"]["headless"] is True
@@ -331,9 +325,9 @@ def test_app_replaces_theme_section_when_keys_are_removed(tmp_path, monkeypatch)
         def render(self):
             return None
 
-    App(
-        theme={"primaryColor": "#abcdef"},
-    )(Root(key="root")).render()
+    app = App(theme={"primaryColor": "#abcdef"})(Root(key="root"))
+    app.save_theme()
+    app.render()
 
     config = toml.loads(config_path.read_text())
     assert config["theme"]["primaryColor"] == "#abcdef"
@@ -398,12 +392,13 @@ def test_app_accepts_theme_modict(tmp_path, monkeypatch):
         def render(self):
             return None
 
-    App(
+    app = App(
         theme=Theme(
             primaryColor="#123456",
             sidebar={"backgroundColor": "#eeeeee"},
         ),
-    )(Root(key="root")).render()
+    )(Root(key="root"))
+    app.save_theme()
 
     config_path = tmp_path / ".streamlit" / "config.toml"
     config = toml.loads(config_path.read_text())
@@ -1121,3 +1116,197 @@ def test_clear_shared_state():
 
     clear_shared_state()
     assert dict(shared_states()) == {}
+
+
+# ---------------------------------------------------------------------------
+# Access API — get_state / set_state
+# ---------------------------------------------------------------------------
+
+def _render_component(component):
+    """Render a Component under a fresh App so its fiber is registered."""
+    App()(component).render()
+
+
+class Counter(Component):
+    class CounterState(State):
+        count: int = 0
+        label: str = "hits"
+
+    def render(self):
+        return None
+
+
+def test_get_state_returns_live_component_state():
+    counter = Counter(key="counter")
+    _render_component(counter)
+
+    state = get_state("app.counter")
+    assert state is not None
+    assert state.count == 0
+    assert state.label == "hits"
+
+
+def test_get_state_via_ref():
+    ref = Ref()
+
+    class Wrapper(Component):
+        def render(self):
+            return Counter(key="c", ref=ref)
+
+    _render_component(Wrapper(key="wrapper"))
+
+    state = get_state(ref)
+    assert state is not None
+    assert state.count == 0
+
+
+def test_get_state_returns_none_for_missing_path():
+    assert get_state("app.does_not_exist") is None
+
+
+def test_set_state_replaces_with_dict():
+    counter = Counter(key="counter")
+    _render_component(counter)
+
+    set_state("app.counter", {"count": 5, "label": "updated"})
+
+    state = get_state("app.counter")
+    assert state.count == 5
+    assert state.label == "updated"
+
+
+def test_set_state_replaces_with_state_instance():
+    counter = Counter(key="counter")
+    _render_component(counter)
+
+    set_state("app.counter", Counter.CounterState(count=10, label="typed"))
+
+    state = get_state("app.counter")
+    assert state.count == 10
+    assert state.label == "typed"
+
+
+def test_set_state_updates_fields_via_kwargs():
+    counter = Counter(key="counter")
+    _render_component(counter)
+
+    set_state("app.counter", count=7)
+
+    state = get_state("app.counter")
+    assert state.count == 7
+    assert state.label == "hits"  # untouched
+
+
+def test_set_state_via_ref():
+    ref = Ref()
+
+    class Wrapper(Component):
+        def render(self):
+            return Counter(key="c", ref=ref)
+
+    _render_component(Wrapper(key="wrapper"))
+
+    set_state(ref, count=42)
+    assert get_state(ref).count == 42
+
+
+def test_set_state_merges_fields():
+    counter = Counter(key="counter")
+    _render_component(counter)
+
+    set_state("app.counter", count=3, label="merged")
+
+    state = get_state("app.counter")
+    assert state.count == 3
+    assert state.label == "merged"
+
+
+def test_set_state_via_ref():
+    ref = Ref()
+
+    class Wrapper(Component):
+        def render(self):
+            return Counter(key="c", ref=ref)
+
+    _render_component(Wrapper(key="wrapper"))
+
+    set_state(ref, count=99)
+    assert get_state(ref).count == 99
+
+
+def test_set_state_raises_for_unknown_path():
+    try:
+        set_state("app.ghost", count=1)
+    except RuntimeError as err:
+        assert "no live fiber" in str(err)
+    else:
+        raise AssertionError("Expected RuntimeError for unknown path")
+
+
+def test_set_state_raises_for_element():
+    from st_components.core.models import ElementFiber, ElementState
+    from st_components.core.store import fibers
+
+    # Plant a fake ElementFiber at a known path
+    fibers()["app.fake_element"] = ElementFiber(path="app.fake_element")
+
+    try:
+        set_state("app.fake_element", count=1)
+    except RuntimeError as err:
+        assert "Element" in str(err)
+    else:
+        raise AssertionError("Expected RuntimeError when targeting an Element")
+    finally:
+        del fibers()["app.fake_element"]
+
+
+def test_set_state_is_visible_in_next_render():
+    results = []
+
+    class Tracker(Component):
+        class TrackerState(State):
+            count: int = 0
+
+        def render(self):
+            results.append(self.state.count)
+            return None
+
+    _render_component(Tracker(key="tracker"))
+    assert results == [0]
+
+    set_state("app.tracker", count=11)
+    _render_component(Tracker(key="tracker"))
+    assert results == [0, 11]
+
+    set_state("app.tracker", count=22)
+    _render_component(Tracker(key="tracker"))
+    assert results == [0, 11, 22]
+
+
+def test_set_state_is_visible_in_next_render_of_target():
+    """set_state(ref) on component B is reflected when B next renders."""
+    ref = Ref()
+    seen = []
+
+    class Target(Component):
+        class TS(State):
+            count: int = 0
+
+        def render(self):
+            seen.append(self.state.count)
+            return None
+
+    class Host(Component):
+        def render(self):
+            return Target(key="t", ref=ref)
+
+    App()(Host(key="h")).render()
+    assert seen == [0]
+
+    set_state(ref, count=7)
+    App()(Host(key="h")).render()
+    assert seen == [0, 7]
+
+    set_state(ref, count=0)
+    App()(Host(key="h")).render()
+    assert seen == [0, 7, 0]

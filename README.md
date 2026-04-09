@@ -39,11 +39,11 @@ class Demo(Component):
         super().__init__(**props)
         self.state=dict(name=None, clicked=False)
 
-    def on_change(self, name):
-        self.state.name=name
+    def on_change(self, value):
+        self.state.name = value
 
-    def on_click(self):
-        self.state.clicked=True
+    def on_click(self, _):
+        self.state.clicked = True
 
     def render(self):
         try:
@@ -94,6 +94,10 @@ This short demo already shows the basic idea:
   - [Component](#component-1)
   - [State](#state)
   - [Props](#props)
+  - [Access API](#access-api)
+    - [get_state](#get_statepath_or_refnone)
+    - [set_state](#set_statepath_or_refnone-othernone-kwargs)
+    - [reset_element](#reset_elementpath_or_refnone)
   - [Functional Components](#functional-components)
   - [Hooks](#hooks)
     - [use_state](#use_state)
@@ -105,8 +109,6 @@ This short demo already shows the basic idea:
     - [use_previous](#use_previous)
     - [use_id](#use_id)
     - [Hooks in class Components](#hooks-in-class-components)
-  - [get_state](#get_statepath_or_refnone)
-  - [reset_element](#reset_elementpath_or_ref)
   - [Fiber](#fiber)
 - [Theming and Config](#theming-and-config)
 - [Built-ins](#built-ins)
@@ -184,7 +186,7 @@ class Counter(Component):
         super().__init__(**props)
         self.state = dict(count=0)
 
-    def increment(self):
+    def increment(self, _):
         self.state.count += 1
 
     def render(self):
@@ -284,7 +286,7 @@ class Panel(Component):
         super().__init__(**props)
         self.state = dict(open=False)
 
-    def toggle(self):
+    def toggle(self, _):
         self.state.open = not self.state.open
 
     def render(self):
@@ -300,19 +302,16 @@ This is the preferred place for view state, local mode, and coordination between
 
 ### Pattern 2: Callbacks
 
-Callback payloads follow a simple rule:
+Every event callback receives the element's **current output value** as its only argument — the same value accessible via `get_state(ref).output`.
 
-- if an event carries a useful value, that value is injected into the handler
-- otherwise the handler is called with no extra argument
+All callbacks share the same signature:
 
-In practice this means:
+- `on_change(value)` for stateful widgets — `value` is the current widget value
+- `on_submit(value)` for `chat_input` — `value` is the submitted message
+- `on_select(value)` for selection-capable charts and dataframes — `value` is the selection dict
+- `on_click(value)` for buttons — `value` is `True` when the button was clicked
 
-- `on_change(value)` for stateful widgets
-- `on_submit(value)` for `chat_input`
-- `on_select(value)` for selection-capable charts and dataframes
-- `on_click()` for plain buttons
-
-For example, a normal `on_change` handler receives the current widget value as `value`:
+For example, a normal `on_change` handler receives the new value directly:
 
 ```python
 from st_components import Component
@@ -370,7 +369,7 @@ class Counter(Component):
         super().__init__(**props)
         self.state = dict(count=0)
 
-    def increment(self):
+    def increment(self, _):
         self.state.count += 1
 
     def render(self):
@@ -387,9 +386,9 @@ class RefDemo(Component):
         self.name_ref = Ref()
         self.counter_ref = Ref()
 
-    def capture(self):
+    def capture(self, _):
         self.state.snapshot = (
-            f"name={get_state(self.name_ref).value or ''}, "
+            f"name={get_state(self.name_ref).output or ''}, "
             f"count={get_state(self.counter_ref).count}"
         )
 
@@ -425,8 +424,6 @@ App(
     theme=None,
     css=None,
     config=None,
-    persist_theme=True,
-    persist_config=True,
 )
 ```
 
@@ -434,11 +431,9 @@ Props:
 
 - `children`: the single root renderable. The two-step style `App()(MyLayout(key="layout"))` is preferred — it keeps props and tree structure visually separated.
 - `page_title`, `page_icon`, `layout`, `initial_sidebar_state`, `menu_items`: forwarded to `st.set_page_config(...)`. Use these instead of calling `st.set_page_config` directly.
-- `theme`: app-level Streamlit theme. Accepts a `Theme` instance or a plain dict.
+- `theme`: app-level Streamlit theme. Accepts a `Theme` instance or a plain dict. Applied at runtime only — use `.save_theme()` to persist to disk.
 - `css`: extra CSS injected after the theme. Accepts a raw CSS string, a `.css` file path, a `Path`, or a list mixing those forms.
-- `config`: selected Streamlit config values. Accepts a `Config` instance or a plain dict. Supported sections: `client`, `runner`, `browser`, `server`.
-- `persist_theme`: if `True` (default), writes the current theme to `.streamlit/config.toml` on each render.
-- `persist_config`: if `True` (default), writes the current config to `.streamlit/config.toml` on each render.
+- `config`: selected Streamlit config values. Accepts a `Config` instance or a plain dict. Supported sections: `client`, `runner`, `browser`, `server`. Applied at runtime only — use `.save_config()` to persist to disk.
 
 Methods:
 
@@ -468,35 +463,108 @@ All built-in Streamlit widgets are available as ready-made elements in `st_compo
 All wrappers share the same two additions over the standard Streamlit signatures:
 
 - `key` is always required — the framework uses it to derive the element's path in the tree
-- `ref` is always accepted — attach a `Ref()` to access the element's state later via `get_state(ref)` or `ref.state()`
+- `ref` is always accepted — attach a `Ref()` to access the element's state later via `get_state(ref)` or `ref.state()`. The state fields follow these conventions:
+  - `state.output` — current widget output value (text, number, date, bool, uploaded file, selection dict for charts/dataframes, …)
+  - `state.handle` — Streamlit DeltaGenerator or control object returned by the underlying `st.*` call, for layout/container elements (`container`, `columns`, `tabs`, `form`, `expander`, `popover`, `sidebar`, `empty`, `chat_message`, `status`) and `progress`
 
 #### Writing a custom element wrapper
 
-Subclass `Element` and implement `render()` when you need to integrate a third-party or custom Streamlit widget into the framework. The main primitive you need:
-
-- `KEY(local_key)` — resolves `local_key` against the current path context and returns the full Streamlit widget key to pass to the underlying `st.*` call
-- `get_element_path()` — returns the resolved path of the current element (its canonical key in the framework)
-- `set_element_value(path, value)` — stores a post-processed value on the element's fiber, making it retrievable via `get_state(path).value`
-- `render(child)` — renders a child component or element (the free function imported from `st_components.core`)
-
-The built-in `container` element illustrates the pattern:
+`st_components.elements.factory` is the single import point for wrapping any Streamlit widget as a framework-aware `Element`:
 
 ```python
-from st_components.core import Element, KEY, get_element_path, render, set_element_value
-
-class container(Element):
-    def __init__(self, *, key: str, ref=None, border=None, **kwargs):
-        Element.__init__(self, key=key, ref=ref, border=border, **kwargs)
-
-    def render(self):
-        container_obj = st.container(key=KEY("raw"), **self.props.exclude("key", "children", "ref"))
-        set_element_value(get_element_path(), container_obj)
-        with container_obj:
-            for child in self.children:
-                render(child)
+from st_components.elements.factory import (
+    Element,          # base class
+    element_factory,  # generates an Element class from a st.* callable
+    callback,         # wraps an arbitrary callable as a widget callback
+    widget_callback,  # wraps a named prop as a widget callback (from context)
+    widget_child,     # first child or named prop (from context)
+    widget_key,       # Streamlit session-state key (from context)
+    widget_output,    # raw session-state value (from context)
+    widget_props,     # filtered props dict, ready to splat (from context)
+)
 ```
 
-`set_element_value` is what makes the element's output retrievable later. For pure output widgets that produce no value (e.g. `markdown`, `balloons`), you can omit it. For widgets that natively write into `st.session_state` by Streamlit key (e.g. `st.text_input`), the value is already accessible there — `KEY(...)` ensures the key matches what the framework expects.
+All context-resolving helpers (`widget_key`, `widget_output`, `widget_callback`, `widget_child`, `widget_props`) take no element argument — they read the currently rendering element from the render context automatically.
+
+**`element_factory` — the quick path**
+
+For widgets that follow the standard pattern, one line is enough:
+
+```python
+import streamlit as st
+from st_components.elements.factory import element_factory
+
+text_input  = element_factory(st.text_input,  child_prop="label", callback_prop="on_change")
+button      = element_factory(st.button,      child_prop="label", callback_prop="on_click")
+selectbox   = element_factory(st.selectbox,   child_prop="label", callback_prop="on_change")
+dataframe   = element_factory(st.dataframe,   child_prop="data")
+```
+
+- `child_prop` — prop name (or `(name, default)` tuple) forwarded as the first positional argument to the `st.*` call via `widget_child()`.
+- `callback_prop` — prop name of the event callback, wrapped via `widget_callback(prop_name)`.
+- If the `st.*` call returns a context manager, children are rendered inside it automatically.
+- An optional `props_schema` (a `Props` subclass) validates and documents accepted props.
+
+**Subclassing `Element` — the full path**
+
+Use `element_factory` for the common case. Subclass `Element` directly when you need a typed `__init__`, a custom `get_output_default`, or `get_output` post-processing:
+
+```python
+import streamlit as st
+from st_components.elements.factory import Element, widget_key, widget_callback, widget_child, widget_props
+
+class text_input(Element):
+    def __init__(self, label=None, value="", on_change=None, *, key, ref=None, **kwargs):
+        Element.__init__(self, key=key, label=label, value=value, on_change=on_change, ref=ref, **kwargs)
+
+    def render(self):
+        st.text_input(
+            widget_child("label", ""),
+            key=widget_key(),
+            on_change=widget_callback(),       # defaults to "on_change"
+            **widget_props("label", "on_change"),
+        )
+```
+
+Override `get_output(raw)` to control what `state.output` exposes. `raw` is `None` when the widget has not yet been registered in session state (default: returns `None`). Override to return a prop value as the initial default, or to apply post-processing:
+
+```python
+# initial value from a "default" prop instead of "value"
+class multiselect(Element):
+    def get_output(self, raw):
+        return self.props.get("default") if raw is None else raw
+
+# post-processing: merge editing deltas back into the original dataframe
+class data_editor(Element):
+    def get_output(self, raw):
+        return self._resolve_output(widget_child("data"), raw)  # handles None raw
+
+    def render(self):
+        st.data_editor(widget_child("data"), key=widget_key(), **widget_props("data"))
+```
+
+`widget_default(prop_name="value")` is the context-based shorthand for reading a default prop inside `render()`. Use `self.props.get(prop_name)` instead when inside `get_output`, since that method is also called from callbacks where the render context is not active.
+
+When using `element_factory`, pass `default_prop` to wire the initial output automatically:
+
+```python
+text_input  = element_factory(st.text_input,  child_prop="label", callback_prop="on_change", default_prop="value")
+multiselect = element_factory(st.multiselect, child_prop="label", callback_prop="on_change", default_prop="default")
+button      = element_factory(st.button,      child_prop="label", callback_prop="on_click")   # no default needed
+```
+
+Use `callback(fn)` directly when the callback value is not a simple prop lookup — for example when wrapping a `on_select` that may be either a callable or a string sentinel:
+
+```python
+def render(self):
+    on_select = self.props.get("on_select", "ignore")
+    st.dataframe(
+        widget_child("data"),
+        key=widget_key(),
+        on_select=callback(on_select) if callable(on_select) else on_select,
+        **widget_props("data", "on_select"),
+    )
+```
 
 ### `Component`
 
@@ -512,7 +580,7 @@ class container(Element):
 **Methods:**
 
 - `set_state(other=None, /, **kwargs)` — update state fields. Accepts a dict positional argument, keyword arguments, or both. Works whether or not the component is mounted.
-- `sync_state(state_key)` — returns a one-argument callback that writes its argument into `self.state[state_key]`. Shorthand for simple `on_change` handlers that just mirror a widget value into state.
+- `sync_state(state_key)` — returns a callback suitable for `on_change`. When called with a value, it writes that value into `self.state[state_key]`. Shorthand for simple `on_change` handlers that mirror a widget value into component state.
 
 **Lifecycle methods** (override as needed, default implementation is a no-op):
 
@@ -540,9 +608,9 @@ State is local, persistent per mounted component path, and restored automaticall
 You can initialize state directly in `__init__`:
 
 ```python
-def __init__(self,**props):
-    super().__init__(self,**props)
-    self.state = dict(count=0, label="clicks)
+def __init__(self, **props):
+    super().__init__(**props)
+    self.state = dict(count=0, label="clicks")
 ```
 
 Or skip the `__init__` override and declare a typed nested subclass:
@@ -559,7 +627,7 @@ class Counter(Component):
         count: int = 0
         label: str = "clicks"
 
-    def increment(self):
+    def increment(self, _):
         self.state.count += 1
 
     def render(self):
@@ -595,6 +663,78 @@ class Badge(Component):
 ```
 
 This is useful when you want defaults, validation, or stricter control over accepted inputs.
+
+### Access API
+
+`get_state`, `set_state`, and `reset_element` are the canonical way to reach any Component or Element in the tree from outside its own class, whether from a sibling render, a standalone callback, or a utility function.
+
+All three accept a `path_or_ref` argument that can be:
+
+- a `Ref` attached to a Component or Element at render time
+- a fully-qualified path string (e.g. `"app.home.counter"`)
+- omitted — defaults to the current render or callback context
+
+```python
+from st_components import get_state, set_state, reset_element
+```
+
+---
+
+### `get_state(path_or_ref=None)`
+
+Returns the current state of any rendered Element or mounted Component, or `None` if the path doesn't resolve to a live fiber.
+
+- **Component** — returns the live `State` object (mutable, same object as `self.state` during render).
+- **Element** — returns the live `ElementState` (frozen — read-only from outside the element's own render). Field conventions:
+  - `state.output` — widget output value for all input/display elements (text, number, bool, file, selection dict for charts and dataframes, …)
+  - `state.handle` — Streamlit DeltaGenerator / control object for layout and container elements (`container`, `columns`, `tabs`, `expander`, `form`, `popover`, `sidebar`, `empty`, `chat_message`, `status`, `progress`)
+
+```python
+# read an element's current value
+name = get_state(name_ref).output
+
+# read a component's state field
+count = get_state(counter_ref).count
+
+# from within the current context (no ref needed)
+snapshot = get_state()
+
+# via ref shorthand
+snapshot = name_ref.state()
+```
+
+---
+
+### `set_state(path_or_ref=None, other=None, /, **kwargs)`
+
+Replaces or partially updates the state of a **Component**. Raises `RuntimeError` if the target is an Element — element state is managed exclusively by the element's own `render()`.
+
+- *other* — a `dict` or `State` instance that replaces the component state wholesale.
+- ***kwargs* — field updates merged on top (or instead) of *other*.
+
+```python
+# replace state entirely with a dict
+set_state(counter_ref, {"count": 0})
+
+# replace with a typed State instance
+set_state(counter_ref, CounterState(count=0, label="restarted"))
+
+# update one field only
+set_state(counter_ref, count=0)
+
+# from within the current context (targets the current component)
+set_state(count=0)
+```
+
+---
+
+### `reset_element(path_or_ref=None)`
+
+Forces a stateful Element to be recreated on the next rerun, clearing its widget value from `st.session_state` so the declared `value=` prop takes effect again.
+
+```python
+reset_element(name_ref)
+```
 
 ### Functional Components
 
@@ -660,7 +800,7 @@ from st_components.elements import button, markdown
 def Counter(props):
     state = use_state(count=0)
 
-    def increment():
+    def increment(st):
         state.count += 1
 
     return (
@@ -686,7 +826,7 @@ def Counter(props):
 
     state = use_state(CounterState(count=0, step=2))
 
-    def increment():
+    def increment(st):
         state.count += state.step
 
     return (
@@ -844,29 +984,6 @@ The point is:
 
 - hooks are used for persistent render-cycle data that must survive the short-lived component instance
 - `self.state` and lifecycle methods of the class-oriented API surface can do the trick in some cases.
-
-### `get_state(path_or_ref=None)`
-
-Returns the current state of any rendered Element or mounted Component, or `None` if the path doesn't resolve to a live fiber.
-
-- for an **Element**, returns an `ElementState` with a single `value` field holding the current widget value (set by Streamlit or by `set_element_value`)
-- for a **Component**, returns its `State` object, the same dict-like object as `self.state` during render
-- `path_or_ref` may be omitted inside a running render or callback, defaulting to the current caller
-
-Examples:
-
-- element value: `get_state("app.form.name").value`
-- component state: `get_state("app.form.counter").count`
-- inside the current context: `get_state()`
-- via a ref: `get_state(ref)` or `ref.state()`
-
-### `reset_element(path_or_ref)`
-
-Forces a stateful Element to be recreated on the next rerun, so its declared default value is applied again.
-
-```python
-reset_element(name_ref)
-```
 
 ### Fiber
 

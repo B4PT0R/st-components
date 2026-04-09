@@ -2,8 +2,8 @@ from typing import Any, Callable, Literal, Optional
 
 import streamlit as st
 
-from ...core import Element, Ref, get_element_path, get_key_stack, path_context, render, set_element_value
-from .._types import DialogWidth, DismissBehavior, Width, WidthWithoutContent
+from ...core import Element, Ref, get_key_stack, path_context, render
+from ..prop_types import DialogWidth, DismissBehavior, Width, WidthWithoutContent
 
 
 class dialog(Element):
@@ -24,11 +24,7 @@ class dialog(Element):
         title = self.props.get("title", "")
         on_dismiss = self.props.get("on_dismiss", "ignore")
         context_keys = get_key_stack()
-
-        def dismiss_callback():
-            if callable(on_dismiss):
-                return on_dismiss()
-            return on_dismiss
+        dismiss_callback = (lambda: on_dismiss()) if callable(on_dismiss) else None
 
         @st.dialog(
             title,
@@ -57,7 +53,7 @@ class chat_message(Element):
 
     def render(self):
         message_obj = st.chat_message(self.props.get("name", "assistant"), **self.props.exclude("key", "children", "name", "ref"))
-        set_element_value(get_element_path(), message_obj)
+        self.state.handle = message_obj
         with message_obj:
             for child in self.children:
                 render(child)
@@ -78,7 +74,7 @@ class status(Element):
 
     def render(self):
         status_obj = st.status(self.props.get("label", ""), **self.props.exclude("key", "children", "label", "ref"))
-        set_element_value(get_element_path(), status_obj)
+        self.state.handle = status_obj
         with status_obj:
             for child in self.children:
                 render(child)

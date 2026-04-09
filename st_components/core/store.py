@@ -3,7 +3,6 @@ from copy import deepcopy
 
 from modict import modict
 from streamlit import session_state as state
-from modict import MISSING
 from .models import ElementFiber, Fiber, Fibers, PreviousStates, SharedStates, State
 
 try:
@@ -120,8 +119,6 @@ def mark_subtree_keep_alive(prefix):
 def begin_render_cycle():
     for fiber in fibers().values():
         fiber.keep_alive = False
-        if isinstance(fiber, ElementFiber):
-            fiber["cache"] = MISSING
     state.__render_cycle_fibers__ = set()
     state.__render_cycle_previous_states__ = PreviousStates({
         fiber_key: deepcopy(fiber.previous_state)

@@ -3,8 +3,8 @@ from typing import Any, Optional, Sequence
 import streamlit as st
 
 from ...core import Element, Ref
-from .._types import Height, Width
-from .._utils import child_or_prop
+from ..prop_types import Height, Width
+from ..factory import widget_child
 
 
 class area_chart(Element):
@@ -12,4 +12,4 @@ class area_chart(Element):
         Element.__init__(self, key=key, data=data, ref=ref, x=x, y=y, x_label=x_label, y_label=y_label, color=color, stack=stack, width=width, height=height, use_container_width=use_container_width)
 
     def render(self):
-        st.area_chart(child_or_prop(self, "data"), **self.props.exclude("key", "children", "data", "ref"))
+        st.area_chart(widget_child("data"), **self.props.exclude("key", "children", "data", "ref"))

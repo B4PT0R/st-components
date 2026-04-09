@@ -1,4 +1,4 @@
-from ._common import (
+from ..prop_types import (
     BindOption,
     ButtonType,
     FeedbackOptions,
@@ -9,7 +9,6 @@ from ._common import (
     WidgetCallback,
     Width,
     WidthWithoutContent,
-    resolve_data_editor_value as _resolve_data_editor_value,
 )
 from .boolean import checkbox, toggle
 from .buttons import button, download_button, form_submit_button, link_button, menu_button
@@ -30,7 +29,6 @@ __all__ = [
     "WidgetCallback",
     "Width",
     "WidthWithoutContent",
-    "_resolve_data_editor_value",
     "audio_input",
     "button",
     "camera_input",

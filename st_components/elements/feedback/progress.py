@@ -2,8 +2,8 @@ from typing import Optional
 
 import streamlit as st
 
-from ...core import Element, Ref, get_element_path, render, set_element_value
-from .._types import WidthWithoutContent
+from ...core import Element, Ref, render
+from ..prop_types import WidthWithoutContent
 
 
 class balloons(Element):
@@ -64,4 +64,4 @@ class progress(Element):
             text=self.props.text,
             width=self.props.width,
         )
-        set_element_value(get_element_path(), handle)
+        self.state.handle = handle

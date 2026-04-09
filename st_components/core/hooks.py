@@ -32,7 +32,7 @@ def use_state(other=None, /, **kwargs):
     from .base import Element
     current = _current_node()
     if isinstance(current, Element):
-        raise RuntimeError("use_state() cannot be used inside Element.render(). Elements do not have framework state.")
+        raise RuntimeError("use_state() cannot be used inside Element.render(). Use self.state directly to manage element state.")
     slot = current._use_hook_slot("state")
 
     if not slot.initialized:

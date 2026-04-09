@@ -3,8 +3,8 @@ from typing import Any, Optional
 import streamlit as st
 
 from ...core import Element, Ref
-from .._types import Width
-from .._utils import child_or_prop
+from ..prop_types import Width
+from ..factory import widget_child
 
 
 class pyplot(Element):
@@ -12,4 +12,4 @@ class pyplot(Element):
         Element.__init__(self, key=key, fig=fig, ref=ref, clear_figure=clear_figure, width=width, use_container_width=use_container_width, **kwargs)
 
     def render(self):
-        st.pyplot(child_or_prop(self, "fig"), **self.props.exclude("key", "children", "fig", "ref"))
+        st.pyplot(widget_child("fig"), **self.props.exclude("key", "children", "fig", "ref"))

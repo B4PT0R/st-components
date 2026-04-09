@@ -3,8 +3,8 @@ from typing import Any, Optional
 import streamlit as st
 
 from ...core import Element, Ref
-from .._types import HeightWithoutContent, WidthWithoutContent
-from .._utils import child_or_prop
+from ..prop_types import HeightWithoutContent, WidthWithoutContent
+from ..factory import widget_child
 
 
 class map(Element):
@@ -12,4 +12,4 @@ class map(Element):
         Element.__init__(self, key=key, data=data, ref=ref, latitude=latitude, longitude=longitude, color=color, size=size, zoom=zoom, width=width, height=height, use_container_width=use_container_width)
 
     def render(self):
-        st.map(child_or_prop(self, "data"), **self.props.exclude("key", "children", "data", "ref"))
+        st.map(widget_child("data"), **self.props.exclude("key", "children", "data", "ref"))

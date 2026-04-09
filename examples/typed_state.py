@@ -25,7 +25,7 @@ class Counter(Component):
     class CounterState(State):
         count: int = 0
 
-    def increment(self):
+    def increment(self, _):
         self.state.count += 1
 
     def render(self):
@@ -43,7 +43,7 @@ class ToggleCard(Component):
         open: bool = False
         visits: int = 0
 
-    def toggle(self):
+    def toggle(self, _):
         self.state.open = not self.state.open
         self.state.visits += 1
 
@@ -66,7 +66,7 @@ class TypedCounter(Component):
     class TypedCounterState(State):
         count: int = 0
 
-    def set_invalid(self):
+    def set_invalid(self, _):
         try:
             self.state.count = "not_an_int"
         except Exception as e:
@@ -101,7 +101,7 @@ class Demo(Component):
                 "class Counter(Component):\n"
                 "    class CounterState(State):\n"
                 "        count: int = 0\n\n"
-                "    def increment(self):\n"
+                "    def increment(self, _):\n"
                 "        self.state.count += 1\n\n"
                 "    def render(self):\n"
                 "        return button(key=\"btn\", on_click=self.increment)(\n"

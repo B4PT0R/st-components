@@ -1,5 +1,5 @@
 import datetime
-from st_components import App, Component, Ref, get_state
+from st_components import App, Component, Ref, get_state, set_state
 from st_components.elements import (
     button, caption, code, columns, container, divider, expander, header, info,
     json, markdown, metric, sidebar, slider, subheader, success, tabs, text,
@@ -16,13 +16,13 @@ class CounterCard(Component):
         super().__init__(**props)
         self.state = dict(value=self.props.get("initial", 0))
 
-    def increment(self):
+    def increment(self, _):
         self.state.value += 1
 
-    def decrement(self):
+    def decrement(self, _):
         self.state.value = max(0, self.state.value - 1)
 
-    def reset(self):
+    def reset(self, _):
         self.state.value = 0
 
     def render(self):
@@ -46,7 +46,7 @@ class IntroCard(Component):
                 "`st-components` gives Streamlit a small component model:\n\n"
                 "- `Component` keeps local state across reruns.\n"
                 "- `Element` wraps Streamlit primitives.\n"
-                "- `on_change` handlers receive the current widget value.\n"
+                "- `on_change` handlers receive the widget's current value directly.\n"
                 "- `Ref()` lets you reach a component or stateful element later without hardcoding full paths."
             ),
             info(key="tip")(
@@ -73,7 +73,7 @@ class LocalStateDemo(Component):
                 "        super().__init__(**props)\n"
                 "        self.state = dict(value=0)\n"
                 "\n"
-                "    def increment(self):\n"
+                "    def increment(self, _):\n"
                 "        self.state.value += 1"
             ),
         )
@@ -118,7 +118,7 @@ class ElementValueDemo(Component):
         return container(key="panel", border=True)(
             subheader(key="h")("2. Widget values in callbacks"),
             caption(key="c")(
-                "Stateful Elements pass their current value to `on_change`, so simple widget-to-state sync stays explicit and lightweight."
+                "Element callbacks receive the widget's current value directly — no unwrapping needed."
             ),
             text_input(key="task", value=self.state.task, on_change=self.sync_task)("Current task"),
             slider(key="focus", min_value=0, max_value=10, value=self.state.focus, on_change=self.sync_focus)("Focus level"),
@@ -161,7 +161,7 @@ class RefInspectorDemo(Component):
             snapshot={},
         )
 
-    def capture_refs(self):
+    def capture_refs(self, _):
         self.state.snapshot = {
             "name_ref_path": self.name_ref.path,
             "name_ref_value": get_state(self.name_ref).value,
@@ -171,11 +171,15 @@ class RefInspectorDemo(Component):
             "counter_ref_state": dict(get_state(self.counter_ref)),
         }
 
+    def reset_counter(self, _):
+        set_state(self.counter_ref, value=0)
+
     def render(self):
         return container(key="panel", border=True)(
             subheader(key="h")("3. Reach things later with Ref()"),
             caption(key="c")(
-                "Refs store logical paths, not Python instances. Render first, then call get_state(ref) to read the current state of any element or component."
+                "Refs store logical paths, not Python instances. "
+                "Use get_state(ref) to read, set_state(ref) to write — from anywhere in the tree."
             ),
             text_input(
                 key="name",
@@ -191,7 +195,10 @@ class RefInspectorDemo(Component):
                 on_change=self.sync_state("notes"),
             )("Notes tracked by ref"),
             CounterCard(key="counter", ref=self.counter_ref, label="Counter reached through ref", initial=3),
-            button(key="read_refs", on_click=self.capture_refs, type="primary")("Read refs now"),
+            columns(key="actions")(
+                button(key="read_refs", on_click=self.capture_refs, type="primary")("Read refs now"),
+                button(key="reset_counter", on_click=self.reset_counter)("Reset counter via ref"),
+            ),
             json(key="snapshot")(self.state.snapshot or {"status": "Click 'Read refs now' after changing the inputs or counter."}),
             code(key="snippet", language="python")(
                 "name_ref = Ref()\n"
@@ -200,10 +207,12 @@ class RefInspectorDemo(Component):
                 "text_input(key=\"name\", ref=name_ref)(\"Name\")\n"
                 "CounterCard(key=\"counter\", ref=counter_ref)\n"
                 "\n"
-                "snapshot = {\n"
-                "    \"name\": get_state(name_ref).value,\n"
-                "    \"count\": get_state(counter_ref).value,\n"
-                "}"
+                "# read\n"
+                "name  = get_state(name_ref).value\n"
+                "count = get_state(counter_ref).value\n"
+                "\n"
+                "# write — reset the counter from anywhere in the tree\n"
+                "set_state(counter_ref, value=0)"
             ),
         )
 
@@ -213,10 +222,10 @@ class CompositionDemo(Component):
         super().__init__(**props)
         self.state = dict(saved=False)
 
-    def mark_dirty(self, value):
+    def mark_dirty(self, _):
         self.state.saved = False
 
-    def mark_saved(self):
+    def mark_saved(self, _):
         self.state.saved = True
 
     def render(self):

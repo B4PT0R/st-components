@@ -3,8 +3,8 @@ from typing import Any, Literal, Optional
 import streamlit as st
 
 from ...core import Element, Ref
-from .._types import TextAlignment, Width
-from ._common import body_or_prop
+from ..prop_types import TextAlignment, Width
+from ..factory import widget_child
 
 
 class caption(Element):
@@ -12,7 +12,7 @@ class caption(Element):
         Element.__init__(self, key=key, body=body, unsafe_allow_html=unsafe_allow_html, ref=ref, help=help, width=width, text_alignment=text_alignment)
 
     def render(self):
-        st.caption(body_or_prop(self), **self.props.exclude("key", "children", "body", "ref"))
+        st.caption(widget_child("body", ""), **self.props.exclude("key", "children", "body", "ref"))
 
 
 class text(Element):
@@ -20,7 +20,7 @@ class text(Element):
         Element.__init__(self, key=key, body=body, ref=ref, help=help, width=width, text_alignment=text_alignment)
 
     def render(self):
-        st.text(body_or_prop(self), **self.props.exclude("key", "children", "body", "ref"))
+        st.text(widget_child("body", ""), **self.props.exclude("key", "children", "body", "ref"))
 
 
 class markdown(Element):
@@ -28,7 +28,7 @@ class markdown(Element):
         Element.__init__(self, key=key, body=body, unsafe_allow_html=unsafe_allow_html, ref=ref, help=help, width=width, text_alignment=text_alignment)
 
     def render(self):
-        st.markdown(body_or_prop(self), **self.props.exclude("key", "children", "body", "ref"))
+        st.markdown(widget_child("body", ""), **self.props.exclude("key", "children", "body", "ref"))
 
 
 class code(Element):
@@ -36,7 +36,7 @@ class code(Element):
         Element.__init__(self, key=key, body=body, language=language, ref=ref, line_numbers=line_numbers, wrap_lines=wrap_lines, height=height, width=width)
 
     def render(self):
-        st.code(body_or_prop(self), **self.props.exclude("key", "children", "body", "ref"))
+        st.code(widget_child("body", ""), **self.props.exclude("key", "children", "body", "ref"))
 
 
 class latex(Element):
@@ -44,4 +44,4 @@ class latex(Element):
         Element.__init__(self, key=key, body=body, ref=ref, help=help, width=width)
 
     def render(self):
-        st.latex(body_or_prop(self), **self.props.exclude("key", "children", "body", "ref"))
+        st.latex(widget_child("body", ""), **self.props.exclude("key", "children", "body", "ref"))

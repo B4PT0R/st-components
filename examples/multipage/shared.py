@@ -33,7 +33,7 @@ class WorkspaceSidebar(Component):
         workspace = get_shared_state("workspace")
         workspace.current_message = value
 
-    def increment_visits(self):
+    def increment_visits(self, _):
         workspace = get_shared_state("workspace")
         workspace.visits += 1
 
