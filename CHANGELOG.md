@@ -4,6 +4,19 @@ All notable changes to this project will be documented in this file.
 
 The format is based on Keep a Changelog, and this project uses SemVer.
 
+## [0.4.1] - 2026-04-10
+
+### Added
+
+- **`Component.__init__(*children, **props)`**: children can now be passed as positional arguments to `__init__`, removing the need for a `__call__` step when only children are needed. Positional children take priority over the `children` kwarg. `__call__` still works for the two-step JSX-like pattern.
+- **`App(*children, **config)`**: App now accepts children as positional args — `App(root, page_title="Demo").render()` replaces the old `App(page_title="Demo")(root).render()`.
+
+### Changed
+
+- **README intro example rewritten**: both vanilla Streamlit and st-components examples now produce the same persistent-greeting behavior. The st-components version no longer uses `try/finally`; the vanilla version now shows the `st.session_state` boilerplate it requires, making the contrast clearer.
+- **README instantiation docs updated**: documents both one-step (`MyComponent(child, key="k")`) and two-step (`MyComponent(key="k")(child)`) patterns with guidance on when to use each.
+- All examples and docs updated to use the new `App(root, ...)` one-step style.
+
 ## [0.4.0] - 2026-04-10
 
 Production hardening, error boundaries, typed exceptions, refactoring, and documentation pass.

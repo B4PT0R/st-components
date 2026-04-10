@@ -166,4 +166,4 @@ def HooksDemo(props):
     )
 
 
-stc.App(page_title="07 - Hooks")(HooksDemo()).render()
+stc.App(HooksDemo(), page_title="07 - Hooks").render()

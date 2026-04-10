@@ -139,4 +139,4 @@ class CompositionDemo(stc.Component):
         )
 
 
-stc.App(page_title="04 - Composition")(CompositionDemo()).render()
+stc.App(CompositionDemo(), page_title="04 - Composition").render()

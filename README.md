@@ -11,62 +11,52 @@ Instead of thinking your components as **functions**,  rendering immediately whe
 ```python
 import streamlit as st
 
-def demo():
-    st.header("Demo App")
-    with st.container(key="pannel",border=True):
-        name=st.text_input(key="name_input", label="Enter your name:", value="")
-        if name:
-            clicked = st.button(key="greet", label="Show greetings!")
-            if clicked :    
-                st.markdown(f"Hello {name}!")
-                st.balloons()
+if "greeted_name" not in st.session_state:
+    st.session_state.greeted_name = ""
 
-def app():
-    demo()
+def greet():
+    st.session_state.greeted_name = st.session_state.name_input
 
-app()
+st.header("Demo App")
+with st.container(key="pannel", border=True):
+    name = st.text_input(key="name_input", label="Enter your name:")
+    if name:
+        st.button("Show greetings!", key="greet", on_click=greet)
+    if st.session_state.greeted_name:
+        st.markdown(f"Hello {st.session_state.greeted_name}!")
 ```
 
 In `st-components`, you think of components as nested **objects**, each with a **render** method returning the widgets it should show on screen, and who manage their **state** and logic internally via **events callbacks**. For those who already know React, it should sound quite familiar:
 
 ```python
 from st_components import App, Component
-from st_components.elements import header, container, text_input, button, markdown, balloons
+from st_components.elements import header, container, text_input, button, markdown
 
 class Demo(Component):
 
     def __init__(self, **props):
         super().__init__(**props)
-        self.state=dict(name=None, clicked=False)
+        self.state = dict(name="", greeted_name="")
 
-    def on_change(self, value):
-        self.state.name = value
-
-    def on_click(self):
-        self.state.clicked = True
+    def greet(self):
+        self.state.greeted_name = self.state.name
 
     def render(self):
-        try:
-            return (
-                header(key="h")("Demo App"),
-                container(key="pannel",border=True)(
-                    text_input(key="name_input", label="Enter your name:", value="", on_change=self.on_change),
-                    button(key="greet", label="Show greetings!", on_click=self.on_click) if self.state.name else None,
-                    markdown(key="m", body=f"Hello {self.state.name}!") if self.state.clicked else None,
-                    balloons(key="b") if self.state.clicked else None
-                )
+        return (
+            header(key="h")("Demo App"),
+            container(key="pannel", border=True)(
+                text_input(key="name_input", label="Enter your name:", on_change=self.sync_state("name")),
+                button(key="greet", label="Show greetings!", on_click=self.greet) if self.state.name else None,
+                markdown(key="m")(f"Hello {self.state.greeted_name}!") if self.state.greeted_name else None,
             )
-        finally:
-            self.state.clicked = False
+        )
 
-app=App()(
-    Demo(key="demo")
-)
-
-app.render()
+App(Demo(key="demo")).render()
 ```
 
-Admittedly, the second is a bit more declarative and verbose, so it's probably not that suitable for beginners. But it's much more powerful when it comes to turn components into stateful, reusable and composable building blocks, handling their own state and logic internally.
+Admittedly, the second is a bit more verbose, so it's probably not that suitable for beginners. But it's much more powerful when it comes to turn components into stateful, reusable and composable building blocks, handling their own state and logic internally.
+
+Notice the contrast: the vanilla version requires global `st.session_state` init guards, string-based key references (`st.session_state.name_input`), and a standalone callback. The component version keeps state local, callbacks are methods, and everything is encapsulated.
 
 This short demo already shows the basic idea:
 - The base `Component` class lets you declare custom reusable, stateful and reactive UI units by subclassing it.
@@ -166,36 +156,40 @@ class Counter(Component):
         )
 
 
-app = App()(
+App(
     container(key="home")(
         Counter(key="counter_1"), # "app.home.counter_1.button" (internally)
         Counter(key="counter_2"), # "app.home.counter_2.button" no collision
     )
-)
-
-app.render()
+).render()
 ```
 
 Each `Counter` keeps its own state across reruns.
 
-The creation syntax is intentionally two-step:
+Children can be passed as positional arguments to `__init__`, or via `__call__` in a second step:
 
 ```python
-MyComponent(**props)(
-    *children
+# One-step — children as positional args, props as keyword args
+MyComponent(child_a, child_b, key="intro")
+
+# Two-step — props first, children second (closer to JSX)
+MyComponent(key="intro")(child_a, child_b)
+```
+
+Both forms are equivalent. The two-step style is the usual one because in Python keyword arguments must come after positional ones, and having props before children makes nested UI trees much easier to read:
+
+```python
+# Two-step: props visually precede children — reads top-down like JSX
+container(key="page", border=True)(
+    Header(key="h"),
+    Body(key="b"),
 )
+
+# One-step: children before props — less readable for deep trees
+container(Header(key="h"), Body(key="b"), key="page", border=True)
 ```
 
-First, `__init__(...)` receives props. Then `__call__(...)` receives children and puts them in `self.props.children` (this step can be ommitted if you don't want to pass any children). This is just syntactic sugar so that tree construction feels readable and close enough to JSX within Python language constraints (without having to implement a dedicated JSX parser).
-
-children can still be passed as a prop if necessary, so these two forms are equivalent:
-
-```python
-MyComponent(key="intro")("Hello")
-MyComponent(key="intro", children=["Hello"])
-```
-
-In practice, the two-step style is the usual one because it makes nested UI trees much easier to read.
+In practice, use one-step for simple wrappers with few or no props, and two-step for anything with a richer prop set.
 
 ## Mental Model
 
@@ -380,7 +374,7 @@ class RefDemo(Component):
         )
 
 
-App()(RefDemo(key="refs")).render()
+App(RefDemo(key="refs")).render()
 ```
 
 `self.name` resolves to `Ref("app.refs.demo.name")` — a lightweight path cursor. Call `.state()` to read, `ref(*children, **props)` to override, `.reset()` to clear.
@@ -503,7 +497,7 @@ class Dashboard(Component):
         )
 
 
-App()(Dashboard()).render()
+App(Dashboard()).render()
 ```
 
 How it works:
@@ -582,7 +576,7 @@ MyApp(page_title="My App").render()
 
 `render()` is fully overridable — return any Component, Element, Router, or tree of them. The framework infrastructure (page config, styles, routing, rerun control) is handled by the decorator, not by `render()` itself.
 
-You can still use the `App()(root)` pattern without subclassing — the default `render()` just returns the child passed via `__call__`.
+You can still use the `App(root)` pattern without subclassing — the default `render()` just returns the child passed at init or via `__call__`.
 
 ## Theming
 
@@ -602,7 +596,7 @@ app = App(
     ),
     color_mode="dark",
     css="body { font-size: 16px; }",
-)(MyLayout(key="layout"))
+)(MyLayout(key="layout"))  # or pass as first arg: App(MyLayout(...), theme=...)
 ```
 
 Drop a `ThemeEditorButton` anywhere to tune the theme visually during development, then persist the result with **Save**:

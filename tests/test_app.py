@@ -101,7 +101,7 @@ def test_app_accepts_single_root_in_children_constructor_arg():
         def render(self):
             return None
 
-    App(children=[Root(key="root")]).render()
+    App(Root(key="root")).render()
 
     assert "app.root" in fibers()
 

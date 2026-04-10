@@ -4,14 +4,14 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "st-components"
-version = "0.4.0"
+version = "0.4.1"
 description = "React-style stateful components for Streamlit"
 readme = "README.md"
 requires-python = ">=3.10"
 license = "MIT"
 dependencies = [
     "streamlit>=1.56.0",
-    "modict>=0.4.13",
+    "modict>=0.4.18",
     "toml",
 ]
 

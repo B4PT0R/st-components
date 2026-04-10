@@ -106,4 +106,4 @@ class CallbacksDemo(stc.Component):
         )
 
 
-stc.App(page_title="03 - Callbacks")(CallbacksDemo()).render()
+stc.App(CallbacksDemo(), page_title="03 - Callbacks").render()

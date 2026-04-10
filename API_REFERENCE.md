@@ -572,7 +572,7 @@ if state.error is not None:
 Multipage navigation inside the component tree.
 
 ```python
-App()(
+App(
     Router(position="top")(
         Page(key="home", nav_title="Home", default=True)(
             HomePage(key="root")

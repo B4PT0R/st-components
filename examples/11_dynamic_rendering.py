@@ -229,4 +229,4 @@ class DynamicRenderingDemo(stc.Component):
         )
 
 
-stc.App(page_title="11 - Dynamic Rendering", layout="wide")(DynamicRenderingDemo()).render()
+stc.App(DynamicRenderingDemo(), page_title="11 - Dynamic Rendering", layout="wide").render()

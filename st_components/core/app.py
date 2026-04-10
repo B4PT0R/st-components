@@ -48,7 +48,7 @@ def get_app():
     if app is None:
         raise AppError(
             "No current App instance is available. "
-            "Create an App before accessing it: app = App(...)(root).render()."
+            "Create an App before accessing it: App(root, ...).render()."
         )
     return app
 
@@ -65,8 +65,7 @@ class App(Component):
 
     ::
 
-        app = App(page_title="Demo", layout="wide")
-        app(MyRoot(key="root")).render()
+        App(MyRoot(key="root"), page_title="Demo", layout="wide").render()
     """
     __props_class__ = AppProps
     _THEME_STATE_KEY = ss.APP_THEME
@@ -75,8 +74,7 @@ class App(Component):
 
     def __init__(
         self,
-        *,
-        children=None,
+        *children,
         page_title=None,
         page_icon=None,
         layout=None,
@@ -88,8 +86,7 @@ class App(Component):
         config=None,
         query_params=None,
     ):
-        normalized_children = [] if children is None else list(children)
-        super().__init__(key="app", children=normalized_children)
+        super().__init__(*children, key="app")
         # Stable ID — App is a singleton per session, no need for a counter.
         self._component_id = "App:0"
 
@@ -161,7 +158,7 @@ class App(Component):
             if root is None:
                 raise AppError(
                     "App.render() must return a root component — "
-                    "pass one via App()(root) or override render() in a subclass."
+                    "pass one via App(root) or override render() in a subclass."
                 )
             return self._run_app(root)
 
@@ -826,7 +823,7 @@ class App(Component):
         """Return the app's content tree.
 
         Override in subclasses to build the tree dynamically.
-        Default returns the child(ren) passed via ``App()(...)``.
+        Default returns the child(ren) passed via ``App(child, ...)``.
         Returns a single child, a tuple for multiple, or ``None``.
         """
         if not self.children:

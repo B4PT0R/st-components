@@ -107,7 +107,4 @@ class ThemingDemo(stc.Component):
         )
 
 
-stc.App(
-    page_title="10 - Theming",
-    layout="wide",
-)(ThemingDemo()).render()
+stc.App(ThemingDemo(), page_title="10 - Theming", layout="wide").render()

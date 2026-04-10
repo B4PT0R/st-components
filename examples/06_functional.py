@@ -100,4 +100,4 @@ def FunctionalDemo(props):
     )
 
 
-stc.App(page_title="05 - Functional")(FunctionalDemo()).render()
+stc.App(FunctionalDemo(), page_title="05 - Functional").render()

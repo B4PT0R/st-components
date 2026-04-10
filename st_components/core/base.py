@@ -131,9 +131,12 @@ class Component:
                 elif issubclass(attr, Props) and attr is not Props:
                     cls.__props_class__ = attr
 
-    def __init__(self, **props):
+    def __init__(self, *children, **props):
         props_cls = getattr(type(self), "__props_class__", Props)
         self.props = props_cls(props)
+        if children:
+            self.props.children = list(children)
+            _auto_key_children(self.props.children)
         self._state = None  # created lazily by _ensure_initial_state()
         self._component_id = f"{type(self).__name__}:{next(_component_counter)}"
         self._fiber_key = None

@@ -1354,4 +1354,4 @@ class PrimitivesApp(Component):
         )
 
 
-App(page_title="Elements Index")(PrimitivesApp(key="app")).render()
+App(PrimitivesApp(key="app"), page_title="Elements Index").render()

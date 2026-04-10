@@ -112,4 +112,4 @@ class StateDemo(stc.Component):
         )
 
 
-stc.App(page_title="02 - State")(StateDemo()).render()
+stc.App(StateDemo(), page_title="02 - State").render()

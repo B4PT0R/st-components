@@ -22,10 +22,6 @@ from shared import AppSettings, AppSidebar, DisplayConfig, DisplayContext
 # ── App setup ────────────────────────────────────────────────────────────────
 
 app = stc.App(
-    page_title="Data Explorer",
-    page_icon=":material/analytics:",
-    layout="wide",
-)(
     DisplayContext.Provider(key="display", data=DisplayConfig(show_stats=True, chart_height=300))(
         Router(position="top")(
             Page(key="signal", nav_title="Signal", nav_icon=":material/show_chart:", default=True)(
@@ -38,7 +34,10 @@ app = stc.App(
                 "pages/regression_page.py"
             ),
         )
-    )
+    ),
+    page_title="Data Explorer",
+    page_icon=":material/analytics:",
+    layout="wide",
 )
 app.create_shared_state("settings", AppSettings())
 app.render()

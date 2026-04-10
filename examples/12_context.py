@@ -107,4 +107,4 @@ class ContextDemo(stc.Component):
         )
 
 
-stc.App(page_title="08 - Context")(ContextDemo()).render()
+stc.App(ContextDemo(), page_title="08 - Context").render()

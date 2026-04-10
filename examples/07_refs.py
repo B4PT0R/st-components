@@ -213,4 +213,4 @@ class RefsDemo(stc.Component):
         )
 
 
-stc.App(page_title="07 - Refs")(RefsDemo()).render()
+stc.App(RefsDemo(), page_title="07 - Refs").render()

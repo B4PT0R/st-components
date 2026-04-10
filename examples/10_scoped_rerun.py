@@ -226,4 +226,4 @@ class ScopedRerunDemo(stc.Component):
         )
 
 
-stc.App(page_title="10 - Scoped Rerun", layout="wide")(ScopedRerunDemo()).render()
+stc.App(ScopedRerunDemo(), page_title="10 - Scoped Rerun", layout="wide").render()

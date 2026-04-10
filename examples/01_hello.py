@@ -48,4 +48,4 @@ class HelloDemo(stc.Component):
         )
 
 
-stc.App(page_title="01 - Hello")(HelloDemo()).render()
+stc.App(HelloDemo(), page_title="01 - Hello").render()

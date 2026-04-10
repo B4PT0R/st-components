@@ -6,7 +6,7 @@ ContextProviders).  It holds Page children and delegates to
 
 ::
 
-    App()(
+    App(
         Router(key="nav", position="sidebar")(
             Page(key="home", nav_title="Home", default=True)(HomePage(key="hp")),
             Page(key="settings", nav_title="Settings")(SettingsPage(key="sp")),

@@ -96,10 +96,6 @@ class OverviewPage(Component):
         )
 
 app = App(
-    page_title="st-components multipage example",
-    page_icon=":material/dashboard:",
-    layout="wide",
-)(
     AppModeContext.Provider(key="app_mode_scope", data=AppModeData(mode="multipage-demo"))(
         Router(position="top")(
             Page(key="overview", nav_title="Overview", nav_icon=":material/home:", default=True)(
@@ -109,7 +105,10 @@ app = App(
                 "pages/report_page.py"
             ),
         )
-    )
+    ),
+    page_title="st-components multipage example",
+    page_icon=":material/dashboard:",
+    layout="wide",
 )
 app.create_shared_state("workspace", WorkspaceState())
 app.render()

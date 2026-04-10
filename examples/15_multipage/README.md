@@ -6,7 +6,7 @@ streamlit run examples/multipage/app.py
 
 This example demonstrates the multipage API around `Router`:
 
-- `App()(Router(...)(Page(...), Page(...)))` declares the whole multipage app as a single root tree.
+- `App(Router(...)(Page(...), Page(...)))` declares the whole multipage app as a single root tree.
 - `Router` contains only `Page` children and is responsible for wiring `st.navigation(...)`.
 - `Page(...)(OverviewPage(key="root"))` declares an inline page from an instantiated component.
 - `Page(...)("pages/report_page.py")` declares a file-backed page that Streamlit executes directly.

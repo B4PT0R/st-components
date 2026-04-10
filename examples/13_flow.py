@@ -148,4 +148,4 @@ class FlowDemo(stc.Component):
         )
 
 
-stc.App(page_title="09 - Flow")(FlowDemo()).render()
+stc.App(FlowDemo(), page_title="09 - Flow").render()

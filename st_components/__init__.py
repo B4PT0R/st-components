@@ -20,7 +20,7 @@ Quick start::
                 button(key="inc", on_click=lambda: None)("+1"),
             )
 
-    stc.App(page_title="Demo")(Counter(key="counter")).render()
+    stc.App(Counter(key="counter"), page_title="Demo").render()
 
 Functional style::
 

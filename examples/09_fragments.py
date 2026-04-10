@@ -201,4 +201,4 @@ class FragmentDemo(stc.Component):
         )
 
 
-stc.App(page_title="08 - Fragments", layout="wide")(FragmentDemo()).render()
+stc.App(FragmentDemo(), page_title="08 - Fragments", layout="wide").render()
