@@ -1,3 +1,17 @@
+"""Element factory and widget helpers — bridge between Component props and st.* calls.
+
+Components or Elements passed as props are rendered by the receiving element
+using ``render()`` at the appropriate location in its own ``render()`` method,
+exactly like children. No automatic resolution — the element author decides.
+
+Public:
+    widget_key, widget_output, callback — re-exported from core.access.
+    widget_child(prop_name) — resolve the first child or named prop for the label argument.
+    widget_props(*excluded) — build the kwargs dict for the st.* call.
+    widget_callback(prop_name) — wrap a prop as a Streamlit callback.
+    render_handle / get_render_target — container handle tracking.
+    element_factory — generate an Element subclass from an st.* callable.
+"""
 from contextlib import contextmanager
 
 from ..core import Element  # noqa: F401
@@ -47,6 +61,7 @@ def get_render_target():
 
 
 def _props():
+    """Return the props of the currently rendering Component/Element."""
     from ..core.context import get_rendering_component
     component = get_rendering_component()
     if component is None:
@@ -54,18 +69,16 @@ def _props():
     return component.props
 
 
+
 def widget_child(prop_name, default=None):
+    """Resolve the first child or named prop as the positional label argument."""
     props = _props()
     return props.children[0] if props.children else props.get(prop_name, default)
 
 
 def widget_props(*excluded):
-    return _props().exclude(
-        "key",
-        "children",
-        "ref",
-        *excluded,
-    )
+    """Build the kwargs dict for the ``st.*`` call, excluding framework props."""
+    return _props().exclude("key", "children", "ref", *excluded)
 
 
 def widget_callback(prop_name="on_change"):

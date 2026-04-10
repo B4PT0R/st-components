@@ -5,7 +5,7 @@ Value, Anchor, and sync_state.
 import pytest
 
 from st_components.core import Component, Element, Props, State, ctx, render, fibers
-from st_components.core.base import Anchor, Value, to_tuple
+from st_components.core.base import Anchor, Value, _as_tuple
 from st_components.core.models import ElementState
 
 from tests._mock import fake_ctx, _mock_st, _session_data
@@ -37,7 +37,7 @@ def test_component_unmount_when_not_mounted_raises():
 
     comp = Comp(key="c")
     assert not comp.is_mounted
-    with pytest.raises(RuntimeError, match="not already mounted"):
+    with pytest.raises(RuntimeError, match="not currently mounted"):
         comp.unmount()
 
 
@@ -151,18 +151,18 @@ def test_anchor_renders_children():
 
 
 # ---------------------------------------------------------------------------
-# to_tuple
+# _as_tuple
 # ---------------------------------------------------------------------------
 
-def test_to_tuple_wraps_non_tuples():
-    assert to_tuple("x") == ("x",)
-    assert to_tuple(42) == (42,)
-    assert to_tuple(None) == (None,)
+def test_as_tuple_wraps_non_tuples():
+    assert _as_tuple("x") == ("x",)
+    assert _as_tuple(42) == (42,)
+    assert _as_tuple(None) == (None,)
 
 
-def test_to_tuple_preserves_tuples():
+def test_as_tuple_preserves_tuples():
     t = (1, 2)
-    assert to_tuple(t) is t
+    assert _as_tuple(t) is t
 
 
 # ---------------------------------------------------------------------------
@@ -198,7 +198,7 @@ def test_component_key_setter_raises():
             pass
 
     comp = Comp(key="c")
-    with pytest.raises(RuntimeError, match="Can't set"):
+    with pytest.raises(RuntimeError, match="Cannot set key"):
         comp.key = "other"
 
 

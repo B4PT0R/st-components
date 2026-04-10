@@ -4,6 +4,7 @@ All hooks must be called **during render** and always in the **same order**
 across reruns — no hooks inside conditions or loops.
 """
 from .context import get_context_value, get_rendering_component
+from .errors import HookContextError, StcTypeError
 
 
 class RefValue:
@@ -16,17 +17,23 @@ class RefValue:
 
 
 def _current_node():
+    """Return the Component/Element currently being rendered, or raise."""
     node = get_rendering_component()
     if node is None:
-        raise RuntimeError("Hooks must be called while rendering a Component or Element.")
+        raise HookContextError(
+            "Hooks must be called during a Component or Element render cycle. "
+            "They cannot be called from callbacks, top-level code, or outside render()."
+        )
     return node
 
 
 def _use_hook_slot(kind):
+    """Claim a hook slot on the current rendering node."""
     return _current_node()._use_hook_slot(kind)
 
 
 def _normalize_deps(deps):
+    """Convert deps list to a tuple for stable comparison, or None for 'always run'."""
     return tuple(deps) if deps is not None else None
 
 
@@ -48,7 +55,10 @@ def use_state(other=None, /, **kwargs):
     from .base import Element
     current = _current_node()
     if isinstance(current, Element):
-        raise RuntimeError("use_state() cannot be used inside Element.render(). Use self.state directly to manage element state.")
+        raise HookContextError(
+            "use_state() cannot be used inside Element.render(). "
+            "Use self.state directly to manage element state."
+        )
     slot = current._use_hook_slot("state")
     if not slot.initialized:
         if other is not None:
@@ -83,7 +93,10 @@ def use_memo(factory, deps=None):
         filtered = use_memo(lambda: expensive_filter(data), deps=[data])
     """
     if not callable(factory):
-        raise TypeError(f"use_memo() expects a callable factory, got {type(factory)}")
+        raise StcTypeError(
+            f"use_memo() expects a callable factory, got {type(factory).__name__!r}. "
+            f"Wrap your value in a lambda: use_memo(lambda: {factory!r}, deps=...)."
+        )
     slot = _current_node()._use_hook_slot("memo")
     normalized_deps = _normalize_deps(deps)
     if not slot.initialized or normalized_deps is None or slot.deps != normalized_deps:
@@ -114,7 +127,7 @@ def use_callback(callback, deps=None):
     Equivalent to ``use_memo(lambda: callback, deps)``.
     """
     if not callable(callback):
-        raise TypeError(f"use_callback() expects a callable, got {type(callback)}")
+        raise StcTypeError(f"use_callback() expects a callable, got {type(callback).__name__!r}.")
     return use_memo(lambda: callback, deps)
 
 
@@ -165,7 +178,7 @@ def use_effect(effect, deps=None):
         use_effect(effect, deps=[url])
     """
     if not callable(effect):
-        raise TypeError(f"use_effect() expects a callable effect, got {type(effect)}")
+        raise StcTypeError(f"use_effect() expects a callable effect, got {type(effect).__name__!r}.")
     current = _current_node()
     index, slot = current._claim_hook_slot("effect")
     normalized_deps = _normalize_deps(deps)

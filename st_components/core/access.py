@@ -1,48 +1,72 @@
+"""State access API — read/write component state from anywhere.
+
+Public:
+    widget_key(path) — canonical session_state key for a widget.
+    widget_output(path) — raw widget value from session_state.
+    get_state(path) — read any component/element state.
+    set_state(path, ...) — update a component's state.
+    callback(fn) — wrap a function as a Streamlit widget callback.
+    reset_element(path) — reset an element's widget and state.
+
+Internal:
+    _resolve_path, _resolve_or_context — path/Ref resolution.
+    _accepts_value — inspect whether a callback expects a value argument.
+"""
+import inspect
+
+from modict import MISSING
+
 from . import _session as ss
-from .context import CallbackState, ctx, set_context, get_element_path
-
-
-def _base_value_key(path: str) -> str:
-    """Key under which Streamlit widget values / layout objects are stored."""
-    return f"{path}.raw"
+from .context import CallbackState, ctx, get_element_path, get_rendering_component, set_context
+from .errors import CallbackError, ContextError, FiberNotFoundError, RefError, StateError, StcTypeError, UnresolvedRefError
+from .models import ElementFiber
+from .store import fibers
 
 
 def _resolve_path(path_or_ref=None, *, expected_kind=None, fn_name="operation"):
+    """Resolve a path-or-Ref argument to a fiber path string."""
     if path_or_ref is None:
         return get_element_path()
 
-    from .refs import Ref
+    from .refs import Ref  # circular: refs → access
 
     if isinstance(path_or_ref, Ref):
         if path_or_ref.path is None:
-            raise RuntimeError(
-                f"{fn_name}() requires a resolved Ref. Attach it to a Component or Element and render the tree first."
+            raise UnresolvedRefError(
+                f"{fn_name}() requires a resolved Ref. "
+                f"Attach it to a Component or Element via the ref= prop and render the tree first."
             )
         if expected_kind is not None and path_or_ref.kind != expected_kind:
-            raise RuntimeError(
-                f"{fn_name}() expected a {expected_kind} Ref, got {path_or_ref.kind!r}."
+            raise RefError(
+                f"{fn_name}() expected a {expected_kind} Ref, got {path_or_ref.kind!r} "
+                f"(path={path_or_ref.path!r}). Pass a Ref pointing to a {expected_kind}."
             )
         return path_or_ref.path
 
     return path_or_ref
 
 
-def _widget_revisions():
-    return ss.get_or_init(ss.WIDGET_REVISIONS, dict)
+def _resolve_or_context(path_or_ref=None, **kwargs):
+    """Resolve *path_or_ref* or fall back to the current element path."""
+    return _resolve_path(path_or_ref, **kwargs) if path_or_ref is not None else get_element_path()
 
 
 def widget_key(path=None):
+    """Return the canonical ``session_state`` key for the widget at *path*.
+
+    Uses the current element context if *path* is not provided.
+    The key includes a revision suffix after ``reset_element()`` calls.
+    """
     element_path = path or get_element_path()
     if element_path is None:
-        raise RuntimeError(
-            "widget_key() requires an element path or an active element/widget callback context."
+        raise ContextError(
+            "widget_key() requires an element path or an active element/widget callback context. "
+            "Call it from within an Element.render() method or pass an explicit path."
         )
 
-    base_key = _base_value_key(element_path)
-    revision = _widget_revisions().get(base_key, 0)
-    if revision == 0:
-        return base_key
-    return f"{base_key}#{revision}"
+    base_key = f"{element_path}.raw"
+    revision = ss.get_or_init(ss.WIDGET_REVISIONS, dict).get(base_key, 0)
+    return base_key if revision == 0 else f"{base_key}#{revision}"
 
 
 def widget_output(path=None):
@@ -51,11 +75,7 @@ def widget_output(path=None):
     Reads directly from ``st.session_state`` using the canonical widget key.
     Returns ``MISSING`` (from modict) if the key is not present — ``None`` is a valid widget value.
     """
-    from modict import MISSING
-    from .store import fibers
-    from .models import ElementFiber
-
-    element_path = _resolve_path(path, expected_kind="element", fn_name="widget_output") if path is not None else get_element_path()
+    element_path = _resolve_or_context(path, expected_kind="element", fn_name="widget_output")
     if element_path is None:
         cb = ctx.current("callback")
         if isinstance(cb, CallbackState) and cb.widget_key is not None:
@@ -70,12 +90,16 @@ def widget_output(path=None):
 def get_state(path_or_ref=None):
     """Return the current state for any Component or Element.
 
-    Returns ``None`` if the path doesn't resolve to a live fiber.
+    Returns ``None`` if the fiber has not been rendered yet.
+    Raises ``ContextError`` if called without arguments and no active context.
     """
-    from .store import fibers
-
-    path = _resolve_path(path_or_ref) if path_or_ref is not None else get_element_path()
+    path = _resolve_or_context(path_or_ref)
     if path is None:
+        if path_or_ref is None:
+            raise ContextError(
+                "get_state() requires a path/ref or an active component context. "
+                "Call it from within a render cycle or pass an explicit path/Ref."
+            )
         return None
     fiber = fibers().get(path)
     return fiber.state if fiber is not None else None
@@ -84,23 +108,24 @@ def get_state(path_or_ref=None):
 def set_state(path_or_ref=None, other=None, /, **kwargs):
     """Set or update the state of a Component.
 
-    Raises ``RuntimeError`` if the path resolves to an Element.
+    Raises ``StateError`` if the path resolves to an Element.
     """
-    from .store import fibers
-    from .models import ElementFiber
-
-    path = _resolve_path(path_or_ref) if path_or_ref is not None else get_element_path()
+    path = _resolve_or_context(path_or_ref)
     if path is None:
-        raise RuntimeError(
-            "set_state() requires a path/ref or an active component context."
+        raise ContextError(
+            "set_state() requires a path/ref or an active component context. "
+            "Call it from within a render cycle or pass an explicit path/Ref."
         )
     fiber = fibers().get(path)
     if fiber is None:
-        raise RuntimeError(f"set_state(): no live fiber found at {path!r}.")
+        raise FiberNotFoundError(
+            f"set_state(): no live fiber found at {path!r}. "
+            f"Ensure the component has been rendered at least once."
+        )
     if isinstance(fiber, ElementFiber):
-        raise RuntimeError(
-            "set_state() cannot target an Element — element state is managed by the element itself. "
-            "Pass a Component path or Ref."
+        raise StateError(
+            f"set_state() cannot target an Element (path={path!r}) — "
+            f"element state is managed by the element itself. Pass a Component path or Ref."
         )
 
     if other is not None:
@@ -110,8 +135,9 @@ def set_state(path_or_ref=None, other=None, /, **kwargs):
         elif isinstance(other, dict):
             fiber.state = state_cls(**other)
         else:
-            raise TypeError(
-                f"set_state() expected a dict or {state_cls.__name__}, got {type(other).__name__!r}."
+            raise StcTypeError(
+                f"set_state() expected a dict or {state_cls.__name__}, "
+                f"got {type(other).__name__!r}."
             )
     if kwargs:
         fiber.state.update(**kwargs)
@@ -119,21 +145,14 @@ def set_state(path_or_ref=None, other=None, /, **kwargs):
 
 def _accepts_value(fn):
     """Return True if *fn* accepts at least one positional argument (beyond self)."""
-    import inspect
     try:
         sig = inspect.signature(fn)
     except (ValueError, TypeError):
         return True  # assume it does if we can't tell
-    params = [
-        p for p in sig.parameters.values()
-        if p.kind in (
-            inspect.Parameter.POSITIONAL_ONLY,
-            inspect.Parameter.POSITIONAL_OR_KEYWORD,
-        )
-    ]
-    # For bound methods, `self` is already consumed — params are the remaining ones.
-    # For plain functions / lambdas, first param is the value.
-    return len(params) >= 1
+    return any(
+        p.kind in (inspect.Parameter.POSITIONAL_ONLY, inspect.Parameter.POSITIONAL_OR_KEYWORD)
+        for p in sig.parameters.values()
+    )
 
 
 def callback(fn):
@@ -148,13 +167,13 @@ def callback(fn):
     if fn is None:
         return None
 
-    from .context import get_rendering_component
-    from .base import Element
+    from .base import Element  # circular: base → access
 
     element = get_rendering_component()
     if not isinstance(element, Element):
-        raise RuntimeError(
-            "callback() must be called from within an Element.render() method."
+        raise CallbackError(
+            "callback() must be called from within an Element.render() method. "
+            "It wraps a function as a Streamlit widget callback tied to the current element."
         )
 
     element_path = element._fiber_key
@@ -172,23 +191,26 @@ def callback(fn):
 
 
 def reset_element(path=None):
+    """Reset an Element's widget value in session_state and bump its revision key.
+
+    The element will re-initialize with its default value on the next render.
+    """
     element_path = _resolve_path(path, expected_kind="element", fn_name="reset_element")
     if element_path is None:
-        raise RuntimeError(
-            "reset_element() requires an element path or an active element/widget callback context."
+        raise ContextError(
+            "reset_element() requires an element path or an active element/widget callback context. "
+            "Call it from within an Element render or pass an explicit path/Ref."
         )
 
-    base_key = _base_value_key(element_path)
+    base_key = f"{element_path}.raw"
     current_key = widget_key(element_path)
     for key in {base_key, current_key}:
         ss.delete(key)
 
-    revisions = _widget_revisions()
+    revisions = ss.get_or_init(ss.WIDGET_REVISIONS, dict)
     revisions[base_key] = revisions.get(base_key, 0) + 1
     ss.put(ss.WIDGET_REVISIONS, revisions)
 
-    from .store import fibers
-    from .models import ElementFiber
     fiber = fibers().get(element_path)
     if isinstance(fiber, ElementFiber):
         fiber.state = type(fiber.state)()

@@ -1,6 +1,29 @@
+"""Component and Element base classes — the core of the rendering engine.
+
+Public:
+    Component — stateful node, returns children from render().
+    Element — terminal node, calls st.* imperatively in render().
+    render(obj) — render any object into the Streamlit output.
+    render_to_element(obj) — resolve a Component chain down to an Element.
+
+Internal:
+    Anchor — invisible Element holding a Component's children.
+    Value — wraps a plain Python value as an Element.
+    _as_tuple, _auto_key_children — child normalization helpers.
+"""
 import itertools
 
 from . import _bridge
+from .errors import (
+    AlreadyMountedError,
+    ComponentDefinitionError,
+    HookOrderError,
+    LifecycleError,
+    NotMountedError,
+    RenderDepthError,
+    RenderError,
+    StcTypeError,
+)
 
 _component_counter = itertools.count()
 
@@ -10,36 +33,35 @@ from .refs import bind_ref
 from .store import _cleanup_effect_slots, fibers, register_component, track_rendered_fiber, unregister_component
 
 
-def to_tuple(value):
-    if isinstance(value, tuple):
-        return value
-    return (value,)
+def _as_tuple(value):
+    """Coerce *value* to a tuple (no-op if already one)."""
+    return value if isinstance(value, tuple) else (value,)
 
 
 def _auto_key_children(children):
-    """Assign ``{classname}_{index}`` keys to children that have no explicit key."""
+    """Assign ``{classname}_{index}`` keys to children that have no explicit key.
+
+    For a single child, the index suffix is omitted (just the class name).
+    """
+    solo = len(children) == 1
     for i, child in enumerate(children):
         if isinstance(child, Component) and child.props.key is None:
-            child.props["key"] = f"{type(child).__name__}_{i}"
-
-
-def _ensure_key(obj):
-    """Assign a default key to a standalone object (no sibling index)."""
-    if isinstance(obj, Component) and obj.props.key is None:
-        obj.props["key"] = type(obj).__name__
+            child.props["key"] = type(child).__name__ if solo else f"{type(child).__name__}_{i}"
 
 
 _MAX_RENDER_DEPTH = 64
 
 
 def render_to_element(obj, index=0, _depth=0):
+    """Recursively resolve *obj* to an Element (through Component.render() chains)."""
     if isinstance(obj, Element):
         return obj
     if isinstance(obj, Component):
         if _depth >= _MAX_RENDER_DEPTH:
-            raise RecursionError(
+            raise RenderDepthError(
                 f"Component render chain exceeded {_MAX_RENDER_DEPTH} levels — "
-                f"likely an infinite loop in {type(obj).__name__}.render()."
+                f"likely an infinite loop in {type(obj).__name__}.render(). "
+                f"Check that render() does not unconditionally return a new instance of the same Component."
             )
         return render_to_element(obj.render(), index, _depth + 1)
     return Value(key=f"value_{index}", value=obj)
@@ -100,6 +122,7 @@ class Component:
     """
 
     def __init_subclass__(cls, **kwargs):
+        """Auto-detect inner State/Props subclasses and register them on the class."""
         super().__init_subclass__(**kwargs)
         for attr in list(vars(cls).values()):
             if isinstance(attr, type):
@@ -140,15 +163,21 @@ class Component:
         """Called after a render cycle where ``self.state`` differs from *prev_state*."""
 
     def mount(self):
+        """Create a fiber for this component and register it in the store."""
         if self.is_mounted:
-            raise RuntimeError("Can't mount a component that's already mounted")
+            raise AlreadyMountedError(
+                f"Cannot mount {type(self).__name__} (key={self.key!r}) — it is already mounted at {self._fiber_key!r}."
+            )
         register_component(self._component_id, self)
         fibers()[self._fiber_key] = Fiber(state=self._ensure_initial_state(), component_id=self._component_id, previous_state=None)
         self.component_did_mount()
 
     def unmount(self):
+        """Remove the fiber and unregister from the component store."""
         if not self.is_mounted:
-            raise RuntimeError("Can't unmount a component that's not already mounted")
+            raise NotMountedError(
+                f"Cannot unmount {type(self).__name__} (key={self.key!r}) — it is not currently mounted."
+            )
         unregister_component(self.fiber.component_id)
         del fibers()[self._fiber_key]
         self.component_did_unmount()
@@ -163,7 +192,10 @@ class Component:
 
     @key.setter
     def key(self, value):
-        raise RuntimeError("Can't set a component key on a living instance, it must be passed as a prop during init.")
+        raise LifecycleError(
+            f"Cannot set key on a live {type(self).__name__} instance. "
+            f"Pass it as a prop during init: {type(self).__name__}(key={value!r})."
+        )
 
     @property
     def children(self):
@@ -174,12 +206,16 @@ class Component:
         self.props.children = list(value)
 
     def _make_state(self, data):
+        """Coerce *data* to the component's State class (dict or State instance)."""
         cls = getattr(type(self), "__initial_state_class__", State)
         if isinstance(data, cls):
             return data
         if isinstance(data, dict):
             return cls(**data)
-        raise TypeError(f"Can only assign a dict to state, got {type(data)}")
+        raise StcTypeError(
+            f"Cannot assign {type(data).__name__!r} to {type(self).__name__}.state — "
+            f"expected a dict or {cls.__name__} instance."
+        )
 
     @property
     def state(self):
@@ -258,12 +294,18 @@ class Component:
         return sync
 
     def _begin_hook_cycle(self):
+        """Reset hook index before render — hooks will be consumed in order."""
         self._hook_index = 0
         self._pending_hook_effects = {}
 
     def _claim_hook_slot(self, kind):
+        """Return (index, HookSlot) for the next hook call, validating order."""
         if not self.is_mounted:
-            raise RuntimeError("Hooks require a mounted Component or Element.")
+            raise HookOrderError(
+                f"Hooks require a mounted Component or Element — "
+                f"{type(self).__name__} (key={self.key!r}) is not mounted. "
+                f"Ensure the component has been rendered before calling hooks."
+            )
 
         hooks = self.fiber.hooks
         index = self._hook_index
@@ -276,20 +318,25 @@ class Component:
 
         slot = hooks[index]
         if slot.kind != kind:
-            raise RuntimeError(
-                f"Hook order changed for {type(self).__name__}: "
-                f"expected {slot.kind!r} at slot {index}, got {kind!r}."
+            raise HookOrderError(
+                f"Hook order changed for {type(self).__name__} at slot {index}: "
+                f"expected {slot.kind!r}, got {kind!r}. "
+                f"Hooks must be called in the same order on every render — "
+                f"do not place hooks inside conditions or loops."
             )
         return index, slot
 
     def _use_hook_slot(self, kind):
+        """Shorthand: claim a slot and return just the HookSlot."""
         _, slot = self._claim_hook_slot(kind)
         return slot
 
     def _queue_hook_effect(self, index, effect):
+        """Schedule an effect to run after the current render completes."""
         self._pending_hook_effects[index] = effect
 
     def _flush_hook_effects(self):
+        """Execute pending effects: run cleanups, then effects, store new cleanups."""
         if not self.is_mounted:
             return
         for index, effect in self._pending_hook_effects.items():
@@ -299,21 +346,27 @@ class Component:
                 slot.cleanup = None
             cleanup = effect()
             if cleanup is not None and not callable(cleanup):
-                raise TypeError(
-                    f"use_effect() cleanup must be callable or None, got {type(cleanup)}."
+                raise StcTypeError(
+                    f"use_effect() cleanup must be callable or None, "
+                    f"got {type(cleanup).__name__!r}. "
+                    f"Return a callable from your effect function, or return None."
                 )
             slot.cleanup = cleanup
         self._pending_hook_effects.clear()
 
     def _cleanup_hook_effects(self):
+        """Run all effect cleanups (called on unmount)."""
         if self.fiber is not None:
             _cleanup_effect_slots(self.fiber.hooks)
 
     def _end_hook_cycle(self):
+        """Verify hook count matches previous render — detect conditional hooks."""
         if self.is_mounted and self._hook_index != len(self.fiber.hooks):
-            raise RuntimeError(
+            raise HookOrderError(
                 f"Hook count changed for {type(self).__name__}: "
-                f"expected {len(self.fiber.hooks)}, got {self._hook_index}."
+                f"expected {len(self.fiber.hooks)} hooks, got {self._hook_index}. "
+                f"Hooks must be called in the same order and quantity on every render — "
+                f"do not place hooks inside conditions or loops."
             )
 
     def __repr__(self):
@@ -345,6 +398,7 @@ class Component:
         return self
 
     def _decorate_render(self):
+        """Wrap the user's render() with lifecycle management (fiber, context, hooks)."""
         if not hasattr(self.render, "_decorated"):
             self.render = self._render_decorator(self.render)
 
@@ -362,7 +416,8 @@ class Component:
             _auto_key_children(self.props.children)
 
     def _render_component_body(self, render_func):
-        _ensure_key(self)
+        """Core render pipeline: mount/reattach fiber, run hooks, resolve children to Elements."""
+        _auto_key_children([self])
         self._fiber_key = KEY(self.key)
         bind_ref(self, self._fiber_key, "component")
         if not self.is_mounted:
@@ -375,13 +430,14 @@ class Component:
         track_rendered_fiber(self._fiber_key)
         with set_context(key=self.key, component=self):
             self._begin_hook_cycle()
-            raw_children = to_tuple(render_func())
+            raw_children = _as_tuple(render_func())
             _auto_key_children(raw_children)
             children = [render_to_element(child, i) for i, child in enumerate(raw_children)]
             self._end_hook_cycle()
             return Anchor(key=self.key)(*children)
 
     def _render_decorator(self, render_func):
+        """Build the decorated render function for Component (fiber + context + hooks)."""
         def decorated():
             return self._render_component_body(render_func)
 
@@ -390,8 +446,8 @@ class Component:
 
     def render(self):
         """Return child Component(s)/Element(s), a tuple of them, or None."""
-        raise NotImplementedError(
-            f"{type(self).__name__} must implement a render() method.  "
+        raise ComponentDefinitionError(
+            f"{type(self).__name__} must implement a render() method. "
             f"Return child Components/Elements, a tuple of them, or None."
         )
 
@@ -451,8 +507,11 @@ class Element(Component):
         return None
 
     def mount(self):
+        """Create an ElementFiber with a widget_key derived from the tree path."""
         if self.is_mounted:
-            raise RuntimeError("Can't mount an element that's already mounted")
+            raise AlreadyMountedError(
+                f"Cannot mount {type(self).__name__} (key={self.key!r}) — it is already mounted at {self._fiber_key!r}."
+            )
         from .access import widget_key
         fibers()[self._fiber_key] = ElementFiber(
             path=self._fiber_key,
@@ -469,7 +528,7 @@ class Element(Component):
     def _render_decorator(self, render_func):
         def decorated():
             from .access import widget_key
-            _ensure_key(self)
+            _auto_key_children([self])
             element_path = KEY(self.key)
             self._fiber_key = element_path
             bind_ref(self, element_path, "element")
@@ -487,9 +546,10 @@ class Element(Component):
                     self._begin_hook_cycle()
                     result = render_func()
                     if result is not None:
-                        raise TypeError(
-                            f"Element.render() must return None, got {type(result).__name__!r} "
-                            f"from {type(self).__name__}. Elements should render imperatively via st.* calls or recursively by calling render(child)."
+                        raise RenderError(
+                            f"{type(self).__name__}.render() must return None, got {type(result).__name__!r}. "
+                            f"Elements render imperatively via st.* calls — "
+                            f"return value is ignored. Remove the return statement or use render(child) for sub-elements."
                         )
                     self._end_hook_cycle()
                     self._flush_hook_effects()
@@ -499,7 +559,10 @@ class Element(Component):
         return decorated
 
     def render(self):
-        raise NotImplementedError("Element subclasses must implement a render method")
+        raise ComponentDefinitionError(
+            f"{type(self).__name__} must implement a render() method. "
+            f"Call st.* functions imperatively and return None."
+        )
 
 
 class Anchor(Element):

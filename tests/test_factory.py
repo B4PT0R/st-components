@@ -204,3 +204,65 @@ def test_element_factory_with_child_prop_tuple():
     ctx.replace("key", [])
 
     assert calls == ["Default Label"]
+
+
+# ---------------------------------------------------------------------------
+# render_prop — Component/Element rendering in prop position
+# ---------------------------------------------------------------------------
+
+def test_component_in_prop_rendered_explicitly():
+    """Element author calls render() on a Component received as a prop."""
+    from st_components.core.base import render as render_child
+    writes = []
+    _mock_st.write.side_effect = lambda v: writes.append(v)
+
+    class DynamicHeader(Component):
+        def render(self):
+            return "computed header"
+
+    class Card(Element):
+        def render(self):
+            # The element author renders the prop explicitly
+            render_child(self.props.get("header"))
+            self._plain = self.props.get("title")
+
+    card_instances = []
+
+    class Wrapper(Component):
+        def render(self):
+            c = Card(key="c", header=DynamicHeader(key="dh"), title="plain")
+            card_instances.append(c)
+            return c
+
+    ctx.replace("key", [fake_ctx("app")])
+    render(Wrapper(key="w"))
+    ctx.replace("key", [])
+
+    assert "computed header" in writes
+    assert card_instances[0]._plain == "plain"
+
+
+def test_component_in_prop_without_render_passes_through():
+    """Without explicit render(), a Component in a prop passes through as-is."""
+
+    class DynamicLabel(Component):
+        def render(self):
+            return "computed"
+
+    class Host(Element):
+        def render(self):
+            self._raw_header = widget_props().get("header")
+
+    host_instances = []
+
+    class Wrapper(Component):
+        def render(self):
+            h = Host(key="h", header=DynamicLabel(key="dl"))
+            host_instances.append(h)
+            return h
+
+    ctx.replace("key", [fake_ctx("app")])
+    render(Wrapper(key="w"))
+    ctx.replace("key", [])
+
+    assert isinstance(host_instances[0]._raw_header, Component)

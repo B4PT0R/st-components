@@ -8,7 +8,7 @@ Supports fiber overrides via ``self.ref.path(children)`` from callbacks.
 """
 import streamlit as st
 
-from ...core.base import Element, _auto_key_children, _ensure_key, render as render_child
+from ...core.base import Element, _auto_key_children, render as render_child
 from ...core.context import KEY, get_key_stack, set_context
 from ...core.models import ElementFiber
 from ...core.refs import bind_ref
@@ -39,7 +39,7 @@ class fragment(Element):
         def decorated():
             from ...core.access import widget_key
 
-            _ensure_key(self)
+            _auto_key_children([self])
             element_path = KEY(self.key)
             self._fiber_key = element_path
             bind_ref(self, element_path, "element")

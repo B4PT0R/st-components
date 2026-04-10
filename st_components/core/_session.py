@@ -19,6 +19,8 @@ APP_CSS = "_stc.app.css"
 APP_CONFIG = "_stc.app.config"
 APP_COLOR_MODE = "_stc.app.color_mode"
 
+CURRENT_APP = "_stc.app.instance"
+
 # Transient (reset each render cycle):
 RUNTIME = "_stc.runtime"
 PAGE = "_stc.page"

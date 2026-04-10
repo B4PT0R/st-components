@@ -1,3 +1,14 @@
+"""Page — represents a single route in a multipage app.
+
+Each Page wraps exactly one source (Component, callable, or file path)
+and provides navigation metadata (title, icon, URL path, section).
+
+::
+
+    Page(key="home", nav_title="Home", default=True)(
+        HomePage(key="hp")
+    )
+"""
 import inspect
 from pathlib import Path
 from typing import Literal
@@ -5,6 +16,7 @@ from typing import Literal
 from modict import modict
 
 from .base import Anchor, Component, Element
+from .errors import PageError
 
 
 class PageProps(modict):
@@ -31,14 +43,20 @@ class Page(Component):
 
     def __call__(self, *children):
         if len(children) != 1:
-            raise TypeError("Page expects exactly one child source.")
+            raise PageError(
+                f"Page expects exactly one child source, got {len(children)}. "
+                f"Wrap multiple children in a container or layout component."
+            )
         self.props.children = list(children)
         return self
 
     @property
     def source(self):
         if len(self.children) != 1:
-            raise RuntimeError("Page must define exactly one child source before it can be added to an App.")
+            raise PageError(
+                f"Page (key={self.props.get('key')!r}) must define exactly one child source "
+                f"before it can be added to an App. Call Page(key='k')(source_component)."
+            )
         return self.children[0]
 
     @property
@@ -50,31 +68,20 @@ class Page(Component):
         return self.props.get("section")
 
     def navigation_props(self):
-        navigation = {}
-        if self.props.nav_title is not None:
-            navigation["title"] = self.props.nav_title
-        if self.props.nav_icon is not None:
-            navigation["icon"] = self.props.nav_icon
-        for field in ("url_path", "default", "visibility"):
-            value = self.props.get(field)
-            if value is not None:
-                navigation[field] = value
-        return navigation
+        nav = {
+            **{k: v for k, v in [("title", self.props.nav_title), ("icon", self.props.nav_icon)] if v is not None},
+            **{f: self.props.get(f) for f in ("url_path", "default", "visibility") if self.props.get(f) is not None},
+        }
+        return nav
 
     def page_config(self):
-        config = {}
-        if self.props.page_title is not None:
-            config["page_title"] = self.props.page_title
-        if self.props.page_icon is not None:
-            config["page_icon"] = self.props.page_icon
-
-        for field in ("layout", "initial_sidebar_state", "menu_items"):
-            value = self.props.get(field)
-            if value is not None:
-                config[field] = value
-        return config
+        return {
+            **{k: v for k, v in [("page_title", self.props.page_title), ("page_icon", self.props.page_icon)] if v is not None},
+            **{f: self.props.get(f) for f in ("layout", "initial_sidebar_state", "menu_items") if self.props.get(f) is not None},
+        }
 
     def namespace(self):
+        """Derive a stable namespace from the page's key, URL path, or source identity."""
         if self.props.get("key"):
             return self.props.key
         if self.props.default:

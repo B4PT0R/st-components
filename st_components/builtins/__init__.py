@@ -1,5 +1,6 @@
 from ..core.page import Page
 from ..core.router import Router
+from .error_boundary import ErrorBoundary
 from .flow import Case, Conditional, Default, KeepAlive, Match, Switch
 from .theme import (
     CSSEditor, CSSEditorButton, CSSEditorDialog,
@@ -8,6 +9,6 @@ from .theme import (
 
 __all__ = [
     "Case", "Conditional", "CSSEditor", "CSSEditorButton", "CSSEditorDialog",
-    "Default", "KeepAlive", "Match", "Page", "Router", "Switch",
+    "Default", "ErrorBoundary", "KeepAlive", "Match", "Page", "Router", "Switch",
     "ThemeEditor", "ThemeEditorButton", "ThemeEditorDialog",
 ]

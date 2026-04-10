@@ -1,3 +1,18 @@
+"""App — the root component and entry point for every st-components application.
+
+The App owns:
+- Page config (title, icon, layout, sidebar state)
+- Theming (Theme + color_mode + CSS injection)
+- Streamlit config overrides (Config)
+- Routing (Router / Page via ``st.navigation``)
+- Shared state and localStorage namespaces
+- Rerun control and query params
+
+Typical usage::
+
+    app = App(page_title="My App", layout="wide", theme=Theme())
+    app(MyRootComponent(key="root")).render()
+"""
 import inspect
 from pathlib import Path
 
@@ -7,6 +22,7 @@ import streamlit as st
 
 from . import _session as ss
 from .base import Component, Element, render
+from .errors import AppError, RouterError, StcTypeError
 from .provider import ContextProvider
 from .context import set_context
 from .models import AppConfig, Config, Props, Theme, ThemeSection
@@ -22,18 +38,19 @@ from .store import (
 )
 
 
-_CURRENT_APP = None
-
-
 def get_app():
     """Return the current :class:`App` instance.
 
-    Raises ``RuntimeError`` if no App has been created yet.  Useful inside
+    Raises ``AppError`` if no App has been created yet.  Useful inside
     components that need to access the app's theme, CSS, or shared state.
     """
-    if _CURRENT_APP is None:
-        raise RuntimeError("No current App instance is available.")
-    return _CURRENT_APP
+    app = ss.get(ss.CURRENT_APP)
+    if app is None:
+        raise AppError(
+            "No current App instance is available. "
+            "Create an App before accessing it: app = App(...)(root).render()."
+        )
+    return app
 
 
 class AppProps(Props):
@@ -41,6 +58,16 @@ class AppProps(Props):
 
 
 class App(Component):
+    """Root component and entry point for every st-components application.
+
+    Manages page config, theming, CSS, Streamlit config overrides, routing,
+    shared state, localStorage, query params, and the render cycle.
+
+    ::
+
+        app = App(page_title="Demo", layout="wide")
+        app(MyRoot(key="root")).render()
+    """
     __props_class__ = AppProps
     _THEME_STATE_KEY = ss.APP_THEME
     _CSS_STATE_KEY = ss.APP_CSS
@@ -63,6 +90,8 @@ class App(Component):
     ):
         normalized_children = [] if children is None else list(children)
         super().__init__(key="app", children=normalized_children)
+        # Stable ID — App is a singleton per session, no need for a counter.
+        self._component_id = "App:0"
 
         # Constructor args are defaults — fiber overrides are the source of truth.
         # Read existing fiber overrides to avoid clobbering runtime changes.
@@ -70,12 +99,25 @@ class App(Component):
         existing = _fibers().get("app")
         ov = (existing.overrides or {}).get("props", {}) if existing else {}
 
+        _VALID_LAYOUTS = ("centered", "wide")
+        _VALID_SIDEBAR = ("auto", "expanded", "collapsed")
+
         self.pages = []
         self.page_title = ov.get("page_title", page_title)
         self.page_icon = ov.get("page_icon", page_icon)
         self.layout = ov.get("layout", layout)
         self.initial_sidebar_state = ov.get("initial_sidebar_state", initial_sidebar_state)
         self.menu_items = ov.get("menu_items", menu_items)
+
+        if self.layout is not None and self.layout not in _VALID_LAYOUTS:
+            raise StcTypeError(
+                f"App(layout=...) must be one of {_VALID_LAYOUTS}, got {self.layout!r}."
+            )
+        if self.initial_sidebar_state is not None and self.initial_sidebar_state not in _VALID_SIDEBAR:
+            raise StcTypeError(
+                f"App(initial_sidebar_state=...) must be one of {_VALID_SIDEBAR}, "
+                f"got {self.initial_sidebar_state!r}."
+            )
 
         theme = ov.get("theme", theme)
         css = ov.get("css", css)
@@ -107,18 +149,19 @@ class App(Component):
         self._active_router = None
         self._active_page = None
         self._active_router_wrappers = []
-        global _CURRENT_APP
-        _CURRENT_APP = self
+
+        ss.put(ss.CURRENT_APP, self)
 
     def _decorate_render(self):
+        """Wrap render() to validate non-None root and dispatch to _run_app."""
         original_render = self.render
 
         def decorated():
             root = original_render()
             if root is None:
-                raise RuntimeError(
-                    "App.render() must return a root — "
-                    "pass one via App()(root) or override render()."
+                raise AppError(
+                    "App.render() must return a root component — "
+                    "pass one via App()(root) or override render() in a subclass."
                 )
             return self._run_app(root)
 
@@ -153,12 +196,9 @@ class App(Component):
             _auto_key_children(self.props.children)
 
     def __call__(self, *children):
-        from .base import _ensure_key, _auto_key_children
+        from .base import _auto_key_children
         child_list = list(children)
-        if len(child_list) == 1:
-            _ensure_key(child_list[0])
-        else:
-            _auto_key_children(child_list)
+        _auto_key_children(child_list)
         self.props.children = child_list
         return self
 
@@ -211,6 +251,7 @@ class App(Component):
         _clear(namespace)
 
     def render_page(self, root):
+        """Render a page's root component (used by file-backed page sources)."""
         if self._active_router is not None and self._active_page is not None:
             return self._render_routed_root(
                 self._active_router,
@@ -231,21 +272,10 @@ class App(Component):
         """Sync *value* into session_state (or remove the key when None)."""
         ss.put_or_delete(session_key, value)
 
-    _UNSET = object()
+    _PAGE_CONFIG_ATTRS = ("page_title", "page_icon", "layout", "initial_sidebar_state", "menu_items")
+    _RERUN_TRIGGERS = frozenset(("theme", "color_mode", "layout", "css"))
 
-    def set_params(
-        self,
-        *,
-        page_title=_UNSET,
-        page_icon=_UNSET,
-        layout=_UNSET,
-        initial_sidebar_state=_UNSET,
-        menu_items=_UNSET,
-        theme=_UNSET,
-        color_mode=_UNSET,
-        css=_UNSET,
-        config=_UNSET,
-    ):
+    def set_params(self, **kwargs):
         """Update any app-level setting — same signature as the constructor.
 
         Only the provided params are changed; the rest are left untouched.
@@ -257,56 +287,34 @@ class App(Component):
             app.set_params(layout="centered", theme=Theme(base="dark"))
             app.set_params(page_title="New title", css="body { font-size: 18px; }")
         """
-        _U = App._UNSET
+        # Page config attrs → set on self + forward to Streamlit
         page_config = {}
-        if page_title is not _U:
-            self.page_title = page_title
-            page_config["page_title"] = page_title
-        if page_icon is not _U:
-            self.page_icon = page_icon
-            page_config["page_icon"] = page_icon
-        if layout is not _U:
-            self.layout = layout
-            page_config["layout"] = layout
-        if initial_sidebar_state is not _U:
-            self.initial_sidebar_state = initial_sidebar_state
-            page_config["initial_sidebar_state"] = initial_sidebar_state
-        if menu_items is not _U:
-            self.menu_items = menu_items
-            page_config["menu_items"] = menu_items
+        for attr in self._PAGE_CONFIG_ATTRS:
+            if attr in kwargs:
+                setattr(self, attr, kwargs[attr])
+                page_config[attr] = kwargs[attr]
         if page_config:
             st.set_page_config(**page_config)
-        if color_mode is not _U:
-            self.color_mode = color_mode
-            self._sync_session(ss.APP_COLOR_MODE, color_mode)
-        if theme is not _U:
-            self.set_theme(theme)
-        if css is not _U:
-            self.set_css(css)
-        if config is not _U:
-            self.set_config(config)
 
-        # Persist all changes as fiber overrides so they survive the next
-        # App() instantiation in the script (which would otherwise overwrite).
-        all_props = {}
-        needs_rerun = False
-        for k, v in [("page_title", page_title), ("page_icon", page_icon),
-                      ("layout", layout), ("initial_sidebar_state", initial_sidebar_state),
-                      ("menu_items", menu_items), ("theme", theme), ("color_mode", color_mode),
-                      ("css", css), ("config", config)]:
-            if v is not _U:
-                all_props[k] = v
-                if k in ("theme", "color_mode", "layout", "css"):
-                    needs_rerun = True
-        if all_props and self.fiber:
-            overrides = self.fiber.overrides or {}
-            overrides["props"] = {**(overrides.get("props") or {}), **all_props}
+        # Special-cased setters
+        if "color_mode" in kwargs:
+            self.color_mode = kwargs["color_mode"]
+            self._sync_session(ss.APP_COLOR_MODE, kwargs["color_mode"])
+        if "theme" in kwargs:
+            self.set_theme(kwargs["theme"])
+        if "css" in kwargs:
+            self.set_css(kwargs["css"])
+        if "config" in kwargs:
+            self.set_config(kwargs["config"])
+
+        # Persist as fiber overrides so they survive re-instantiation
+        if kwargs and self.fiber:
+            overrides = dict(self.fiber.overrides) if self.fiber.overrides else {}
+            overrides["props"] = {**(overrides.get("props") or {}), **kwargs}
             self.fiber.overrides = overrides
 
-        # Apply runtime changes immediately (config options, CSS injection)
-        # then request a soft rerun so the frontend picks them up
-        # without interrupting the current render
-        if needs_rerun:
+        # Apply runtime changes + trigger rerun if needed
+        if kwargs.keys() & self._RERUN_TRIGGERS:
             self._apply_styles()
             from .rerun import rerun as _rerun
             _rerun(scope="app")
@@ -314,35 +322,40 @@ class App(Component):
         return self
 
     def set_theme(self, theme):
+        """Replace the active theme (dict or Theme instance). Persists in session_state."""
         if isinstance(theme, dict) and not isinstance(theme, Theme):
             theme = Theme(theme)
         if theme is not None and not isinstance(theme, Theme):
-            raise TypeError(f"App.set_theme(...) expects a dict or Theme, got {type(theme)}")
+            raise StcTypeError(f"App.set_theme() expects a dict or Theme, got {type(theme).__name__!r}.")
         self.theme = theme
         self._sync_session(self._THEME_STATE_KEY, theme)
         return self
 
     def save_theme(self, theme=None):
+        """Persist the current theme to ``.streamlit/config.toml`` and ``stc-config.toml``."""
         if theme is not None:
             self.set_theme(theme)
         self._persist_theme_config()
         return self
 
     def set_css(self, css):
+        """Replace the active CSS (raw string, file path, or list). Persists in session_state."""
         self.css = css
         self._sync_session(self._CSS_STATE_KEY, css)
         return self
 
     def set_config(self, config):
+        """Replace the active Streamlit config (dict or Config). Persists in session_state."""
         if isinstance(config, dict) and not isinstance(config, Config):
             config = Config(config)
         if config is not None and not isinstance(config, Config):
-            raise TypeError(f"App.set_config(...) expects a dict or Config, got {type(config)}")
+            raise StcTypeError(f"App.set_config() expects a dict or Config, got {type(config).__name__!r}.")
         self.config = config
         self._sync_session(self._CONFIG_STATE_KEY, config)
         return self
 
     def save_config(self, config=None):
+        """Persist the current config to ``.streamlit/config.toml`` and ``stc-config.toml``."""
         if config is not None:
             self.set_config(config)
         self._persist_app_config()
@@ -426,14 +439,14 @@ class App(Component):
         if self.theme is None:
             return {}
         if not isinstance(self.theme, Theme):
-            raise TypeError(f"App(theme=...) expects a dict or Theme, got {type(self.theme)}")
+            raise StcTypeError(f"App(theme=...) expects a dict or Theme, got {type(self.theme).__name__!r}.")
         return self.theme
 
     def _config_dict(self):
         if self.config is None:
             return {}
         if not isinstance(self.config, Config):
-            raise TypeError(f"App(config=...) expects a dict or Config, got {type(self.config)}")
+            raise StcTypeError(f"App(config=...) expects a dict or Config, got {type(self.config).__name__!r}.")
         return self.config
 
     @staticmethod
@@ -512,7 +525,10 @@ class App(Component):
             if candidate.suffix == ".css" and candidate.exists():
                 return candidate.read_text()
             return source
-        raise TypeError(f"Unsupported css source type: {type(source)}")
+        raise StcTypeError(
+            f"Unsupported CSS source type: {type(source).__name__!r}. "
+            f"Expected a str (raw CSS or .css file path) or pathlib.Path."
+        )
 
     def _css_blocks(self):
         if self.css is None:
@@ -529,12 +545,7 @@ class App(Component):
             st.html("<style>\n" + "\n\n".join(css_blocks) + "\n</style>")
 
     def _app_page_config(self):
-        config = {}
-        for field in ("page_title", "page_icon", "layout", "initial_sidebar_state", "menu_items"):
-            value = getattr(self, field)
-            if value is not None:
-                config[field] = value
-        return config
+        return {f: v for f in self._PAGE_CONFIG_ATTRS if (v := getattr(self, f)) is not None}
 
     def _merged_page_config(self, page=None):
         """Build the full page config dict, merging app defaults with page overrides."""
@@ -553,6 +564,7 @@ class App(Component):
             st.set_page_config(**config)
 
     def _prepare_app_fiber(self):
+        """Mount/reattach the App fiber and register in the component store."""
         self._fiber_key = self.key
         if not self.is_mounted:
             self.mount()
@@ -564,6 +576,7 @@ class App(Component):
         track_rendered_fiber(self._fiber_key)
 
     def _render_with_cycle(self, body):
+        """Run *body* inside a full render cycle (begin → prepare → render → end)."""
         begin_render_cycle()
         try:
             self._prepare_app_fiber()
@@ -573,6 +586,7 @@ class App(Component):
             end_render_cycle()
 
     def _render_root(self, root):
+        """Render a single root component inside a full cycle."""
         return self._render_with_cycle(lambda: render(root))
 
     def _render_root_sequence(self, children):
@@ -583,6 +597,7 @@ class App(Component):
         return self._render_with_cycle(body)
 
     def _render_routed_root(self, router, page, root, *, wrappers=None):
+        """Render a page source inside its Router→Page→Wrapper component chain."""
         def build_router_page_tree():
             return router._render_component_body(
                 lambda: page._render_component_body(lambda: root)
@@ -599,16 +614,19 @@ class App(Component):
         return self._render_with_cycle(body)
 
     def _run_inline_page_source(self, source, *, router=None, page=None, wrappers=None):
+        """Resolve and render an inline page source (Component, callable, or class)."""
         if inspect.isclass(source) and issubclass(source, Component):
-            raise TypeError(
-                "Page inline sources must be instantiated Components, not Component classes."
+            raise StcTypeError(
+                "Page inline sources must be instantiated Components, not Component classes. "
+                "Use Page()(MyComponent(key='k')) instead of Page()(MyComponent)."
             )
 
         if callable(source) and not isinstance(source, (Component, Element)):
             source = source()
             if inspect.isclass(source) and issubclass(source, Component):
-                raise TypeError(
-                    "Page factories must return instantiated Components, not Component classes."
+                raise StcTypeError(
+                    "Page factories must return instantiated Components, not Component classes. "
+                    "Return MyComponent(key='k') instead of MyComponent."
                 )
 
         if source is None:
@@ -618,6 +636,7 @@ class App(Component):
         return self._render_root(source)
 
     def _build_streamlit_page(self, router, page, *, wrappers=None):
+        """Wrap a Page into an ``st.Page`` object for ``st.navigation``."""
         source = page.source
         page_kwargs = page.navigation_props()
 
@@ -631,6 +650,7 @@ class App(Component):
         return streamlit_page, page
 
     def _build_navigation_pages(self, router, *, wrappers=None):
+        """Build the pages dict/list for ``st.navigation``, grouping by section."""
         sections = {}
         pages = []
         page_map = {}
@@ -659,8 +679,9 @@ class App(Component):
 
         while isinstance(node, ContextProvider):
             if len(node.children) != 1:
-                raise RuntimeError(
-                    "Providers above Router must wrap exactly one child root."
+                raise AppError(
+                    "ContextProviders above Router must wrap exactly one child root. "
+                    f"Got {len(node.children)} children in {type(node).__name__}."
                 )
             wrappers.append(node)
             node = node.children[0]
@@ -743,14 +764,16 @@ class App(Component):
     # ── Render ───────────────────────────────────────────────────────────
 
     def _run_app(self, root):
+        """Main render entry: apply config/styles, detect Router, dispatch to the right render path."""
         """Run all App infrastructure around the rendered root."""
         # Multiple children — render them all sequentially
         if isinstance(root, (tuple, list)):
             for child in root:
                 if isinstance(child, Router):
-                    raise TypeError(
-                        "Router must be the sole direct child of App. "
-                        "It cannot be mixed with other children."
+                    raise RouterError(
+                        "Router must be the sole direct child of App — "
+                        "it cannot be mixed with other children. "
+                        "Move sibling components inside Page sources or wrap them in a ContextProvider above Router."
                     )
             try:
                 self._apply_page_config()

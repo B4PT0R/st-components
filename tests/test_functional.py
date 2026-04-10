@@ -58,7 +58,7 @@ def test_function_component_signature_validation():
         def Invalid(**props):
             return props
     except TypeError as err:
-        assert "func(props)" in str(err)
+        assert "positional parameter" in str(err)
     else:
         raise AssertionError("Expected invalid function component signature to raise")
 
@@ -132,7 +132,7 @@ def test_use_state_outside_component_raises():
     try:
         use_state(count=0)
     except RuntimeError as err:
-        assert "while rendering a Component" in str(err)
+        assert "render cycle" in str(err)
     else:
         raise AssertionError("Expected use_state() outside render to raise")
 

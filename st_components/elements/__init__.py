@@ -23,7 +23,6 @@ from .charts import (
 )
 from .media import image, audio, video
 from .feedback import success, info, warning, error, toast, balloons, progress, snow, spinner
-
 feedback = input_feedback
 
 __all__ = [

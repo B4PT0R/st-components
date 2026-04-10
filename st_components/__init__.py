@@ -65,6 +65,14 @@ from .core import (
     use_ref,
     use_state,
 )
+from .core.errors import (
+    AlreadyMountedError, AppError, CallbackError, ComponentDefinitionError,
+    ConfigError, ContextError, FiberNotFoundError, HookContextError,
+    HookError, HookOrderError, LifecycleError, LocalStoreError,
+    NotMountedError, PageError, RefError, RenderDepthError, RenderError,
+    RouterError, SharedStateError, StateError, StcError, StcTypeError,
+    StcValueError, UnresolvedRefError,
+)
 from .core.local_storage import LocalStore, get_local_store
 from .core.query_params import QueryParams
 
@@ -86,6 +94,14 @@ __version__ = _resolve_version()
 
 __all__ = [
     "__version__",
+    # Errors
+    "AlreadyMountedError", "AppError", "CallbackError", "ComponentDefinitionError",
+    "ConfigError", "ContextError", "FiberNotFoundError", "HookContextError",
+    "HookError", "HookOrderError", "LifecycleError", "LocalStoreError",
+    "NotMountedError", "PageError", "RefError", "RenderDepthError", "RenderError",
+    "RouterError", "SharedStateError", "StateError", "StcError", "StcTypeError",
+    "StcValueError", "UnresolvedRefError",
+    # Core
     "App",
     "Component",
     "Config",

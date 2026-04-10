@@ -27,6 +27,7 @@ import streamlit as st
 from modict import modict
 
 from . import _session as ss
+from .errors import LocalStoreError
 
 # ── JS bridge ────────────────────────────────────────────────────────────────
 
@@ -123,7 +124,7 @@ class LocalStore(modict):
 
 
 def _queue_write(namespace, store):
-    """Queue a write for the next render cycle."""
+    """Queue a write — flushed to the browser by ``render_local_storage()``."""
     writes = _pending_writes()
     # Serialize only the public fields
     writes[namespace] = {k: v for k, v in store.items() if not k.startswith("_")}
@@ -152,11 +153,21 @@ def local_storage(namespace, schema=None):
     Returns:
         The live ``LocalStore`` instance.
     """
+    if not isinstance(namespace, str):
+        from .errors import StcTypeError
+        raise StcTypeError(
+            f"Local store namespace must be a str, got {type(namespace).__name__!r}."
+        )
     stores = _stores()
     if namespace in stores:
         return stores[namespace]
 
     cls = schema or LocalStore
+    if not (isinstance(cls, type) and issubclass(cls, LocalStore)):
+        from .errors import StcTypeError
+        raise StcTypeError(
+            f"Local store schema must be a LocalStore subclass, got {type(cls).__name__!r}."
+        )
     store = cls(_namespace=namespace)
     stores[namespace] = store
     return store
@@ -173,9 +184,9 @@ def get_local_store(namespace):
     """
     stores = _stores()
     if namespace not in stores:
-        raise RuntimeError(
+        raise LocalStoreError(
             f"Local store {namespace!r} is not declared. "
-            f"Declare it with App.create_local_store(...)."
+            f"Declare it first with app.create_local_store({namespace!r}, MyStoreSchema)."
         )
     return stores[namespace]
 

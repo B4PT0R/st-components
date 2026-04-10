@@ -4,6 +4,37 @@ All notable changes to this project will be documented in this file.
 
 The format is based on Keep a Changelog, and this project uses SemVer.
 
+## [0.4.0] - 2026-04-10
+
+Production hardening, error boundaries, typed exceptions, refactoring, and documentation pass.
+
+### Added
+
+- **Typed exception hierarchy** (`core/errors.py`): 17 exception classes rooted at `StcError`, organized by category (lifecycle, hooks, state, context, config, component definition). All inherit from both `StcError` and the standard Python type (`TypeError`, `RuntimeError`, etc.) so existing `except TypeError` clauses still work.
+- **`ErrorBoundary`** built-in component: catches render errors in children, displays a fallback UI (default: `st.error()` + traceback expander), and exposes `state.error` / `state.error_traceback` for programmatic handling. Accepts Component, string, or `callable(error)` as fallback.
+- **Input validation**: `App(layout=...)` and `App(initial_sidebar_state=...)` now validate against allowed values. `declare_shared_state()` and `local_storage()` validate that namespace is a `str` and schema is the correct type.
+- **430 tests** (up from 310): new test suites for error paths (`test_errors.py`, 93 tests), integration flows (`test_integration.py`, 13 tests), and stress scenarios (`test_stress.py`, 9 tests).
+
+### Changed
+
+- **`_CURRENT_APP` session-scoped**: the App singleton is now stored in `session_state` instead of a module-level global, preventing cross-session interference in multi-user deployments.
+- **App `_component_id` stabilized**: fixed to `"App:0"` instead of an incrementing counter, avoiding unnecessary unregister/register cycles on every rerun.
+- **Fiber overrides defensive copy**: `Ref.__call__()` and `App.set_params()` now copy the overrides dict before mutation, preventing in-place corruption.
+- **`get_state()` consistency**: calling `get_state()` without arguments and no active context now raises `ContextError` (like `set_state()`), instead of silently returning `None`.
+- **Robust render cycle cleanup**: `end_render_cycle()` and `_unmount_stale_fibers()` now process all fibers even if individual lifecycle callbacks raise. The first error is re-raised after all work completes.
+- **`App.set_params()` refactored**: sentinel-based `_UNSET` pattern replaced by `**kwargs` with data-driven loop. 80 lines reduced to 30.
+- **`Page.navigation_props()` / `page_config()`**: verbose if-chains replaced by dict comprehensions.
+- **`access.py` streamlined**: `_base_value_key()`, `_widget_revisions()` inlined; `_accepts_value()` simplified; late imports moved to top-level; new `_resolve_or_context()` factoring.
+- **`_component_props()` inlined** in `function_component.py`.
+- **`_ensure_key` merged into `_auto_key_children`**: single-child case uses class name without index suffix. `to_tuple` renamed `_as_tuple`.
+- **All error messages improved**: include class names, fiber paths, expected-vs-actual types, and actionable fix suggestions.
+
+### Documentation
+
+- **Docstring coverage 27% → 70%** on `core/`: module-level docstrings on all files, all public classes and functions documented, internal methods have succinct navigation docstrings.
+- **README updated**: Pattern 3 rewritten to use `self.child_key.state()` as primary pattern instead of explicit `Ref()`. Usage guidelines updated to recommend attribute navigation first. Imports added to Pattern 2. TOC anchors fixed.
+- **API Reference updated**: Ref section rewritten around attribute navigation. Slot section removed (was referencing non-existent API). ErrorBoundary added to Flow Helpers. Elements Catalog cleaned.
+
 ## [0.3.0] - 2026-04-10
 
 Theming fixes, API cleanup, and hardened editor components.

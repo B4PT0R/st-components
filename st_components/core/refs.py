@@ -1,4 +1,13 @@
+"""Ref system — path-based handles for navigating and mutating the component tree.
+
+A Ref points to a node (Component or Element) by its fiber path.  It supports:
+- Reading state: ``ref.state()``
+- Navigating: ``ref.parent``, ``ref["child"]``, ``ref.child``
+- Overriding props/children from callbacks: ``ref(color="blue")("new child")``
+- Resetting: ``ref.reset()``, ``ref.reset_widget()``
+"""
 from .access import get_state, reset_element
+from .errors import RefError, StcTypeError, UnresolvedRefError
 
 
 class Ref:
@@ -75,7 +84,10 @@ class Ref:
 
     def _require_path(self):
         if self.path is None:
-            raise RuntimeError("Ref is unresolved. Attach it to a Component or Element and render the tree first.")
+            raise UnresolvedRefError(
+                "Ref is unresolved — attach it to a Component or Element via the ref= prop "
+                "and render the tree first."
+            )
         return self.path
 
     # ── Read ─────────────────────────────────────────────────────────────
@@ -116,12 +128,12 @@ class Ref:
         if fiber is None:
             return self
 
-        overrides = fiber.overrides or {}
+        overrides = dict(fiber.overrides) if fiber.overrides else {}
         if props:
             overrides["props"] = {**(overrides.get("props") or {}), **props}
         if children:
             overrides["children"] = list(children)
-        fiber.overrides = overrides if overrides else None
+        fiber.overrides = overrides or None
         return self
 
     def reset(self):
@@ -136,13 +148,17 @@ class Ref:
         """Reset an Element's widget value in session_state."""
         path = self._require_path()
         if self.kind != "element":
-            raise RuntimeError("reset_widget() is only available for Element refs.")
+            raise RefError(
+                f"reset_widget() is only available for Element refs, "
+                f"but this Ref points to a {self.kind!r} (path={self.path!r})."
+            )
         reset_element(path)
 
 
 def bind_ref(target, path, kind):
+    """Resolve a Ref passed via the ``ref=`` prop, binding it to the target's fiber path."""
     ref = target.props.get("ref")
     if ref is not None:
         if not isinstance(ref, Ref):
-            raise TypeError(f"ref must be a Ref instance, got {type(ref)}")
+            raise StcTypeError(f"ref= prop must be a Ref instance, got {type(ref).__name__!r}.")
         ref._resolve(path, kind)

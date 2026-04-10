@@ -87,7 +87,7 @@ This short demo already shows the basic idea:
 - [Onboarding Path](#onboarding-path)
   - [Pattern 1: Simple component with local state](#pattern-1-declare-a-simple-component-with-local-state)
   - [Pattern 2: Callbacks](#pattern-2-callbacks)
-  - [Pattern 3: Refs](#pattern-3-use-ref-for-logical-reachability)
+  - [Pattern 3: Refs](#pattern-3-use-refs-for-logical-reachability)
   - [Pattern 4: Fragments and scoped re-rendering](#pattern-4-fragments-and-scoped-re-rendering)
   - [Pattern 5: Dynamic rendering from callbacks](#pattern-5-dynamic-rendering-from-callbacks)
 - [API Reference](API_REFERENCE.md)
@@ -213,7 +213,7 @@ An `Element` is a render primitive.
 
 - It renders into a corresponding Streamlit widget
 - Its `render()` method returns nothing
-- The actual value of the widget, if any, lives in `st.session_state`, accessible by element path or ref.
+- The actual value of the widget, if any, lives in `st.session_state`, accessible via `self.child_key.state().output` from a parent, or `ref.state().output`.
 - You can't declare a custom state on it.
 
 You'll generally use ready-made elements from `st_components.elements` (all streamlit widgets can be found there) and won't have to bother how they are implemented, unless you want to wrap a custom or third-party widget. 
@@ -251,7 +251,7 @@ If you're new to the library, this is the shortest useful path:
 1. Start with `App`, `Component`, and a few `elements`.
 2. Use `self.state` inside components for local UI state.
 3. Pipe event handlers to deal with app logic.
-4. Use `Ref()` only when you need path-based reachability later.
+4. Navigate children with `self.child_key` — it returns a `Ref` you can read state from.
 5. Add typed `State` and `Props` models once the shape stabilizes.
 
 ### Pattern 1: Declare a simple component with local state
@@ -291,6 +291,9 @@ Element callbacks support **two signatures**:
 The framework inspects the callback's signature at render time and adapts automatically. Both styles work for all event props (`on_change`, `on_click`, `on_submit`, `on_select`).
 
 ```python
+from st_components import Component, State
+from st_components.elements import button, text_input
+
 class Form(Component):
 
     class FormState(State):
@@ -332,12 +335,12 @@ text_input(
 )("Name")
 ```
 
-### Pattern 3: Use `Ref()` for logical reachability
+### Pattern 3: Use refs for logical reachability
 
-Refs are path-based references to a given component or element in the tree. You attach one to a component or element when you want to access its state or value without having to provide its full path. They don't point to the instance directly, only to its location in the tree, which is enough to retrieve its state from the fiber (or its value from `st.session_state` directly in case of an element).
+Every component is a cursor into the tree. Navigate to any descendant with attribute access — the returned `Ref` lets you read state, override children, or reset the node:
 
 ```python
-from st_components import App, Component, Ref, get_state
+from st_components import App, Component
 from st_components.elements import button, container, markdown, text_input
 
 
@@ -361,25 +364,37 @@ class RefDemo(Component):
     def __init__(self, **props):
         super().__init__(**props)
         self.state = dict(snapshot="")
-        self.name_ref = Ref()
-        self.counter_ref = Ref()
 
     def capture(self):
-        self.state.snapshot = (
-            f"name={get_state(self.name_ref).output or ''}, "
-            f"count={get_state(self.counter_ref).count}"
-        )
+        # Navigate to children by attribute — each returns a Ref
+        name_output = self.name.state().output or ""
+        count_value = self.counter.state().count
+        self.state.snapshot = f"name={name_output}, count={count_value}"
 
     def render(self):
         return container(key="demo", border=True)(
-            text_input(key="name", ref=self.name_ref)("Name"),  # passing it the ref
-            Counter(key="counter", ref=self.counter_ref),       # same
+            text_input(key="name")("Name"),
+            Counter(key="counter"),
             button(key="capture", on_click=self.capture)("Read refs"),
             markdown(key="snapshot")(self.state.snapshot or "Nothing captured yet."),
         )
 
 
 App()(RefDemo(key="refs")).render()
+```
+
+`self.name` resolves to `Ref("app.refs.demo.name")` — a lightweight path cursor. Call `.state()` to read, `ref(*children, **props)` to override, `.reset()` to clear.
+
+You can also create an explicit `Ref()` and pass it via the `ref=` prop — useful when the accessing component is not an ancestor (e.g. a sibling reading another sibling's state via shared parent):
+
+```python
+from st_components import Ref
+
+ref = Ref()
+text_input(key="name", ref=ref)("Name")
+
+# Later, in a callback:
+ref.state().output  # read the widget value
 ```
 
 ### Pattern 4: Fragments and scoped re-rendering
@@ -697,7 +712,7 @@ python -m st_components.examples --list
 | 08 | `08_hooks` | use_memo, use_effect, use_ref, use_callback, use_previous, use_id |
 | 09 | `09_fragments` | fragment, scoped re-rendering, run_every, nested fragments |
 | 10 | `10_scoped_rerun` | rerun, wait, independent per-fragment rerun timelines |
-| 11 | `11_dynamic_rendering` | self.ref(path), fiber overrides, Ref.parent, column/tab scoping |
+| 11 | `11_dynamic_rendering` | self.child navigation, fiber overrides, Ref.parent, column/tab scoping |
 | 12 | `12_context` | create_context, Provider, use_context — no prop drilling |
 | 13 | `13_flow` | Conditional, KeepAlive, Case, Switch/Match/Default |
 | 14 | `14_theming` | ThemeEditorButton, live theme customization |
@@ -727,7 +742,7 @@ Bad:
 
 ### Do not persist state manually in `st.session_state`
 
-The framework already does that for you. Reach local component state with `self.state`, and reach any element or component state via `get_state(...)` or `ref.state()`.
+The framework already does that for you. Reach local state with `self.state`, and reach any child's state via attribute navigation: `self.child_key.state()`. For non-hierarchical access, use `get_state(path)`.
 
 If you need custom state shared across several components, declare it once with `app.create_shared_state("my_custom_state", State())` and consume it with `get_shared_state("my_custom_state")`.
 
@@ -743,10 +758,11 @@ All that gives them a useful continuity (state, etc.) is persisted in and fetche
 
 This is why component coordination should preferably use the dedicated API:
 
-- local state for behavior internal to one component
+- `self.state` for behavior internal to one component
+- `self.child_key.state()` to read a child's state from a callback
 - context for ambient values shared by one subtree
 - shared state for app-level coordination
-- refs when you need path-based reachability to a specific mounted node
+- explicit `Ref()` + `ref=` prop only when you need cross-branch reachability (sibling to sibling)
 
 Any custom data that's attached only on the instance will die with it at the end of the current cyle.
 

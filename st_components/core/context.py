@@ -250,18 +250,22 @@ def get_context_value(context):
 # ── Query helpers ────────────────────────────────────────────────────────────
 
 def get_key_stack():
+    """Return a copy of the current key stack (list of ancestor keys)."""
     return list(ctx.stack("key"))
 
 
 def get_active_page_namespace():
+    """Return the active Page namespace, or ``None`` outside a page."""
     return ctx.current("page")
 
 
 def get_rendering_component():
+    """Return the Component/Element currently being rendered, or ``None``."""
     return ctx.current("component")
 
 
 def get_element_path():
+    """Return the dotted element path from the key stack, or from the callback context."""
     stack = ctx.stack("key")
     if stack:
         return ".".join(stack)
@@ -270,8 +274,10 @@ def get_element_path():
 
 
 def KEY(key):
+    """Build the full dotted fiber path by appending *key* to the current stack."""
     return ".".join([*ctx.stack("key"), key])
 
 
 def reset_context_runtime():
+    """Public alias for ``_reset_runtime_context()``."""
     _reset_runtime_context()

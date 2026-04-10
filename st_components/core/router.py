@@ -1,8 +1,24 @@
+"""Router — multipage navigation component.
+
+The Router is the sole direct child of App (optionally wrapped in
+ContextProviders).  It holds Page children and delegates to
+``st.navigation`` for URL-based page switching.
+
+::
+
+    App()(
+        Router(key="nav", position="sidebar")(
+            Page(key="home", nav_title="Home", default=True)(HomePage(key="hp")),
+            Page(key="settings", nav_title="Settings")(SettingsPage(key="sp")),
+        )
+    ).render()
+"""
 from typing import Literal
 
 from modict import modict
 
 from .base import Anchor, Component
+from .errors import RouterError
 from .models import Props
 from .page import Page
 
@@ -32,17 +48,18 @@ class Router(Component):
         }
         if unsupported:
             names = ", ".join(sorted(unsupported))
-            raise TypeError(
+            raise RouterError(
                 f"Router does not accept global page config props ({names}). "
-                "Pass them to App(...) instead."
+                f"Pass them to App(...) instead."
             )
         super().__init__(**props)
 
     def __call__(self, *children):
         for child in children:
             if not isinstance(child, Page):
-                raise TypeError(
-                    f"Router expects only Page children, got {type(child)}"
+                raise RouterError(
+                    f"Router expects only Page children, got {type(child).__name__!r}. "
+                    f"Wrap your component in a Page: Page(key='k')(MyComponent(key='c'))."
                 )
         self.props.children = list(children)
         return self
@@ -52,7 +69,7 @@ class Router(Component):
         return self.children
 
     def render(self):
-        raise TypeError(
+        raise RouterError(
             "Router must be the sole direct child of App "
             "(optionally wrapped in ContextProviders). "
             "It cannot be nested inside other components."

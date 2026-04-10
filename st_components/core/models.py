@@ -1,3 +1,15 @@
+"""Data models backing the component engine.
+
+Public (user-facing):
+    Props, State, ContextData — base classes users subclass.
+    Theme, ThemeSection, Config — app configuration.
+    AppConfig — persistable stc-config.toml representation.
+
+Internal (engine):
+    HookSlot, Fiber, ElementFiber, ElementState — fiber/hook storage.
+    Fibers, SharedStates — typed session_state containers.
+    StreamlitTheme, StreamlitModeSection — Streamlit-side theme mapping.
+"""
 from contextlib import contextmanager
 from pathlib import Path
 from typing import Any, Literal
@@ -48,6 +60,10 @@ class ContextData(modict):
 
 
 class HookSlot(modict):
+    """Single hook instance stored in a fiber's hooks list.
+
+    Fields: kind (memo/ref/effect/state/id), value, deps, cleanup callback.
+    """
     _config = modict.config(require_all="never")
 
     kind: str = modict.field(required="always")
@@ -58,6 +74,12 @@ class HookSlot(modict):
 
 
 class Fiber(modict):
+    """Persistent state holder for a Component across Streamlit reruns.
+
+    Stored in ``session_state`` keyed by the component's tree path.
+    The Python Component instance is ephemeral (recreated each rerun);
+    the Fiber is the source of truth for state, hooks, and overrides.
+    """
     state: State = modict.factory(State)
     component_id: str | None = None
     previous_state: State | None = None
@@ -67,6 +89,11 @@ class Fiber(modict):
 
 
 class ElementState(State):
+    """Frozen state for Elements — only writable during render via ``_writable()``.
+
+    ``output`` holds the widget's current value; ``handle`` the Streamlit
+    container object (for layout elements like ``st.container``).
+    """
 
     _config = modict.config(frozen=True)
 
@@ -75,6 +102,7 @@ class ElementState(State):
 
     @contextmanager
     def _writable(self):
+        """Temporarily lift the frozen constraint for the render phase."""
         saved_frozen = self._config.frozen
         self._config.frozen = False
         try:
@@ -84,17 +112,18 @@ class ElementState(State):
 
 
 class ElementFiber(Fiber):
+    """Fiber subclass for Elements — adds ``path`` and ``widget_key``."""
     path: str = modict.field(required="always")
     widget_key: str | None = None
     state: State = modict.factory(ElementState)
 
 
 class Fibers(modict[str, Fiber]):
-    pass
+    """Session-scoped container mapping tree paths to Fiber instances."""
 
 
 class SharedStates(modict[str, State]):
-    pass
+    """Session-scoped container mapping namespace names to shared State instances."""
 
 
 

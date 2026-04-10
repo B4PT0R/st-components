@@ -1,8 +1,18 @@
 from modict import MISSING
 
+# --- Errors ---
+from .errors import (
+    AlreadyMountedError, AppError, CallbackError, ComponentDefinitionError,
+    ConfigError, ContextError, FiberNotFoundError, HookContextError,
+    HookError, HookOrderError, LifecycleError, LocalStoreError,
+    NotMountedError, PageError, RefError, RenderDepthError, RenderError,
+    RouterError, SharedStateError, StateError, StcError, StcTypeError,
+    StcValueError, UnresolvedRefError,
+)
+
 # --- Classes ---
 from .app import App, get_app
-from .base import Anchor, Component, Element, Value, render, render_to_element
+from .base import Anchor, Component, Element, Value, _as_tuple, render, render_to_element
 from .provider import ContextProvider, ContextValue, create_context
 from .function_component import component
 from .models import (
@@ -54,6 +64,13 @@ from .store import (
 __all__ = [
     # Sentinel
     "MISSING",
+    # Errors
+    "AlreadyMountedError", "AppError", "CallbackError", "ComponentDefinitionError",
+    "ConfigError", "ContextError", "FiberNotFoundError", "HookContextError",
+    "HookError", "HookOrderError", "LifecycleError", "LocalStoreError",
+    "NotMountedError", "PageError", "RefError", "RenderDepthError", "RenderError",
+    "RouterError", "SharedStateError", "StateError", "StcError", "StcTypeError",
+    "StcValueError", "UnresolvedRefError",
     # Core classes
     "Anchor", "App", "Component", "Config", "ContextData",
     "ContextProvider", "ContextValue", "Element", "ElementFiber",

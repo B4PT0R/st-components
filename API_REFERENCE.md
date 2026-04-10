@@ -12,10 +12,9 @@ Comprehensive reference for the `st-components` public API.
 - [Functional Components](#functional-components)
 - [Hooks](#hooks)
 - [Context](#context)
-- [Ref](#ref)
+- [Ref and Navigation](#ref-and-navigation)
 - [Access API](#access-api)
 - [Fragment](#fragment)
-- [Slot](#slot)
 - [Column / Tab](#column--tab)
 - [Scoped Rerun](#scoped-rerun)
 - [Shared State](#shared-state)
@@ -272,18 +271,56 @@ theme = use_context(ThemeContext)  # theme.mode == "dark"
 
 ---
 
-## Ref
+## Ref and Navigation
 
-Handle for accessing a Component or Element after render.
+Every component is a cursor into its subtree. Navigate children by attribute — each access returns a **Ref** (lightweight path-based handle):
+
+```python
+class Dashboard(Component):
+
+    def capture(self):
+        # Navigate to children — each returns a Ref
+        name = self.form.name.state().output     # read an element's widget value
+        count = self.counter.state().count        # read a component's state
+
+    def load(self):
+        self.page.results(                        # override children from a callback
+            metric(key="n", label="Rows", value=1234),
+        )
+
+    def clear(self):
+        self.page.results.reset()                 # revert to initial children
+```
+
+**Full navigation API:**
+
+```python
+self.ref              # Ref to this component
+self.parent           # Ref to the parent
+self.root             # Ref to the App (tree root)
+self.page.results     # Ref to any descendant (attribute chain)
+self["page"]["results"]  # same via __getitem__
+```
+
+**Ref methods:**
+
+| Method | Description |
+|---|---|
+| `ref.state()` | Read the node's current state |
+| `ref(*children, **props)` | Override children and/or props on the fiber |
+| `ref.reset()` | Clear all overrides — revert to parent-passed values |
+| `ref.reset_widget()` | Reset an Element's widget value in session_state |
+| `ref.parent` | Ref to the parent node |
+| `ref.handle` | Streamlit container handle (layout elements) |
+
+**Explicit `Ref()` + `ref=` prop** — use when the accessor is not an ancestor (e.g. sibling to sibling):
 
 ```python
 ref = Ref()
-text_input(key="name", ref=ref, value="Alice")("Name")
+text_input(key="name", ref=ref)("Name")
 
-# After render:
-ref.state().output    # "Alice"
-ref.handle            # Streamlit container object (if applicable)
-ref.reset()           # clear widget value (Element refs only)
+# Later, in a callback:
+ref.state().output   # read the widget value
 ```
 
 
@@ -292,6 +329,8 @@ ref.reset()           # clear widget value (Element refs only)
 ---
 
 ## Access API
+
+Low-level path-based state access — prefer `self.child.state()` for hierarchical access.
 
 | Function | Description |
 |---|---|
@@ -328,46 +367,6 @@ fragment(key="live", scoped=True, run_every="2s")(
 | `run_every` | `None` | Auto-refresh interval (scoped only) |
 
 Nested fragments re-render independently.
-
-
-[↑ Back to top](#table-of-contents)
-
----
-
-## Slot
-
-Named placeholder whose content can be set from callbacks.
-
-```python
-from st_components.elements import slot
-
-class Page(Component):
-
-    def load(self):
-        # Path is relative to the component — includes parent containers
-        self.slot("page.results")(
-            metric(key="n", label="Rows", value=1234),
-        )
-
-    def clear(self):
-        self.slot("page.results").reset()  # back to initial children
-
-    def render(self):
-        return container(key="page")(
-            slot(key="results")(
-                caption(key="hint")("No data yet."),  # initial children
-            ),
-            button(key="load", on_click=self.load)("Load"),
-            button(key="clear", on_click=self.clear)("Reset"),
-        )
-```
-
-- `self.slot("path.to.slot")(children)` — stores children on the fiber; slot renders them on next rerun
-- `self.slot("path.to.slot")()` — empties the slot
-- `self.slot("path.to.slot").reset()` — restores initial tree children
-- Path is **relative to the component's fiber**, including any intermediate container keys
-
-Supports `scoped=True` and `run_every` like `fragment`.
 
 
 [↑ Back to top](#table-of-contents)
@@ -530,8 +529,38 @@ Conditional rendering with state preservation.
 | `KeepAlive(active=...)` | Hide child without destroying fiber |
 | `Case(case=int)` | Select child by index |
 | `Switch(value=...)` + `Match(when=...)` + `Default()` | Pattern matching |
+| `ErrorBoundary(fallback=...)` | Catch render errors in children |
 
 Hidden branches keep their fibers alive — state survives.
+
+### ErrorBoundary
+
+Catches exceptions in child render and displays a fallback:
+
+```python
+from st_components.builtins import ErrorBoundary
+
+ErrorBoundary(key="safe")(
+    RiskyComponent(key="risky"),
+)
+
+# Custom fallback (callable receives the error):
+ErrorBoundary(key="safe", fallback=lambda e: f"Error: {e}")(...)
+
+# State exposes the captured error:
+state = get_state("app.safe")
+if state.error is not None:
+    log(state.error, state.error_traceback)
+```
+
+| Prop | Description |
+|---|---|
+| `fallback` | Component, string, or `callable(error)`. Default: `st.error()` + traceback. |
+
+| State field | Description |
+|---|---|
+| `error` | The caught exception, or `None` |
+| `error_traceback` | Formatted traceback string, or `None` |
 
 
 [↑ Back to top](#table-of-contents)
@@ -595,7 +624,7 @@ All Streamlit widgets are wrapped in `st_components.elements`:
 |---|---|
 | **Text** | `title`, `header`, `subheader`, `caption`, `text`, `markdown`, `code`, `latex`, `divider`, `badge`, `space` |
 | **Input** | `button`, `download_button`, `link_button`, `form_submit_button`, `checkbox`, `toggle`, `radio`, `selectbox`, `multiselect`, `slider`, `select_slider`, `text_input`, `number_input`, `text_area`, `date_input`, `datetime_input`, `time_input`, `color_picker`, `file_uploader`, `camera_input`, `audio_input`, `chat_input`, `menu_button`, `pills`, `segmented_control`, `data_editor`, `feedback` |
-| **Layout** | `container`, `columns`, `column`, `tabs`, `tab`, `form`, `fragment`, `slot`, `expander`, `popover`, `sidebar`, `empty`, `dialog`, `chat_message`, `status` |
+| **Layout** | `container`, `columns`, `column`, `tabs`, `tab`, `form`, `fragment`, `expander`, `popover`, `sidebar`, `empty`, `dialog`, `chat_message`, `status` |
 | **Display** | `write`, `dataframe`, `table`, `metric`, `json`, `html`, `iframe`, `pdf`, `exception`, `help`, `page_link`, `logo`, `write_stream` |
 | **Charts** | `area_chart`, `bar_chart`, `line_chart`, `scatter_chart`, `altair_chart`, `plotly_chart`, `vega_lite_chart`, `pydeck_chart`, `bokeh_chart`, `pyplot`, `map`, `graphviz_chart` |
 | **Media** | `image`, `audio`, `video`, `play_audio` |
@@ -647,6 +676,7 @@ A Fiber is the persistent record that gives a component continuity across reruns
 | `previous_state` | Snapshot from last cycle (change detection) |
 | `component_id` | Links fiber to current Python instance |
 | `hooks` | Ordered list of HookSlot entries |
+| `overrides` | Props/children overrides set via `ref(...)` from callbacks |
 | `keep_alive` | Prevents unmount when hidden by flow helpers |
 
 **Render cycle:** `begin_render_cycle()` → components render and mark fibers → `end_render_cycle()` unmounts stale fibers, fires lifecycle hooks, flushes effects.

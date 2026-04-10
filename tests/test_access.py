@@ -7,18 +7,10 @@ from st_components.core import (
     App, Component, ctx, Element, Ref, State,
     callback, get_state, render, reset_element, set_state, fibers,
 )
-from st_components.core.access import _resolve_path, widget_key, _base_value_key
+from st_components.core.access import _resolve_path, widget_key
 from st_components.core.models import ElementFiber
 
 from tests._mock import fake_ctx, _mock_st, _session_data
-
-
-# ---------------------------------------------------------------------------
-# _base_value_key
-# ---------------------------------------------------------------------------
-
-def test_base_value_key_appends_raw():
-    assert _base_value_key("app.form.name") == "app.form.name.raw"
 
 
 # ---------------------------------------------------------------------------

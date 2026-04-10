@@ -1,31 +1,45 @@
+"""The ``@component`` decorator — turns a plain function into a Component class.
+
+The generated class is cached per function object so that repeated
+``@component`` calls on the same function return the same class (stable
+fiber identity across reruns).
+"""
 import inspect
 from functools import wraps
 
 from .base import Component
+from .errors import ComponentDefinitionError
 from .models import Props
 
 
 FUNCTION_COMPONENT_REGISTRY = {}
-
-
-def _component_props(props):
-    return props.exclude("key", "ref")
+"""Cache: function → generated Component class (stable across reruns)."""
 
 
 def _validate_function_component_signature(func):
+    """Ensure *func* has exactly one positional parameter (the props argument)."""
     parameters = list(inspect.signature(func).parameters.values())
     if len(parameters) != 1:
-        raise TypeError("@component expects a function with signature func(props)")
+        raise ComponentDefinitionError(
+            f"@component expects a function with exactly one positional parameter (props), "
+            f"but {func.__name__}() has {len(parameters)}: "
+            f"{', '.join(p.name for p in parameters) or 'none'}."
+        )
 
     parameter = parameters[0]
     if parameter.kind not in (
         inspect.Parameter.POSITIONAL_ONLY,
         inspect.Parameter.POSITIONAL_OR_KEYWORD,
     ):
-        raise TypeError("@component expects a function with signature func(props)")
+        raise ComponentDefinitionError(
+            f"@component expects a positional parameter, but {func.__name__}() "
+            f"has a {parameter.kind.name.lower()} parameter {parameter.name!r}. "
+            f"Use: def {func.__name__}(props): ..."
+        )
 
 
 def _props_class_from_annotation(func):
+    """Extract a Props subclass from the type annotation of the props parameter, if any."""
     params = list(inspect.signature(func).parameters.values())
     annotation = params[0].annotation
     if annotation is inspect.Parameter.empty:
@@ -71,13 +85,13 @@ def component(func):
             ...
     """
     if not callable(func):
-        raise TypeError(f"@component expects a callable, got {type(func)}")
+        raise ComponentDefinitionError(f"@component expects a callable, got {type(func).__name__!r}.")
     _validate_function_component_signature(func)
 
     component_class = FUNCTION_COMPONENT_REGISTRY.get(func)
     if component_class is None:
         def render(self):
-            return func(_component_props(self.props))
+            return func(self.props.exclude("key", "ref"))
 
         class_dict = {
             "__doc__": func.__doc__,

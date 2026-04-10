@@ -60,6 +60,42 @@ def test_get_app_returns_current_instance():
     assert get_app() is app
 
 
+def test_get_app_during_render():
+    """get_app() returns the App instance from within a Component.render()."""
+    seen = []
+
+    class Child(Component):
+        def render(self):
+            seen.append(get_app())
+
+    app = App()
+    app(Child(key="c")).render()
+    assert len(seen) == 1
+    assert seen[0] is app
+
+
+def test_get_app_during_callback():
+    """get_app() returns the App instance from within a widget callback."""
+    from st_components.elements.input.buttons import button as btn
+
+    seen = []
+
+    def fake_button(label, key=None, on_click=None, **kw):
+        if on_click:
+            on_click()
+
+    _mock_st.button.side_effect = fake_button
+
+    class Child(Component):
+        def render(self):
+            return btn(key="b", on_click=lambda: seen.append(get_app()))("Go")
+
+    app = App()
+    app(Child(key="c")).render()
+    assert len(seen) == 1
+    assert seen[0] is app
+
+
 def test_app_accepts_single_root_in_children_constructor_arg():
     class Root(Component):
         def render(self):
