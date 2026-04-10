@@ -533,19 +533,12 @@ App, Component, Element, State, Props, Hooks, Context, Ref, Fragment, Slot, Colu
 
 ---
 
-## Theming and Config
+## Theming
 
-Use `theme=...`, `css=...`, and `config=...` on `App(...)` to control the visual shell of the app.
-
-- `theme` covers Streamlit's theme tokens
-- `css` covers custom styling outside those tokens
-- `config` covers the supported Streamlit config sections exposed by the library
-
-Use a `Theme` passed to `App` to control Streamlit theming (a plain dict also works):
+`Theme` holds dual palettes (`light` / `dark`) and shared settings. `color_mode` on `App` selects the active palette.
 
 ```python
 from st_components import App, Theme, ThemeSection
-
 
 app = App(
     theme=Theme(
@@ -557,228 +550,75 @@ app = App(
         dark_sidebar=ThemeSection(backgroundColor="#111827"),
     ),
     color_mode="dark",
-)(
-    MyLayout(key="layout"),
-)
+    css="body { font-size: 16px; }",
+)(MyLayout(key="layout"))
 ```
 
-You can also use the built-in `ThemeEditorButton` to tune a theme visually while building your app:
+Drop a `ThemeEditorButton` anywhere to tune the theme visually during development, then persist the result with **Save**:
 
 ```python
-from st_components import App, Component
 from st_components.builtins import ThemeEditorButton
-from st_components.elements import container, markdown
 
-
-class Home(Component):
-
-    def render(self):
-        return container(key="page")(
-            container(key="hero", border=True)(
-                markdown(key="title")("# Hello"),
-                markdown(key="body")("Use the built-in theme editor to tune the app live."),
-                ThemeEditorButton(key="open", type="primary", title="Theme editor")(),
-            )
-        )
-
-
-app = App()(
-    Home(key="home")
-)
-app.render()
+ThemeEditorButton(key="theme", type="primary")("Edit theme")
 ```
 
-This is useful during development when you want to find a good theme quickly, then later replace it with a fixed theme in `App(theme=...)` or `config.toml` once the design is settled.
-
-Notes:
-
-- `Theme` fields name map to official Streamlit theme config keys
-- theme persistence goes through `.streamlit/config.toml`
-- live theme change is best-effort; some changes may require a complete rerun, or a restart.
-- the persisted config in `.streamlit/config.toml` is the default source.
-- CSS is injected after theme application, so CSS can intentionally override theme-driven styles
-
-To see this live:
-
-```bash
-python -m st_components.examples theme_editor
-```
+Theme and CSS changes are applied live. Saved themes persist to `.streamlit/stc-config.toml`.
 
 ## Built-ins
 
-`st_components.builtins` contains higher-level structural helpers built on top of the core component model.
-
-```python
-from st_components.builtins import (
-    Conditional, Case, Switch, Match, Default,
-    KeepAlive, ThemeEditorButton, ThemeEditorDialog, Router, Page,
-)
-```
+`st_components.builtins` provides higher-level helpers built on top of the core model. See the [API Reference](API_REFERENCE.md) for full props and signatures.
 
 ### Fragment
 
-The `fragment` element is one of the most powerful tools in `st-components`. It gives you **fine-grained control over Streamlit's re-rendering** — something that's awkward or impossible with vanilla Streamlit.
-
-```python
-from st_components.elements import fragment
-```
-
-**Two modes:**
-
-- `scoped=False` (default) — transparent grouping, like React's `<Fragment>`. Children render in sequence, no wrapper. Useful to return multiple elements from `render()` without an extra container.
-- `scoped=True` — wraps children in `st.fragment()`. Streamlit only re-runs **this subtree** on widget interactions within it, leaving the rest of the page untouched.
-
-```python
-# Transparent grouping
-fragment(key="grp")(header, body, footer)
-
-# Scoped re-rendering
-fragment(key="live", scoped=True, run_every="5s")(
-    LiveChart(key="chart"),
-    RefreshButton(key="btn"),
-)
-```
-
-**Nested fragments re-render independently.** Streamlit natively supports fragment nesting, and `st-components` leverages this transparently:
+`fragment(scoped=True)` wraps children in a `st.fragment()` — an **independent re-render boundary**. Widget interactions inside the fragment only re-run that subtree, not the whole app. Fragments can be nested, each with its own rerun timeline.
 
 ```python
 container(key="dashboard")(
     fragment(key="sidebar", scoped=True)(
-        FilterPanel(key="filters"),       # re-runs alone when filters change
+        FilterPanel(key="filters"),
     ),
     fragment(key="main", scoped=True)(
-        DataTable(key="table"),           # re-runs alone when sorting
+        DataTable(key="table"),
         fragment(key="live", scoped=True, run_every="2s")(
-            LiveMetrics(key="metrics"),   # auto-refreshes without touching anything
+            LiveMetrics(key="metrics"),
         ),
     ),
 )
 ```
 
-Each scoped fragment is an independent re-render boundary. Clicking inside `filters` doesn't re-run `table` or `metrics`. The `live` fragment refreshes every 2 seconds without touching anything else. This is **free fine-grained re-render control** — just by placing `fragment(scoped=True)` nodes in your component tree.
-
-| Prop | Default | Description |
-|---|---|---|
-| `scoped` | `False` | When `True`, wraps children in `st.fragment()` |
-| `run_every` | `None` | Auto-refresh interval (only when `scoped=True`) — accepts seconds, timedelta, or Pandas duration strings |
-
+Without `scoped=True`, `fragment` is transparent grouping (like React's `<Fragment>`).
 
 ### Scoped Rerun
 
-`rerun()` and `wait()` are **automatically scoped** to the current fragment. Each scoped fragment has its own independent rerun timeline — delays in one fragment don't block others or the app.
-
-```python
-from st_components.core.rerun import rerun, wait
-```
-
-**Inside a scoped fragment**, `rerun()` and `wait()` target that fragment only:
-
-```python
-fragment(key="live", scoped=True)(
-    # rerun() here only re-runs this fragment
-    # wait(1.5) here only delays this fragment's rerun
-)
-```
-
-**Outside any fragment**, they target the full app. Use `scope="app"` to force app-level rerun from inside a fragment:
+`rerun()` and `wait()` are automatically scoped to the current fragment. Each scoped fragment has its own independent timeline.
 
 ```python
 rerun()                  # current scope (fragment or app)
 rerun(scope="app")       # force full app rerun
-rerun(wait=1.5)          # rerun current scope after 1.5s
+rerun(wait=1.5)          # rerun after delay
 rerun(wait=False)        # immediate hard rerun
-wait(1.5)                # delay current scope's next rerun by 1.5s
+wait(1.5)                # delay next rerun
 ```
-
-**Multiple calls merge** — the longest delay within a scope wins. Different scopes are fully independent:
-
-```python
-# Two fragments with different timelines, zero interference
-fragment(key="fast", scoped=True)(
-    # rerun(wait=0.3) → ticks at 0.3s
-)
-fragment(key="slow", scoped=True)(
-    # rerun(wait=2.0) → ticks at 2.0s
-)
-# App-level rerun(wait=5) runs independently of both
-```
-
-**Nested fragments** each have their own scope. The inner fragment's `rerun()` doesn't touch the outer one:
-
-```python
-fragment(key="outer", scoped=True)(
-    Controls(key="ctrl"),                    # rerun() → outer scope
-    fragment(key="inner", scoped=True)(
-        LiveChart(key="chart"),              # rerun() → inner scope only
-    ),
-)
-```
-
-| Function | Default scope | Description |
-|---|---|---|
-| `rerun(scope, wait)` | Current fragment or app | Request a scoped rerun with optional delay |
-| `wait(delay, scope)` | Current fragment or app | Request a minimum delay without triggering a rerun |
-| `check_rerun(scope)` | Current fragment or app | Execute pending rerun (called automatically) |
 
 Also available as `App.rerun()` and `App.wait()`.
 
-
 ### Flow helpers
 
-Flow helpers let you express conditional and switched rendering declaratively, as part of the component tree.
-
-The key property they share is **state preservation**: hidden branches are not unmounted — their fibers are kept alive so that state is not lost when a branch becomes visible again. A plain Python `if` would discard the hidden component's fiber on every rerun; flow helpers avoid that.
-
-#### `Conditional`
-
-Renders its first child when `condition` is `True`, its optional second child otherwise.
+Declarative conditional rendering with **state preservation** — hidden branches keep their fibers alive, unlike a plain `if`.
 
 ```python
-from st_components.builtins import Conditional
+from st_components.builtins import Conditional, KeepAlive, Case, Switch, Match, Default
 
-Conditional(key="toggle", condition=self.state.logged_in)(
-    Dashboard(key="dashboard"),
-    LoginForm(key="login"),
-)
-```
+# Show/hide with preserved state
+Conditional(key="auth", condition=logged_in)(Dashboard(key="dash"), LoginForm(key="login"))
+KeepAlive(key="panel", active=show)(HeavyPanel(key="content"))
 
-#### `KeepAlive`
+# Select by index
+Case(key="step", case=current_step)(StepOne(key="s1"), StepTwo(key="s2"), StepThree(key="s3"))
 
-Renders its single child when `active=True`, hides it when `False`, but keeps the fiber alive in both cases.
-
-```python
-from st_components.builtins import KeepAlive
-
-KeepAlive(key="panel", active=self.state.show_panel)(
-    HeavyPanel(key="content"),
-)
-```
-
-Useful when hiding a subtree that is expensive to reinitialize, or when you want to preserve its internal state without rendering it.
-
-#### `Case`
-
-Selects one child by integer index. All other branches have their fibers preserved.
-
-```python
-from st_components.builtins import Case
-
-Case(key="step", case=self.state.current_step)(
-    StepOne(key="step_1"),
-    StepTwo(key="step_2"),
-    StepThree(key="step_3"),
-)
-```
-
-#### `Switch`, `Match`, `Default`
-
-`Switch` matches its `value` against a set of `Match(when=...)` children and renders the matching one, falling back to `Default` if present. All unmatched branches have their fibers preserved.
-
-```python
-from st_components.builtins import Switch, Match, Default
-
-Switch(key="view", value=self.state.active_tab)(
-    Match(key="home",     when="home")(HomePage(key="page")),
+# Select by value
+Switch(key="view", value=active_tab)(
+    Match(key="home", when="home")(HomePage(key="page")),
     Match(key="settings", when="settings")(SettingsPage(key="page")),
     Default(key="fallback")(NotFound(key="page")),
 )
@@ -786,92 +626,19 @@ Switch(key="view", value=self.state.active_tab)(
 
 ### Router and Page
 
-`Router` and `Page` compile Streamlit's multipage navigation while keeping all pages inside the normal component path system.
-
-#### `Router`
-
-Declares the navigation structure. Its children must all be `Page` instances.
+Multipage navigation built on `st.navigation`, with pages inside the component path system.
 
 ```python
 from st_components.builtins import Router, Page
 
 Router(key="router", position="sidebar")(
-    Page(key="home",     nav_title="Home",     default=True)(HomePage),
+    Page(key="home", nav_title="Home", default=True)(HomePage),
     Page(key="settings", nav_title="Settings")(SettingsPage),
+    Page(key="report", nav_title="Report", section="Analytics")(ReportPage),
 )
 ```
 
-Props:
-- `position`: where the navigation is rendered — `"sidebar"` (default), `"top"`, or `"hidden"`.
-- `expanded`: whether the sidebar nav is expanded by default.
-
-#### `Page`
-
-Wraps a page source and declares its navigation metadata. The source is passed as the single child and can be:
-- a `Component` class or instance
-- a callable
-- a file path or path string (for file-backed pages)
-
-```python
-Page(
-    key="report",
-    nav_title="Report",
-    nav_icon=":material/bar_chart:",
-    url_path="report",
-    section="Analytics",
-    default=False,
-    visibility="visible",
-    layout="wide",
-)(ReportPage)
-```
-
-Props:
-- `nav_title`, `nav_icon`: label and icon shown in the navigation.
-- `url_path`: explicit URL path segment for this page.
-- `default`: if `True`, this page is shown when no URL path matches.
-- `section`: groups pages under a heading in the navigation.
-- `visibility`: `"visible"` (default) or `"hidden"` — hides the page from navigation without removing it.
-- `layout`, `page_title`, `page_icon`, `initial_sidebar_state`, `menu_items`: per-page overrides of Streamlit page config.
-
-Pages live inside the component path system: a page component rendered from `Page(key="report")` under `Router(key="router")` produces paths like `app.router.report.page...`.
-
-### Theme tooling
-
-#### `ThemeEditor`
-
-A full inline theme editor widget. Exposes controls for base theme, font, colors, corner radii, widget borders, and optional custom CSS. Changes are applied live and can be saved to `.streamlit/config.toml`.
-
-```python
-from st_components.builtins import ThemeEditor
-
-ThemeEditor(key="editor")()
-```
-
-#### `ThemeEditorDialog`
-
-Wraps `ThemeEditor` in a Streamlit dialog. Useful when you want the editor accessible but out of the way.
-
-```python
-from st_components.builtins import ThemeEditorDialog
-
-ThemeEditorDialog(key="dialog", open=self.state.open, title="Theme editor", width="large")
-```
-
-Props: `open`, `title`, `show_css`, `width`.
-
-#### `ThemeEditorButton`
-
-A button that opens a `ThemeEditorDialog`. The most common entry point during development.
-
-```python
-from st_components.builtins import ThemeEditorButton
-
-ThemeEditorButton(key="theme_btn", type="primary")("Edit theme")
-```
-
-Props: `label`, `title`, `show_css`, `width`, `type`, `help`, `icon`, `use_container_width`, `disabled`, `shortcut`.
-
-See the [Theming and Config](#theming-and-config) section for the recommended development workflow.
+Pages can be component classes, instances, callables, or file paths.
 
 ## Examples
 
