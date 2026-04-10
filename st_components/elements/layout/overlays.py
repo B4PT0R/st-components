@@ -1,8 +1,9 @@
-from typing import Any, Callable, Literal, Optional
+from typing import Any, Callable, Literal
 
 import streamlit as st
 
-from ...core import Element, Ref, get_key_stack, path_context, render
+from ...core import Element, Ref, get_key_stack, render, set_context
+from ..factory import render_handle
 from ..prop_types import DialogWidth, DismissBehavior, Width, WidthWithoutContent
 
 
@@ -11,11 +12,11 @@ class dialog(Element):
         self,
         title: str = "",
         *,
-        key: str,
-        ref: Optional[Ref] = None,
+        key: str | None = None,
+        ref: Ref | None = None,
         width: DialogWidth = "small",
         dismissible: bool = True,
-        icon: Optional[str] = None,
+        icon: str | None = None,
         on_dismiss: DismissBehavior = "ignore",
     ):
         Element.__init__(self, key=key, title=title, ref=ref, width=width, dismissible=dismissible, icon=icon, on_dismiss=on_dismiss)
@@ -32,7 +33,7 @@ class dialog(Element):
             on_dismiss=dismiss_callback if callable(on_dismiss) else on_dismiss,
         )
         def body():
-            with path_context(context_keys):
+            with set_context(keys=context_keys):
                 for child in self.children:
                     render(child)
 
@@ -44,17 +45,17 @@ class chat_message(Element):
         self,
         name: Literal["user", "assistant", "ai", "human"] | str = "assistant",
         *,
-        key: str,
-        ref: Optional[Ref] = None,
-        avatar: Optional[str] = None,
+        key: str | None = None,
+        ref: Ref | None = None,
+        avatar: str | None = None,
         width: Width = "stretch",
     ):
         Element.__init__(self, key=key, name=name, ref=ref, avatar=avatar, width=width)
 
     def render(self):
-        message_obj = st.chat_message(self.props.get("name", "assistant"), **self.props.exclude("key", "children", "name", "ref"))
-        self.state.handle = message_obj
-        with message_obj:
+        handle = st.chat_message(self.props.get("name", "assistant"), **self.props.exclude("key", "children", "name", "ref"))
+        self.state.handle = handle
+        with render_handle(handle, self._fiber_key):
             for child in self.children:
                 render(child)
 
@@ -64,8 +65,8 @@ class status(Element):
         self,
         label: str = "",
         *,
-        key: str,
-        ref: Optional[Ref] = None,
+        key: str | None = None,
+        ref: Ref | None = None,
         expanded: bool = False,
         state: Literal["running", "complete", "error"] = "running",
         width: WidthWithoutContent = "stretch",
@@ -73,8 +74,8 @@ class status(Element):
         Element.__init__(self, key=key, label=label, ref=ref, expanded=expanded, state=state, width=width)
 
     def render(self):
-        status_obj = st.status(self.props.get("label", ""), **self.props.exclude("key", "children", "label", "ref"))
-        self.state.handle = status_obj
-        with status_obj:
+        handle = st.status(self.props.get("label", ""), **self.props.exclude("key", "children", "label", "ref"))
+        self.state.handle = handle
+        with render_handle(handle, self._fiber_key):
             for child in self.children:
                 render(child)

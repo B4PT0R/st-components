@@ -1,4 +1,4 @@
-from typing import Any, Iterable, Literal, Optional
+from typing import Any, Iterable, Literal
 
 from ...core import Element, Ref
 from ...core.access import widget_key
@@ -11,21 +11,21 @@ from ..prop_types import Width
 class data_editor(Element):
     def __init__(
         self,
-        data: Optional[Any] = None,
+        data: Any | None = None,
         *,
         key: str,
-        ref: Optional[Ref] = None,
-        width: Optional[Width] = "stretch",
-        height: Optional[int | str] = "auto",
-        use_container_width: Optional[bool] = None,
-        hide_index: Optional[bool] = None,
-        column_order: Optional[Iterable[str]] = None,
-        column_config: Optional[Any] = None,
+        ref: Ref | None = None,
+        width: Width | None = "stretch",
+        height: int | str | None = "auto",
+        use_container_width: bool | None = None,
+        hide_index: bool | None = None,
+        column_order: Iterable[str] | None = None,
+        column_config: Any | None = None,
         num_rows: Literal["fixed", "dynamic", "add", "delete"] = "fixed",
         disabled: bool | Iterable[str | int] = False,
-        on_change: Optional[Any] = None,
-        row_height: Optional[int] = None,
-        placeholder: Optional[str] = None,
+        on_change: Any | None = None,
+        row_height: int | None = None,
+        placeholder: str | None = None,
     ):
         Element.__init__(self, key=key, data=data, ref=ref, width=width, height=height, use_container_width=use_container_width, hide_index=hide_index, column_order=column_order, column_config=column_config, num_rows=num_rows, disabled=disabled, on_change=on_change, row_height=row_height, placeholder=placeholder)
 

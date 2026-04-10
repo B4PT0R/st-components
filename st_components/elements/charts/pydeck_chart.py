@@ -1,4 +1,4 @@
-from typing import Any, Optional
+from typing import Any
 
 import streamlit as st
 
@@ -9,7 +9,7 @@ from ..factory import widget_child
 
 
 class pydeck_chart(Element):
-    def __init__(self, pydeck_obj: Any = None, *, key: str, ref: Optional[Ref] = None, width: WidthWithoutContent = "stretch", use_container_width: Optional[bool] = None, height: HeightWithoutContent = 500, selection_mode: PydeckSelectionMode = "single-object", on_select: SelectionBehavior = "ignore"):
+    def __init__(self, pydeck_obj: Any = None, *, key: str, ref: Ref | None = None, width: WidthWithoutContent = "stretch", use_container_width: bool | None = None, height: HeightWithoutContent = 500, selection_mode: PydeckSelectionMode = "single-object", on_select: SelectionBehavior = "ignore"):
         Element.__init__(self, key=key, pydeck_obj=pydeck_obj, ref=ref, width=width, use_container_width=use_container_width, height=height, selection_mode=selection_mode, on_select=on_select)
 
     def render(self):

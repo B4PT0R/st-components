@@ -1,4 +1,4 @@
-from typing import Any, Optional, Sequence
+from typing import Any, Sequence
 
 import streamlit as st
 
@@ -8,7 +8,7 @@ from ..factory import widget_child
 
 
 class line_chart(Element):
-    def __init__(self, data: Any = None, *, key: str, ref: Optional[Ref] = None, x: Optional[str] = None, y: Optional[str | Sequence[str]] = None, x_label: Optional[str] = None, y_label: Optional[str] = None, color: Optional[Any] = None, width: Width = "stretch", height: Height = "content", use_container_width: Optional[bool] = None):
+    def __init__(self, data: Any = None, *, key: str, ref: Ref | None = None, x: str | None = None, y: str | Sequence[str] | None = None, x_label: str | None = None, y_label: str | None = None, color: Any | None = None, width: Width = "stretch", height: Height = "content", use_container_width: bool | None = None):
         Element.__init__(self, key=key, data=data, ref=ref, x=x, y=y, x_label=x_label, y_label=y_label, color=color, width=width, height=height, use_container_width=use_container_width)
 
     def render(self):

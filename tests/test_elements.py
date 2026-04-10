@@ -5,7 +5,7 @@ import inspect
 import importlib
 from typing import Iterable, Literal
 
-from st_components.core import callback, Component, Element, Ref, render, Context, reset_element, widget_output, get_state
+from st_components.core import callback, Component, Element, Ref, render, ctx, reset_element, widget_output, get_state
 from st_components.elements.factory import widget_callback
 from st_components.core.access import widget_key
 from st_components.core.models import ElementFiber, ElementState
@@ -39,11 +39,11 @@ def test_elements_module_all_matches_public_exports():
 
 
 def test_reset_element_rotates_runtime_key():
-    Context.key_stack[:] = [fake_ctx("app"), fake_ctx("form"), fake_ctx("name")]
+    ctx.replace("key", [fake_ctx("app"), fake_ctx("form"), fake_ctx("name")])
     original_key = widget_key()
     reset_element()
     refreshed_key = widget_key()
-    Context.key_stack.clear()
+    ctx.replace("key", [])
 
     assert original_key == "app.form.name.raw"
     assert refreshed_key != original_key
@@ -79,9 +79,9 @@ def test_callback_receives_value():
 
     # Pre-set session_state as Streamlit would before the rerun
     _session_data["app.form.name.raw"] = "Alice"
-    Context.key_stack[:] = [fake_ctx("app")]
+    ctx.replace("key", [fake_ctx("app")])
     render(Form(key="form"))
-    Context.key_stack.clear()
+    ctx.replace("key", [])
 
     assert seen == ["Alice"], f"callback saw: {seen}"
     assert _session_data["app.form.name.raw"] == "Alice"
@@ -103,9 +103,9 @@ def test_element_ref_value():
 
     # Pre-set as Streamlit would before the rerun
     _session_data["app.form.name.raw"] = "Alice"
-    Context.key_stack[:] = [fake_ctx("app")]
+    ctx.replace("key", [fake_ctx("app")])
     render(Form(key="form"))
-    Context.key_stack.clear()
+    ctx.replace("key", [])
 
     assert name_ref.path == "app.form.name"
     assert name_ref.kind == "element"
@@ -129,9 +129,9 @@ def test_empty_ref_stores_placeholder_runtime():
         def render(self):
             return empty(key="slot", ref=empty_ref)
 
-    Context.key_stack[:] = [fake_ctx("app")]
+    ctx.replace("key", [fake_ctx("app")])
     render(EmptyDemo(key="demo"))
-    Context.key_stack.clear()
+    ctx.replace("key", [])
 
     assert empty_ref.state().handle is placeholder
 
@@ -246,9 +246,9 @@ def test_progress_element_ref_stores_runtime_handle():
         def render(self):
             return progress_element(key="bar", ref=progress_ref, value=10, text="Starting", width="stretch")
 
-    Context.key_stack[:] = [fake_ctx("app")]
+    ctx.replace("key", [fake_ctx("app")])
     render(ProgressDemo(key="demo"))
-    Context.key_stack.clear()
+    ctx.replace("key", [])
 
     assert progress_ref.state().handle is handle
 
@@ -310,9 +310,9 @@ def test_container_ref_stores_delta_generator():
                 "inside",
             )
 
-    Context.key_stack[:] = [fake_ctx("app")]
+    ctx.replace("key", [fake_ctx("app")])
     render(ContainerDemo(key="demo"))
-    Context.key_stack.clear()
+    ctx.replace("key", [])
 
     assert container_ref.state().handle is container_obj
     assert seen == ["enter", "exit"]
@@ -341,9 +341,9 @@ def test_columns_and_tabs_refs_store_runtime_handles():
                 tabs(key="tabs", ref=tabs_ref, tabs=["A", "B"])("a", "b"),
             )
 
-    Context.key_stack[:] = [fake_ctx("app")]
+    ctx.replace("key", [fake_ctx("app")])
     render(LayoutDemo(key="demo"))
-    Context.key_stack.clear()
+    ctx.replace("key", [])
 
     assert columns_ref.state().handle == column_slots
     assert tabs_ref.state().handle == tab_slots
@@ -366,9 +366,9 @@ def test_chat_message_ref_stores_delta_generator():
         def render(self):
             return chat_message(key="msg", ref=message_ref, name="assistant")("hello")
 
-    Context.key_stack[:] = [fake_ctx("app")]
+    ctx.replace("key", [fake_ctx("app")])
     render(ChatDemo(key="demo"))
-    Context.key_stack.clear()
+    ctx.replace("key", [])
 
     assert message_ref.state().handle is message_obj
 
@@ -384,9 +384,9 @@ def test_component_ref_state():
         def render(self):
             pass
 
-    Context.key_stack[:] = [fake_ctx("app")]
+    ctx.replace("key", [fake_ctx("app")])
     render(Counter(key="counter", ref=counter_ref))
-    Context.key_stack.clear()
+    ctx.replace("key", [])
 
     assert counter_ref.path == "app.counter"
     assert counter_ref.kind == "component"
@@ -404,9 +404,9 @@ def test_get_state_accepts_path_and_ref():
         def render(self):
             pass
 
-    Context.key_stack[:] = [fake_ctx("app")]
+    ctx.replace("key", [fake_ctx("app")])
     render(Counter(key="counter", ref=counter_ref))
-    Context.key_stack.clear()
+    ctx.replace("key", [])
 
     assert get_state("app.counter").count == 3
     assert get_state(counter_ref).count == 3
@@ -511,9 +511,9 @@ def test_spinner_element_wraps_child_render():
 
     from st_components.elements.feedback import spinner as spinner_element
 
-    Context.key_stack[:] = [fake_ctx("app")]
+    ctx.replace("key", [fake_ctx("app")])
     render(spinner_element(key="loading", text="Loading...", show_time=True)("child output"))
-    Context.key_stack.clear()
+    ctx.replace("key", [])
 
     assert events == [
         ("spinner", "Loading...", {"show_time": True, "width": "content"}),
@@ -563,9 +563,9 @@ def test_data_editor_wrapper():
     try:
         # Pre-set session_state as Streamlit would before the rerun
         _session_data["app.table.editor.raw"] = editing_state
-        Context.key_stack[:] = [fake_ctx("app")]
+        ctx.replace("key", [fake_ctx("app")])
         render(TableForm(key="table"))
-        Context.key_stack.clear()
+        ctx.replace("key", [])
 
         # Assertions inside try: state.output is a computed that reads session_state
         # and applies postprocess — both must still be active at assertion time.
@@ -598,9 +598,9 @@ def test_chat_input_wrapper():
 
     # Pre-set session_state as Streamlit would before the rerun
     _session_data["app.thread.composer.raw"] = "Ship it"
-    Context.key_stack[:] = [fake_ctx("app")]
+    ctx.replace("key", [fake_ctx("app")])
     render(Composer(key="thread"))
-    Context.key_stack.clear()
+    ctx.replace("key", [])
 
     assert composer_ref.path == "app.thread.composer"
     assert composer_ref.state().output == "Ship it"
@@ -633,9 +633,9 @@ def test_menu_button_wrapper():
 
     # Pre-set session_state as Streamlit would before the rerun
     _session_data["app.toolbar.actions.raw"] = "Ship"
-    Context.key_stack[:] = [fake_ctx("app")]
+    ctx.replace("key", [fake_ctx("app")])
     render(Actions(key="toolbar"))
-    Context.key_stack.clear()
+    ctx.replace("key", [])
 
     assert action_ref.path == "app.toolbar.actions"
     assert action_ref.state().output == "Ship"
@@ -659,9 +659,9 @@ def test_button_wrapper_on_click():
         def render(self):
             return button(key="save", on_click=self.on_click, type="primary")("Save")
 
-    Context.key_stack[:] = [fake_ctx("app")]
+    ctx.replace("key", [fake_ctx("app")])
     render(Actions(key="toolbar"))
-    Context.key_stack.clear()
+    ctx.replace("key", [])
 
     assert seen == ["clicked"]
 
@@ -683,15 +683,17 @@ def test_button_and_submit_button_use_standard_widget_key():
     _mock_st.form_submit_button.side_effect = fake_form_submit_button
 
     def on_save(value):
-        seen.append(Context.callback.widget_key)
+        from st_components.core.context import get_context
+        seen.append(get_context().callback.widget_key)
 
     def on_submit(value):
-        seen.append(Context.callback.widget_key)
+        from st_components.core.context import get_context
+        seen.append(get_context().callback.widget_key)
 
-    Context.key_stack[:] = [fake_ctx("app"), fake_ctx("actions")]
+    ctx.replace("key", [fake_ctx("app"), fake_ctx("actions")])
     render(button(key="save", on_click=on_save)("Save"))
     render(form_submit_button(key="submit", on_click=on_submit)("Submit"))
-    Context.key_stack.clear()
+    ctx.replace("key", [])
 
     assert seen == [
         "app.actions.save.raw",
@@ -716,9 +718,9 @@ def test_form_submit_button_wrapper_on_click():
         def render(self):
             return form_submit_button(key="submit", on_click=self.on_click, type="primary")("Submit")
 
-    Context.key_stack[:] = [fake_ctx("app")]
+    ctx.replace("key", [fake_ctx("app")])
     render(Actions(key="toolbar"))
-    Context.key_stack.clear()
+    ctx.replace("key", [])
 
     assert seen == ["submitted"]
 
@@ -753,9 +755,9 @@ def test_plotly_chart_wrapper():
 
     # Pre-set session_state as Streamlit would before the rerun
     _session_data["app.dashboard.chart.raw"] = selection
-    Context.key_stack[:] = [fake_ctx("app")]
+    ctx.replace("key", [fake_ctx("app")])
     render(Dashboard(key="dashboard"))
-    Context.key_stack.clear()
+    ctx.replace("key", [])
 
     assert chart_ref.path == "app.dashboard.chart"
     assert chart_ref.state().output == selection
@@ -790,9 +792,9 @@ def test_dataframe_wrapper_on_select():
 
     # Pre-set session_state as Streamlit would before the rerun
     _session_data["app.dashboard.table.raw"] = selection
-    Context.key_stack[:] = [fake_ctx("app")]
+    ctx.replace("key", [fake_ctx("app")])
     render(Table(key="dashboard"))
-    Context.key_stack.clear()
+    ctx.replace("key", [])
 
     assert table_ref.path == "app.dashboard.table"
     assert table_ref.state().output == selection
@@ -825,9 +827,9 @@ def test_dialog_wrapper():
                 text_input(key="name", value="Alice")("Name")
             )
 
-    Context.key_stack[:] = [fake_ctx("app")]
+    ctx.replace("key", [fake_ctx("app")])
     render(Modal(key="modal"))
-    Context.key_stack.clear()
+    ctx.replace("key", [])
 
     assert dialog_calls == [("Confirm action", {"width": "small", "dismissible": True, "icon": None, "on_dismiss": "ignore"})], (
         f"got dialog calls: {dialog_calls}"
@@ -849,9 +851,9 @@ def test_write_stream_wrapper():
         def render(self):
             return write_stream(key="writer", ref=stream_ref, stream=iter(["Hello", " ", "world"]))
 
-    Context.key_stack[:] = [fake_ctx("app")]
+    ctx.replace("key", [fake_ctx("app")])
     render(StreamDemo(key="demo"))
-    Context.key_stack.clear()
+    ctx.replace("key", [])
 
     assert stream_ref.path == "app.demo.writer"
     assert stream_ref.state().output == "Hello world"
@@ -902,18 +904,18 @@ def test_none_children_skipped_at_render():
 
 def test_widget_output_returns_session_state_value():
     _session_data["app.form.name.raw"] = "Alice"
-    Context.key_stack[:] = [fake_ctx("app"), fake_ctx("form"), fake_ctx("name")]
+    ctx.replace("key", [fake_ctx("app"), fake_ctx("form"), fake_ctx("name")])
     from modict import MISSING
     result = widget_output()
-    Context.key_stack.clear()
+    ctx.replace("key", [])
     assert result == "Alice"
 
 
 def test_widget_output_returns_missing_when_key_absent():
     from modict import MISSING
-    Context.key_stack[:] = [fake_ctx("app"), fake_ctx("form"), fake_ctx("nothere")]
+    ctx.replace("key", [fake_ctx("app"), fake_ctx("form"), fake_ctx("nothere")])
     result = widget_output()
-    Context.key_stack.clear()
+    ctx.replace("key", [])
     assert result is MISSING
 
 
@@ -935,9 +937,9 @@ def test_widget_output_accepts_element_ref():
 
 def test_widget_output_in_callback_context_falls_back_to_widget_key():
     from modict import MISSING
-    from st_components.core.context import callback_context
+    from st_components.core.context import set_context
     _session_data["app.btn.raw"] = True
-    with callback_context(element_path="app.btn", widget_key="app.btn.raw"):
+    with set_context(callback={"element_path": "app.btn", "widget_key": "app.btn.raw"}):
         result = widget_output()
     assert result is True
 
@@ -999,15 +1001,11 @@ def test_ref_reset_raises_on_unresolved():
         raise AssertionError("Expected unresolved ref reset to raise")
 
 
-def test_ref_reset_raises_on_component_ref():
+def test_ref_reset_clears_overrides_on_component_ref():
+    """reset() on a component ref clears overrides without raising."""
     ref = Ref()
     ref._resolve("app.mycomp", "component")
-    try:
-        ref.reset()
-    except RuntimeError as err:
-        assert "element" in str(err).lower()
-    else:
-        raise AssertionError("Expected component ref reset to raise")
+    ref.reset()  # should not raise — clears overrides (no fiber = no-op)
 
 
 # ---------------------------------------------------------------------------

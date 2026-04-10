@@ -2,8 +2,8 @@ from uuid import uuid4
 
 from modict import modict
 
-from .base import Component, Element, render, render_to_element, to_tuple
-from .context import KEY, component_context, context_value_scope, get_context_value, key_context
+from .base import Component, Element, _auto_key_children, _ensure_key, render, render_to_element, to_tuple
+from .context import KEY, context_value_scope, get_context_value, set_context
 from .models import ContextData, Props
 from .refs import bind_ref
 from .store import register_component, track_rendered_fiber, unregister_component
@@ -31,17 +31,17 @@ class ContextProvider(Component):
                 f"use_context() expected a ContextData instance, got {type(current)}."
             )
         cls = self.props.context.data_class
-        if isinstance(self.props.data, ContextData):
-            if isinstance(self.props.data, cls):
-                return self.props.data
-            return cls(self.props.data)
-        elif isinstance(self.props.data, dict):
-            return cls(self.props.data)
+        data = self.props.data
+        if isinstance(data, cls):
+            return data
+        if isinstance(data, (ContextData, dict)):
+            return cls(data)
         raise TypeError(
-            f"Context Provider data must be a ContextData instance or dict, got {type(self.props.data)}."
+            f"Context Provider data must be a ContextData instance or dict, got {type(data)}."
         )
 
     def _render_component_body(self, render_func):
+        _ensure_key(self)
         self._fiber_key = KEY(self.key)
         bind_ref(self, self._fiber_key, "component")
         if not self.is_mounted:
@@ -52,16 +52,16 @@ class ContextProvider(Component):
         register_component(self._component_id, self)
         track_rendered_fiber(self._fiber_key)
         next_data = self._normalized_context_data()
-        with key_context(self.key), component_context(self), context_value_scope(
+        with set_context(key=self.key, component=self), context_value_scope(
             self.props.context, next_data
         ):
             self._begin_hook_cycle()
-            children = [render_to_element(child, i) for i, child in enumerate(to_tuple(render_func()))]
+            raw_children = to_tuple(render_func())
+            _auto_key_children(raw_children)
+            children = [render_to_element(child, i) for i, child in enumerate(raw_children)]
             self._end_hook_cycle()
             return ContextFragment(
-                key=self.key,
-                context=self.props.context,
-                data=next_data,
+                key=self.key, context=self.props.context, data=next_data,
             )(*children)
 
     def render(self):
@@ -79,23 +79,39 @@ class _ContextProviderFactory:
 class ContextValue:
     def __init__(self, initial, *, name=None):
         self._id = f"context:{uuid4().hex}"
-        if isinstance(initial, ContextData):
-            pass
-        elif isinstance(initial, dict):
-            initial = ContextData(initial)
-        else:
-            raise TypeError(
-                f"create_context(...) expects a ContextData instance or dict, got {type(initial)}."
-            )
+        if not isinstance(initial, ContextData):
+            if isinstance(initial, dict):
+                initial = ContextData(initial)
+            else:
+                raise TypeError(
+                    f"create_context(...) expects a ContextData instance or dict, got {type(initial)}."
+                )
         self.default = initial
         self.data_class = type(initial)
         self.name = name
         self.Provider = _ContextProviderFactory(self)
 
     def __repr__(self):
-        label = self.name or self._id
-        return f"ContextValue({label!r})"
+        return f"ContextValue({self.name or self._id!r})"
 
 
 def create_context(initial, *, name=None):
+    """Create a new context with a default value.
+
+    *initial* must be a :class:`ContextData` instance (or a plain ``dict``,
+    which is auto-wrapped).  Providers override the value for their subtree::
+
+        class ThemeData(ContextData):
+            mode: str = "light"
+
+        ThemeContext = create_context(ThemeData())
+
+        # In a component:
+        theme = use_context(ThemeContext)
+
+        # In the tree:
+        ThemeContext.Provider(key="theme", data={"mode": "dark"})(
+            ChildComponent(key="child")
+        )
+    """
     return ContextValue(initial, name=name)

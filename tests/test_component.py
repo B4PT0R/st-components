@@ -3,7 +3,7 @@ Tests for Component fiber resolution, state persistence, and lifecycle hooks.
 """
 import pickle
 
-from st_components.core import App, Component, State, render, fibers, Context
+from st_components.core import App, Component, State, render, fibers, ctx
 from st_components.core.models import Fiber, Fibers, Props, SharedStates
 
 from tests._mock import fake_ctx
@@ -15,9 +15,9 @@ def test_fiber_key_from_context():
             pass
 
     comp = Comp(key="comp")
-    Context.key_stack[:] = [fake_ctx("parent")]
+    ctx.replace("key", [fake_ctx("parent")])
     render(comp)
-    Context.key_stack.clear()
+    ctx.replace("key", [])
 
     assert comp._fiber_key == "parent.comp", f"got: {comp._fiber_key}"
     assert "parent.comp" in fibers()
@@ -31,13 +31,13 @@ def test_same_key_different_paths():
     comp1 = Comp(key="comp")
     comp2 = Comp(key="comp")
 
-    Context.key_stack[:] = [fake_ctx("branch1")]
+    ctx.replace("key", [fake_ctx("branch1")])
     render(comp1)
-    Context.key_stack.clear()
+    ctx.replace("key", [])
 
-    Context.key_stack[:] = [fake_ctx("branch2")]
+    ctx.replace("key", [fake_ctx("branch2")])
     render(comp2)
-    Context.key_stack.clear()
+    ctx.replace("key", [])
 
     assert comp1._fiber_key == "branch1.comp"
     assert comp2._fiber_key == "branch2.comp"
@@ -59,18 +59,18 @@ def test_state_persists():
             pass
 
     c1 = Counter(key="counter")
-    Context.key_stack[:] = [fake_ctx("app")]
+    ctx.replace("key", [fake_ctx("app")])
     render(c1)
-    Context.key_stack.clear()
+    ctx.replace("key", [])
 
     assert c1.state.count == 0
     c1.increment()
     assert c1.state.count == 1
 
     c2 = Counter(key="counter")
-    Context.key_stack[:] = [fake_ctx("app")]
+    ctx.replace("key", [fake_ctx("app")])
     render(c2)
-    Context.key_stack.clear()
+    ctx.replace("key", [])
 
     assert c2.state.count == 1, f"State not persisted: got {c2.state.count}"
 
@@ -90,13 +90,13 @@ def test_state_isolation():
     c1 = Counter(key="counter")
     c2 = Counter(key="counter")
 
-    Context.key_stack[:] = [fake_ctx("col1")]
+    ctx.replace("key", [fake_ctx("col1")])
     render(c1)
-    Context.key_stack.clear()
+    ctx.replace("key", [])
 
-    Context.key_stack[:] = [fake_ctx("col2")]
+    ctx.replace("key", [fake_ctx("col2")])
     render(c2)
-    Context.key_stack.clear()
+    ctx.replace("key", [])
 
     c1.increment()
     c1.increment()
@@ -115,9 +115,9 @@ def test_full_render_pipeline():
             self.state.rendered = True
 
     leaf = Leaf(key="leaf")
-    Context.key_stack[:] = [fake_ctx("root")]
+    ctx.replace("key", [fake_ctx("root")])
     render(leaf)
-    Context.key_stack.clear()
+    ctx.replace("key", [])
 
     assert leaf._fiber_key == "root.leaf"
     assert leaf.state.rendered is True
@@ -133,10 +133,10 @@ def test_component_did_mount():
         def render(self):
             pass
 
-    Context.key_stack[:] = [fake_ctx("root")]
+    ctx.replace("key", [fake_ctx("root")])
     render(Comp(key="c"))
     render(Comp(key="c"))
-    Context.key_stack.clear()
+    ctx.replace("key", [])
 
     assert mount_count[0] == 1, f"component_did_mount called {mount_count[0]} times"
 
@@ -153,16 +153,16 @@ def test_state_accessible_in_render():
             state_seen[0] = self.state.count
 
     c1 = Counter(key="counter")
-    Context.key_stack[:] = [fake_ctx("app")]
+    ctx.replace("key", [fake_ctx("app")])
     render(c1)
-    Context.key_stack.clear()
+    ctx.replace("key", [])
 
     c1.state.count = 7
 
     c2 = Counter(key="counter")
-    Context.key_stack[:] = [fake_ctx("app")]
+    ctx.replace("key", [fake_ctx("app")])
     render(c2)
-    Context.key_stack.clear()
+    ctx.replace("key", [])
 
     assert state_seen[0] == 7, f"render_func saw stale state: {state_seen[0]}"
 
@@ -218,8 +218,8 @@ def test_nested_state_class_initializes_state():
             pass
 
     comp = Counter(key="counter")
-    assert comp._state.count == 0
-    assert comp._state.label == "clicks"
+    assert comp.state.count == 0
+    assert comp.state.label == "clicks"
 
 
 def test_fibers_coerces_dict_values_to_fiber_instances():
@@ -285,17 +285,17 @@ def test_nested_state_class_persists_across_reruns():
             pass
 
     c1 = Counter(key="counter")
-    Context.key_stack[:] = [fake_ctx("app")]
+    ctx.replace("key", [fake_ctx("app")])
     render(c1)
-    Context.key_stack.clear()
+    ctx.replace("key", [])
 
     c1.increment()
     assert c1.state.count == 1
 
     c2 = Counter(key="counter")
-    Context.key_stack[:] = [fake_ctx("app")]
+    ctx.replace("key", [fake_ctx("app")])
     render(c2)
-    Context.key_stack.clear()
+    ctx.replace("key", [])
 
     assert c2.state.count == 1
 
@@ -310,7 +310,7 @@ def test_nested_state_class_coexists_with_manual_init():
             pass
 
     comp = Counter(key="counter")
-    assert comp._state.count == 99
+    assert comp.state.count == 99
 
 
 def test_nested_props_class_used_for_props():
@@ -362,7 +362,7 @@ def test_nested_state_class_preserved_by_set_state():
     comp = Counter(key="counter")
     comp.set_state(dict(count=5))
     assert isinstance(comp._state, Counter.CounterState)
-    assert comp._state.count == 5
+    assert comp.state.count == 5
 
 
 def test_nested_props_and_state_together():
@@ -378,4 +378,4 @@ def test_nested_props_and_state_together():
 
     comp = Card(key="card", title="Hello")
     assert comp.props.title == "Hello"
-    assert comp._state.open is False
+    assert comp.state.open is False

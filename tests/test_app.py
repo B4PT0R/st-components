@@ -20,6 +20,7 @@ from st_components.builtins import (
 )
 from st_components.core import App, Component, ContextData, State, clear_shared_state, fibers, shared_states, use_context
 from st_components import Config, Props, Ref, Theme, create_context, get_app, get_shared_state, get_state, set_state
+from st_components.core.models import ThemeSection
 
 from tests._mock import _mock_st
 
@@ -102,75 +103,71 @@ def test_component_sync_state_accepts_injected_value():
 def test_app_set_theme_and_set_css():
     app = App()
 
-    app.set_theme({"primaryColor": "#123456"})
+    app.set_theme(Theme(light=ThemeSection(primaryColor="#123456")))
     app.set_css(".x { color: red; }")
 
     assert isinstance(app.theme, Theme)
-    assert app.theme.primaryColor == "#123456"
+    assert app.theme.light.primaryColor == "#123456"
     assert app.css == ".x { color: red; }"
 
 
 def test_theme_editor_render_reruns_app_when_local_theme_differs():
     _mock_st.rerun.reset_mock()
-    App(theme=Theme(base="light"))
+    App(theme=Theme(), color_mode="light")
     editor = ThemeEditor(key="editor")
-    editor._load_state(Theme(base="light"), "")
+    editor._load_editor(Theme(), "")
     editor.state.editor.update(primaryColor="#123456")
 
     editor.render()
 
-    _mock_st.rerun.assert_called_once_with(scope="app")
+    _mock_st.rerun._original.assert_called_once_with()
 
 
 def test_theme_editor_button_opens_and_closes_dialog():
     widget = ThemeEditorButton(key="theme")
 
+    # Closed: only the trigger button is rendered
     rendered = widget.render()
-    dialog_fragment = rendered.children[1]
     assert widget.state.open is False
-    assert dialog_fragment.children[0].props.value is None
+    assert len(rendered.children) == 1  # trigger only
 
+    # Open: trigger + dialog
     widget._open()
     rendered = widget.render()
-    dialog_fragment = rendered.children[1]
     assert widget.state.open is True
-    assert dialog_fragment.children[0].props.title == "Theme editor"
+    assert len(rendered.children) == 2
+    assert rendered.children[1] is not None  # dialog present
 
+    # Closed again: back to trigger only
     widget._close()
     rendered = widget.render()
-    dialog_fragment = rendered.children[1]
     assert widget.state.open is False
-    assert dialog_fragment.children[0].props.value is None
+    assert len(rendered.children) == 1
 
 
 def test_theme_editor_load_preserves_runtime_theme_defaults():
-    runtime_options = {
-        "theme.base": "dark",
-        "theme.primaryColor": "#abcdef",
-        "theme.backgroundColor": "#101010",
-        "theme.secondaryBackgroundColor": "#202020",
-        "theme.textColor": "#f5f5f5",
-        "theme.borderColor": "#303030",
-        "theme.baseFontSize": 18,
-        "theme.baseRadius": "large",
-        "theme.buttonRadius": "full",
-        "theme.showWidgetBorder": False,
-        "theme.sidebar.backgroundColor": "#111111",
-    }
-    _mock_st.get_option.side_effect = lambda key: runtime_options.get(key)
-    try:
-        App(theme=None)
-        editor = ThemeEditor(key="editor")
-        editor._load_state(None, "")
+    theme = Theme(
+        dark=ThemeSection(
+            primaryColor="#abcdef",
+            backgroundColor="#101010",
+            secondaryBackgroundColor="#202020",
+            textColor="#f5f5f5",
+            borderColor="#303030",
+        ),
+        baseFontSize=18,
+        baseRadius="large",
+        buttonRadius="full",
+        showWidgetBorder=False,
+    )
+    App(theme=theme, color_mode="dark")
+    editor = ThemeEditor(key="editor")
+    editor._load_editor(theme, "")
 
-        assert editor.state.editor.base == "dark"
-        assert editor.state.editor.primaryColor == "#abcdef"
-        assert editor.state.editor.backgroundColor == "#101010"
-        assert editor.state.editor.sidebarBackgroundColor == "#111111"
-        assert editor.state.editor.baseFontSize == 18
-        assert editor.state.editor.showWidgetBorder is False
-    finally:
-        _mock_st.get_option.side_effect = None
+    assert editor.state.editor.mode == "dark"
+    assert editor.state.editor.primaryColor == "#abcdef"
+    assert editor.state.editor.backgroundColor == "#101010"
+    assert editor.state.editor.baseFontSize == 18
+    assert editor.state.editor.showWidgetBorder is False
 
 
 def test_app_set_config():
@@ -270,13 +267,13 @@ def test_save_config_persists_runtime_relevant_sections(tmp_path, monkeypatch):
 
 def test_app_reuses_persisted_theme_and_css_when_not_provided():
     app = App()
-    app.set_theme({"primaryColor": "#123456"})
+    app.set_theme(Theme(light=ThemeSection(primaryColor="#123456")))
     app.set_css(".x { color: red; }")
 
     rebound = App()
 
     assert isinstance(rebound.theme, Theme)
-    assert rebound.theme.primaryColor == "#123456"
+    assert rebound.theme.light.primaryColor == "#123456"
     assert rebound.css == ".x { color: red; }"
 
     rebound.set_theme(None)
@@ -297,19 +294,25 @@ def test_app_writes_theme_to_config_and_preserves_other_sections(tmp_path, monke
             return None
 
     app = App(
-        theme={
-            "primaryColor": "#123456",
-            "sidebar": {"backgroundColor": "#eeeeee"},
-        },
+        theme=Theme(
+            light=ThemeSection(primaryColor="#123456"),
+            sidebar=ThemeSection(backgroundColor="#eeeeee"),
+        ),
     )(Root(key="root"))
     app.save_theme()
     app.render()
 
     config = toml.loads(config_path.read_text())
     assert config["server"]["headless"] is True
+    # [theme] = flat active-mode theme for Streamlit
     assert config["theme"]["primaryColor"] == "#123456"
-    assert config["theme"]["sidebar"]["backgroundColor"] == "#eeeeee"
-    assert "textColor" not in config["theme"]
+    assert config["theme"]["base"] == "light"
+    # stc-config.toml = full dual-mode theme
+    stc_path = tmp_path / ".streamlit" / "stc-config.toml"
+    stc_config = toml.loads(stc_path.read_text())
+    stc_theme = stc_config["theme"]
+    assert stc_theme["light"]["primaryColor"] == "#123456"
+    assert stc_theme["sidebar"]["backgroundColor"] == "#eeeeee"
 
 
 def test_app_replaces_theme_section_when_keys_are_removed(tmp_path, monkeypatch):
@@ -325,50 +328,58 @@ def test_app_replaces_theme_section_when_keys_are_removed(tmp_path, monkeypatch)
         def render(self):
             return None
 
-    app = App(theme={"primaryColor": "#abcdef"})(Root(key="root"))
+    theme = Theme()
+    theme.light.primaryColor = "#abcdef"
+    app = App(theme=theme)(Root(key="root"))
     app.save_theme()
     app.render()
 
     config = toml.loads(config_path.read_text())
+    # flat [theme] section has the active mode colors
     assert config["theme"]["primaryColor"] == "#abcdef"
-    assert "backgroundColor" not in config["theme"]
 
 
 def test_app_casts_theme_dict_to_theme():
-    app = App(theme={"primaryColor": "#123456"})
+    app = App(theme={"light": {"primaryColor": "#123456"}})
     assert isinstance(app.theme, Theme)
-    assert app.theme.primaryColor == "#123456"
+    assert app.theme.light.primaryColor == "#123456"
 
 
-def test_theme_model_prunes_empty_sections():
-    theme = Theme(
-        primaryColor="#123456",
-        sidebar={"backgroundColor": "#eeeeee"},
-        light={},
-        dark=None,
-        fontFaces=[],
-    )
-    normalized = Theme(theme)
+def test_theme_model_has_default_palettes():
+    theme = Theme()
+    assert "light" in theme
+    assert "dark" in theme
+    assert theme.light.primaryColor is not None
+    assert theme.dark.primaryColor is not None
 
-    assert "primaryColor" in normalized
-    assert "sidebar" in normalized
-    assert "light" not in normalized
-    assert "dark" not in normalized
-    assert "fontFaces" not in normalized
+
+def test_theme_flat_merges_colors_and_shared():
+    theme = Theme(font="monospace")
+    flat = theme.flat("dark")
+    assert flat["base"] == "dark"
+    assert flat["primaryColor"] == theme.dark.primaryColor
+    assert flat["font"] == "monospace"
+
+
+def test_theme_model_prunes_empty_optional_sections():
+    theme = Theme(sidebar={"backgroundColor": "#eee"})
+    assert "sidebar" in theme
+    theme2 = Theme()
+    assert "sidebar" not in theme2  # None → pruned
 
 
 def test_theme_model_revalidates_on_assignment():
     theme = Theme(
-        primaryColor="#123456",
-        sidebar={"backgroundColor": "#eeeeee"},
+        font="monospace",
+        sidebar=ThemeSection(backgroundColor="#eeeeee"),
     )
 
     theme.sidebar = None
-    theme.primaryColor = None
+    theme.font = None
     theme.fontFaces = []
 
     assert "sidebar" not in theme
-    assert "primaryColor" not in theme
+    assert "font" not in theme
     assert "fontFaces" not in theme
 
 
@@ -394,16 +405,20 @@ def test_app_accepts_theme_modict(tmp_path, monkeypatch):
 
     app = App(
         theme=Theme(
-            primaryColor="#123456",
-            sidebar={"backgroundColor": "#eeeeee"},
+            light=ThemeSection(primaryColor="#123456"),
+            sidebar=ThemeSection(backgroundColor="#eeeeee"),
         ),
     )(Root(key="root"))
     app.save_theme()
 
     config_path = tmp_path / ".streamlit" / "config.toml"
     config = toml.loads(config_path.read_text())
+    # [theme] = flat for Streamlit
     assert config["theme"]["primaryColor"] == "#123456"
-    assert config["theme"]["sidebar"]["backgroundColor"] == "#eeeeee"
+    # stc-config.toml = full dump
+    stc_path = tmp_path / ".streamlit" / "stc-config.toml"
+    stc_config = toml.loads(stc_path.read_text())
+    assert stc_config["theme"]["sidebar"]["backgroundColor"] == "#eeeeee"
 
 
 def test_app_injects_css_from_raw_string_and_file(tmp_path):

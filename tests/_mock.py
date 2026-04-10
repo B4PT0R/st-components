@@ -42,6 +42,9 @@ class MockSessionState:
     def get(self, key, default=None):
         return _session_data.get(key, default)
 
+    def pop(self, key, *args):
+        return _session_data.pop(key, *args)
+
 
 _mock_st = MagicMock()
 _mock_st.session_state = MockSessionState()

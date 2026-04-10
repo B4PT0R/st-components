@@ -1,4 +1,4 @@
-from typing import Any, Optional
+from typing import Any
 
 import streamlit as st
 
@@ -8,7 +8,7 @@ from ..factory import widget_child
 
 
 class map(Element):
-    def __init__(self, data: Any = None, *, key: str, ref: Optional[Ref] = None, latitude: Optional[str] = None, longitude: Optional[str] = None, color: Optional[Any] = None, size: Optional[str | float] = None, zoom: Optional[int] = None, width: WidthWithoutContent = "stretch", height: HeightWithoutContent = 500, use_container_width: Optional[bool] = None):
+    def __init__(self, data: Any = None, *, key: str, ref: Ref | None = None, latitude: str | None = None, longitude: str | None = None, color: Any | None = None, size: str | float | None = None, zoom: int | None = None, width: WidthWithoutContent = "stretch", height: HeightWithoutContent = 500, use_container_width: bool | None = None):
         Element.__init__(self, key=key, data=data, ref=ref, latitude=latitude, longitude=longitude, color=color, size=size, zoom=zoom, width=width, height=height, use_container_width=use_container_width)
 
     def render(self):

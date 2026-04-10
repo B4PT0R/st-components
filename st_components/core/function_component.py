@@ -35,16 +35,46 @@ def _props_class_from_annotation(func):
     return None
 
 
-def component(func=None, *, fragment=False, run_every=None):
-    if func is None:
-        return lambda actual_func: component(actual_func, fragment=fragment, run_every=run_every)
+def component(func):
+    """Decorator that turns a function into a Component.
 
+    The function must accept a single ``props`` argument::
+
+        @component
+        def Greeting(props):
+            state = use_state(name="world")
+            return text_input(key="name", value=state.name)("Name")
+
+    Use as a factory::
+
+        Greeting(key="g", extra_prop="value")
+
+    For scoped re-rendering, wrap the return value in a ``fragment``
+    element instead of annotating the decorator::
+
+        from st_components.elements import fragment
+
+        @component
+        def LiveFeed(props):
+            return fragment(key="f", scoped=True, run_every="5s")(
+                my_chart, my_controls,
+            )
+
+    Type the ``props`` argument for IDE completion::
+
+        class BadgeProps(Props):
+            label: str = ""
+            color: str = "blue"
+
+        @component
+        def Badge(props: BadgeProps):
+            ...
+    """
     if not callable(func):
         raise TypeError(f"@component expects a callable, got {type(func)}")
     _validate_function_component_signature(func)
 
-    registry_key = (func, fragment, run_every)
-    component_class = FUNCTION_COMPONENT_REGISTRY.get(registry_key)
+    component_class = FUNCTION_COMPONENT_REGISTRY.get(func)
     if component_class is None:
         def render(self):
             return func(_component_props(self.props))
@@ -54,8 +84,6 @@ def component(func=None, *, fragment=False, run_every=None):
             "__module__": func.__module__,
             "__qualname__": getattr(func, "__qualname__", func.__name__),
             "__wrapped__": func,
-            "__fragment__": fragment,
-            "__fragment_run_every__": run_every,
             "render": render,
         }
 
@@ -64,7 +92,7 @@ def component(func=None, *, fragment=False, run_every=None):
             class_dict["__props_class__"] = props_cls
 
         component_class = type(func.__name__, (Component,), class_dict)
-        FUNCTION_COMPONENT_REGISTRY[registry_key] = component_class
+        FUNCTION_COMPONENT_REGISTRY[func] = component_class
 
     @wraps(func)
     def instantiate(**props):

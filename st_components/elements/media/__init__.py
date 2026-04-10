@@ -1,4 +1,5 @@
 from ..prop_types import UseColumnWidth, Width, WidthWithoutContent
+from .auto_play import play_audio
 from .core import audio, image, video
 
 __all__ = [
@@ -7,5 +8,6 @@ __all__ = [
     "WidthWithoutContent",
     "audio",
     "image",
+    "play_audio",
     "video",
 ]

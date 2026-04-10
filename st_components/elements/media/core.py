@@ -1,4 +1,4 @@
-from typing import Any, Literal, Optional
+from typing import Any, Literal
 
 import streamlit as st
 
@@ -10,7 +10,7 @@ class image(Element):
     def __init__(
         self,
         image: Any = None,
-        caption: Optional[str | list[str]] = None,
+        caption: str | list[str] | None = None,
         width: Width = "content",
         use_column_width: UseColumnWidth = None,
         clamp: bool = False,
@@ -18,9 +18,9 @@ class image(Element):
         output_format: Literal["auto", "JPEG", "PNG"] = "auto",
         *,
         key: str,
-        ref: Optional[Ref] = None,
-        use_container_width: Optional[bool] = None,
-        link: Optional[str] = None,
+        ref: Ref | None = None,
+        use_container_width: bool | None = None,
+        link: str | None = None,
     ):
         Element.__init__(self, key=key, image=image, ref=ref, caption=caption, width=width, use_column_width=use_column_width, clamp=clamp, channels=channels, output_format=output_format, use_container_width=use_container_width, link=link)
 
@@ -37,9 +37,9 @@ class audio(Element):
         start_time: int | float | str = 0,
         *,
         key: str,
-        ref: Optional[Ref] = None,
-        sample_rate: Optional[int] = None,
-        end_time: Optional[int | float | str] = None,
+        ref: Ref | None = None,
+        sample_rate: int | None = None,
+        end_time: int | float | str | None = None,
         loop: bool = False,
         autoplay: bool = False,
         width: WidthWithoutContent = "stretch",
@@ -59,9 +59,9 @@ class video(Element):
         start_time: int | float | str = 0,
         *,
         key: str,
-        ref: Optional[Ref] = None,
+        ref: Ref | None = None,
         subtitles: Any = None,
-        end_time: Optional[int | float | str] = None,
+        end_time: int | float | str | None = None,
         loop: bool = False,
         autoplay: bool = False,
         muted: bool = False,

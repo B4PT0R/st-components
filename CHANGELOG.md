@@ -4,6 +4,29 @@ All notable changes to this project will be documented in this file.
 
 The format is based on Keep a Changelog, and this project uses SemVer.
 
+## [0.3.0] - 2026-04-10
+
+Theming fixes, API cleanup, and hardened editor components.
+
+### Fixed
+
+- **Color mode not restored from config**: `color_mode` constructor default (`"light"`) masked the value loaded from `stc-config.toml`. Changed default to `None` so the config cascade works correctly (`session state > fiber override > constructor arg > config.toml > "light"`).
+- **Color mode lost across reruns**: resolved `color_mode` is now synced to session state at init, so it persists even when a later `set_theme()` stores the theme in session state (which skips `_load_theme_from_config` and therefore `loaded_mode`).
+- **Theme editor rerun inside dialog fragment**: `ThemeEditor.render()` and `CSSEditor` now use the correct rerun strategy — `rerun(wait=False)` for immediate hard rerun from within a `st.dialog` fragment, and deferred flag-based actions for callbacks to avoid Streamlit's "displaying elements in a callback" warning.
+- **`_option_index` crash on unknown values**: theme editor selectboxes no longer crash with `ValueError` if a saved value is not in the current options list (falls back to index 0).
+- **Duplicate `@staticmethod`** on `App._recall_or` removed.
+
+### Added
+
+- **`codeBackgroundColor`** in theme editor — new color picker in the Colors panel, stored per mode (light/dark) like other palette fields.
+- **`App.get_local_store(name)`** — static method to retrieve an existing localStorage namespace (symmetric with `get_shared_state`).
+- **`App.clear_local_store(name)`** — static method to delete a localStorage namespace from the browser.
+
+### Changed
+
+- **Cleaned public exports**: `LocalStore`, `QueryParams`, and `get_local_store` are now in `__all__`. Standalone functions (`local_storage`, `clear_local_storage`, `query_params`) removed from top-level exports — use the `App` methods instead. `get_render_target` removed from public API (internal use only).
+- **CSSEditor refactored**: `_apply` and `_save` callbacks now set flags (`apply_requested` / `save_requested`) and defer the actual work to `render()`, avoiding fragment rerun warnings.
+
 ## [0.2.0] - 2026-04-09
 
 Element authoring toolkit: `element_factory`, context-based widget helpers, and simplified `get_output` API.

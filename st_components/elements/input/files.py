@@ -1,28 +1,27 @@
-from typing import Any, Literal, Optional, Sequence
+from typing import Any, Literal, Sequence
 
 from ...core import Element, Ref
 from ...core.access import widget_key
 import streamlit as st
 from ..prop_types import LabelVisibility, WidgetCallback, WidthWithoutContent
-from ..factory import widget_callback
-from ..factory import widget_child, widget_props
+from ..factory import widget_callback, widget_child, widget_props
 
 
 class file_uploader(Element):
     def __init__(
         self,
-        label: Optional[str] = None,
-        type: Optional[str | Sequence[str]] = None,
+        label: str | None = None,
+        type: str | Sequence[str] | None = None,
         accept_multiple_files: bool | Literal["directory"] = False,
-        help: Optional[str] = None,
-        on_change: Optional[WidgetCallback] = None,
+        help: str | None = None,
+        on_change: WidgetCallback | None = None,
         *,
         key: str,
-        ref: Optional[Ref] = None,
-        max_upload_size: Optional[int] = None,
+        ref: Ref | None = None,
+        max_upload_size: int | None = None,
         disabled: bool = False,
         label_visibility: LabelVisibility = "visible",
-        width: Optional[WidthWithoutContent] = "stretch",
+        width: WidthWithoutContent | None = "stretch",
     ):
         Element.__init__(self, key=key, label=label, type=type, accept_multiple_files=accept_multiple_files, ref=ref, help=help, on_change=on_change, max_upload_size=max_upload_size, disabled=disabled, label_visibility=label_visibility, width=width)
 
@@ -33,15 +32,15 @@ class file_uploader(Element):
 class camera_input(Element):
     def __init__(
         self,
-        label: Optional[str] = None,
-        help: Optional[str] = None,
-        on_change: Optional[WidgetCallback] = None,
+        label: str | None = None,
+        help: str | None = None,
+        on_change: WidgetCallback | None = None,
         *,
         key: str,
-        ref: Optional[Ref] = None,
+        ref: Ref | None = None,
         disabled: bool = False,
         label_visibility: LabelVisibility = "visible",
-        width: Optional[WidthWithoutContent] = "stretch",
+        width: WidthWithoutContent | None = "stretch",
     ):
         Element.__init__(self, key=key, label=label, ref=ref, help=help, on_change=on_change, disabled=disabled, label_visibility=label_visibility, width=width)
 
@@ -52,16 +51,16 @@ class camera_input(Element):
 class audio_input(Element):
     def __init__(
         self,
-        label: Optional[str] = None,
+        label: str | None = None,
         *,
-        sample_rate: Optional[int] = 16000,
+        sample_rate: int | None = 16000,
         key: str,
-        ref: Optional[Ref] = None,
-        help: Optional[str] = None,
-        on_change: Optional[WidgetCallback] = None,
+        ref: Ref | None = None,
+        help: str | None = None,
+        on_change: WidgetCallback | None = None,
         disabled: bool = False,
         label_visibility: LabelVisibility = "visible",
-        width: Optional[WidthWithoutContent] = "stretch",
+        width: WidthWithoutContent | None = "stretch",
     ):
         Element.__init__(self, key=key, label=label, sample_rate=sample_rate, ref=ref, help=help, on_change=on_change, disabled=disabled, label_visibility=label_visibility, width=width)
 
@@ -75,17 +74,17 @@ class chat_input(Element):
         placeholder: str = "Your message",
         *,
         key: str,
-        ref: Optional[Ref] = None,
-        max_chars: Optional[int] = None,
-        max_upload_size: Optional[int] = None,
+        ref: Ref | None = None,
+        max_chars: int | None = None,
+        max_upload_size: int | None = None,
         accept_file: bool | Literal["multiple", "directory"] = False,
-        file_type: Optional[str | Sequence[str]] = None,
+        file_type: str | Sequence[str] | None = None,
         accept_audio: bool = False,
-        audio_sample_rate: Optional[int] = 16000,
+        audio_sample_rate: int | None = 16000,
         disabled: bool = False,
-        on_submit: Optional[WidgetCallback] = None,
-        width: Optional[WidthWithoutContent] = "stretch",
-        height: Optional[str | int] = "content",
+        on_submit: WidgetCallback | None = None,
+        width: WidthWithoutContent | None = "stretch",
+        height: str | int | None = "content",
     ):
         Element.__init__(self, key=key, placeholder=placeholder, ref=ref, max_chars=max_chars, max_upload_size=max_upload_size, accept_file=accept_file, file_type=file_type, accept_audio=accept_audio, audio_sample_rate=audio_sample_rate, disabled=disabled, on_submit=on_submit, width=width, height=height)
 

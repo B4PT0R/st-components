@@ -1,31 +1,30 @@
 from datetime import date, time, timedelta
-from typing import Any, Optional
+from typing import Any
 
 from ...core import Element, Ref
 from ...core.access import widget_key
 import streamlit as st
 from ..prop_types import BindOption, LabelVisibility, WidgetCallback, Width, WidthWithoutContent
-from ..factory import widget_callback
-from ..factory import widget_child, widget_props
+from ..factory import widget_callback, widget_child, widget_props
 
 
 class date_input(Element):
     def __init__(
         self,
-        label: Optional[str] = None,
+        label: str | None = None,
         value: Any = "today",
-        min_value: Optional[date | Any] = None,
-        max_value: Optional[date | Any] = None,
-        help: Optional[str] = None,
-        on_change: Optional[WidgetCallback] = None,
+        min_value: date | Any | None = None,
+        max_value: date | Any | None = None,
+        help: str | None = None,
+        on_change: WidgetCallback | None = None,
         *,
         key: str,
-        ref: Optional[Ref] = None,
+        ref: Ref | None = None,
         format: str = "YYYY/MM/DD",
         disabled: bool = False,
         label_visibility: LabelVisibility = "visible",
-        width: Optional[WidthWithoutContent] = "stretch",
-        bind: Optional[BindOption] = None,
+        width: WidthWithoutContent | None = "stretch",
+        bind: BindOption | None = None,
     ):
         Element.__init__(self, key=key, label=label, value=value, min_value=min_value, max_value=max_value, ref=ref, help=help, on_change=on_change, format=format, disabled=disabled, label_visibility=label_visibility, width=width, bind=bind)
 
@@ -36,18 +35,18 @@ class date_input(Element):
 class time_input(Element):
     def __init__(
         self,
-        label: Optional[str] = None,
-        value: Optional[time | str] = "now",
-        help: Optional[str] = None,
-        on_change: Optional[WidgetCallback] = None,
+        label: str | None = None,
+        value: time | str | None = "now",
+        help: str | None = None,
+        on_change: WidgetCallback | None = None,
         *,
         key: str,
-        ref: Optional[Ref] = None,
+        ref: Ref | None = None,
         disabled: bool = False,
         label_visibility: LabelVisibility = "visible",
         step: int | timedelta = timedelta(seconds=900),
-        width: Optional[WidthWithoutContent] = "stretch",
-        bind: Optional[BindOption] = None,
+        width: WidthWithoutContent | None = "stretch",
+        bind: BindOption | None = None,
     ):
         Element.__init__(self, key=key, label=label, value=value, ref=ref, help=help, on_change=on_change, disabled=disabled, label_visibility=label_visibility, step=step, width=width, bind=bind)
 
@@ -58,17 +57,17 @@ class time_input(Element):
 class color_picker(Element):
     def __init__(
         self,
-        label: Optional[str] = None,
-        value: Optional[str] = None,
-        help: Optional[str] = None,
-        on_change: Optional[WidgetCallback] = None,
+        label: str | None = None,
+        value: str | None = None,
+        help: str | None = None,
+        on_change: WidgetCallback | None = None,
         *,
         key: str,
-        ref: Optional[Ref] = None,
+        ref: Ref | None = None,
         disabled: bool = False,
         label_visibility: LabelVisibility = "visible",
-        width: Optional[Width] = "content",
-        bind: Optional[BindOption] = None,
+        width: Width | None = "content",
+        bind: BindOption | None = None,
     ):
         Element.__init__(self, key=key, label=label, value=value, ref=ref, help=help, on_change=on_change, disabled=disabled, label_visibility=label_visibility, width=width, bind=bind)
 
@@ -79,21 +78,21 @@ class color_picker(Element):
 class datetime_input(Element):
     def __init__(
         self,
-        label: Optional[str] = None,
+        label: str | None = None,
         value: Any = "now",
-        min_value: Optional[Any] = None,
-        max_value: Optional[Any] = None,
+        min_value: Any | None = None,
+        max_value: Any | None = None,
         *,
         key: str,
-        ref: Optional[Ref] = None,
-        help: Optional[str] = None,
-        on_change: Optional[WidgetCallback] = None,
+        ref: Ref | None = None,
+        help: str | None = None,
+        on_change: WidgetCallback | None = None,
         format: str = "YYYY/MM/DD",
         step: int | timedelta = timedelta(seconds=900),
         disabled: bool = False,
         label_visibility: LabelVisibility = "visible",
-        width: Optional[WidthWithoutContent] = "stretch",
-        bind: Optional[BindOption] = None,
+        width: WidthWithoutContent | None = "stretch",
+        bind: BindOption | None = None,
     ):
         Element.__init__(self, key=key, label=label, value=value, min_value=min_value, max_value=max_value, ref=ref, help=help, on_change=on_change, format=format, step=step, disabled=disabled, label_visibility=label_visibility, width=width, bind=bind)
 

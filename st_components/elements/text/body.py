@@ -1,4 +1,4 @@
-from typing import Any, Literal, Optional
+from typing import Any, Literal
 
 import streamlit as st
 
@@ -8,7 +8,7 @@ from ..factory import widget_child
 
 
 class caption(Element):
-    def __init__(self, body: Any = "", unsafe_allow_html: bool = False, *, key: str, ref: Optional[Ref] = None, help: Optional[str] = None, width: Width = "stretch", text_alignment: TextAlignment = "left"):
+    def __init__(self, body: Any = "", unsafe_allow_html: bool = False, *, key: str, ref: Ref | None = None, help: str | None = None, width: Width = "stretch", text_alignment: TextAlignment = "left"):
         Element.__init__(self, key=key, body=body, unsafe_allow_html=unsafe_allow_html, ref=ref, help=help, width=width, text_alignment=text_alignment)
 
     def render(self):
@@ -16,7 +16,7 @@ class caption(Element):
 
 
 class text(Element):
-    def __init__(self, body: Any = "", *, key: str, ref: Optional[Ref] = None, help: Optional[str] = None, width: Width = "content", text_alignment: TextAlignment = "left"):
+    def __init__(self, body: Any = "", *, key: str, ref: Ref | None = None, help: str | None = None, width: Width = "content", text_alignment: TextAlignment = "left"):
         Element.__init__(self, key=key, body=body, ref=ref, help=help, width=width, text_alignment=text_alignment)
 
     def render(self):
@@ -24,7 +24,7 @@ class text(Element):
 
 
 class markdown(Element):
-    def __init__(self, body: Any = "", unsafe_allow_html: bool = False, *, key: str, ref: Optional[Ref] = None, help: Optional[str] = None, width: Width | Literal["auto"] = "auto", text_alignment: TextAlignment = "left"):
+    def __init__(self, body: Any = "", unsafe_allow_html: bool = False, *, key: str, ref: Ref | None = None, help: str | None = None, width: Width | Literal["auto"] = "auto", text_alignment: TextAlignment = "left"):
         Element.__init__(self, key=key, body=body, unsafe_allow_html=unsafe_allow_html, ref=ref, help=help, width=width, text_alignment=text_alignment)
 
     def render(self):
@@ -32,7 +32,7 @@ class markdown(Element):
 
 
 class code(Element):
-    def __init__(self, body: Any = "", language: Optional[str] = "python", *, key: str, ref: Optional[Ref] = None, line_numbers: bool = False, wrap_lines: bool = False, height: Optional[str | int] = "content", width: Width = "stretch"):
+    def __init__(self, body: Any = "", language: str | None = "python", *, key: str, ref: Ref | None = None, line_numbers: bool = False, wrap_lines: bool = False, height: str | int | None = "content", width: Width = "stretch"):
         Element.__init__(self, key=key, body=body, language=language, ref=ref, line_numbers=line_numbers, wrap_lines=wrap_lines, height=height, width=width)
 
     def render(self):
@@ -40,7 +40,7 @@ class code(Element):
 
 
 class latex(Element):
-    def __init__(self, body: Any = "", *, key: str, ref: Optional[Ref] = None, help: Optional[str] = None, width: Width = "stretch"):
+    def __init__(self, body: Any = "", *, key: str, ref: Ref | None = None, help: str | None = None, width: Width = "stretch"):
         Element.__init__(self, key=key, body=body, ref=ref, help=help, width=width)
 
     def render(self):

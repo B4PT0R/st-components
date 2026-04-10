@@ -1,4 +1,4 @@
-from typing import Any, Literal, Optional
+from typing import Any, Literal
 
 import streamlit as st
 
@@ -13,15 +13,15 @@ class page_link(Element):
         page: Any = None,
         *,
         key: str,
-        ref: Optional[Ref] = None,
-        label: Optional[str] = None,
-        icon: Optional[str] = None,
+        ref: Ref | None = None,
+        label: str | None = None,
+        icon: str | None = None,
         icon_position: IconPosition = "left",
-        help: Optional[str] = None,
+        help: str | None = None,
         disabled: bool = False,
-        use_container_width: Optional[bool] = None,
+        use_container_width: bool | None = None,
         width: Width = "content",
-        query_params: Optional[Any] = None,
+        query_params: Any | None = None,
     ):
         Element.__init__(self, key=key, page=page, ref=ref, label=label, icon=icon, icon_position=icon_position, help=help, disabled=disabled, use_container_width=use_container_width, width=width, query_params=query_params)
 
@@ -30,7 +30,7 @@ class page_link(Element):
 
 
 class logo(Element):
-    def __init__(self, image: Any = None, *, key: str, ref: Optional[Ref] = None, size: Literal["small", "medium", "large"] = "medium", link: Optional[str] = None, icon_image: Optional[Any] = None):
+    def __init__(self, image: Any = None, *, key: str, ref: Ref | None = None, size: Literal["small", "medium", "large"] = "medium", link: str | None = None, icon_image: Any | None = None):
         Element.__init__(self, key=key, image=image, ref=ref, size=size, link=link, icon_image=icon_image)
 
     def render(self):

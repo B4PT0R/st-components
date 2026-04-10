@@ -1,5 +1,49 @@
+from contextlib import contextmanager
+
 from ..core import Element  # noqa: F401
 from ..core.access import callback, widget_key, widget_output  # noqa: F401
+from ..core.context import ctx, set_context
+
+
+# ── Render target tracking ───────────────────────────────────────────────────
+
+@contextmanager
+def render_handle(handle, path=None):
+    """Context manager that pushes a Streamlit container handle onto the context.
+
+    Used by container-like elements to track the active render target.
+    Code inside callbacks or effects can read it via :func:`get_render_target`
+    to render dynamically into the current container::
+
+        target = get_render_target()
+        with target.handle:
+            MyComponent(key="dynamic").render()
+
+    The *path* is the fiber path of the owning element, so dynamically
+    rendered components can root their fibers correctly.
+    """
+    with set_context(render_handle=handle, render_path=path):
+        with handle:
+            yield handle
+
+
+def get_render_target():
+    """Return the active render target (handle + path), or ``None``.
+
+    ::
+
+        target = get_render_target()
+        if target:
+            with target.handle:
+                with set_context(keys=target.path):
+                    MyComponent(key="dyn").render()
+    """
+    from modict import modict
+    handle = ctx.current("render_handle")
+    if handle is None:
+        return None
+    path = ctx.current("render_path")
+    return modict(handle=handle, path=path)
 
 
 def _props():
@@ -39,6 +83,8 @@ __all__ = [
     "Element",
     "element_factory",
     "callback",
+    "get_render_target",
+    "render_handle",
     "widget_callback",
     "widget_child",
     "widget_key",
@@ -97,9 +143,6 @@ def element_factory(streamlit_fn, *, child_prop=None, callback_prop=None, defaul
 
     excluded = [x for x in (child_name, callback_prop, spec_prop) if x is not None]
 
-    def get_output(self, raw):
-        return self.props.get(default_prop) if raw is None else raw
-
     def render(self):
         from ..core.context import get_rendering_component
         from ..core.base import render as render_child
@@ -126,7 +169,7 @@ def element_factory(streamlit_fn, *, child_prop=None, callback_prop=None, defaul
                 for child in children:
                     render_child(child)
 
-    cls_attrs = {"render": render, "get_output": get_output}
+    cls_attrs = {"render": render, "_default_output_prop": default_prop}
     if props_schema is not None:
         cls_attrs["__props_class__"] = props_schema
     return type(streamlit_fn.__name__, (Element,), cls_attrs)

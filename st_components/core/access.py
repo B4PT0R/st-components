@@ -1,19 +1,9 @@
-from streamlit import session_state as state
-from modict import MISSING
-
-from .context import Context, callback_context, get_element_path
-
-
-_WIDGET_REVISIONS_KEY = "__st_components_widget_revisions__"
-
-
-def _raw_key(path: str) -> str:
-    """Key under which layout element Streamlit objects are stored (e.g. container, form)."""
-    return f"{path}.raw"
+from . import _session as ss
+from .context import CallbackState, ctx, set_context, get_element_path
 
 
 def _base_value_key(path: str) -> str:
-    """Key under which input widget Streamlit values are stored."""
+    """Key under which Streamlit widget values / layout objects are stored."""
     return f"{path}.raw"
 
 
@@ -21,12 +11,9 @@ def _resolve_path(path_or_ref=None, *, expected_kind=None, fn_name="operation"):
     if path_or_ref is None:
         return get_element_path()
 
-    try:
-        from .refs import Ref
-    except Exception:
-        Ref = None
+    from .refs import Ref
 
-    if Ref is not None and isinstance(path_or_ref, Ref):
+    if isinstance(path_or_ref, Ref):
         if path_or_ref.path is None:
             raise RuntimeError(
                 f"{fn_name}() requires a resolved Ref. Attach it to a Component or Element and render the tree first."
@@ -41,11 +28,7 @@ def _resolve_path(path_or_ref=None, *, expected_kind=None, fn_name="operation"):
 
 
 def _widget_revisions():
-    revisions = state.get(_WIDGET_REVISIONS_KEY)
-    if revisions is None:
-        revisions = {}
-        state[_WIDGET_REVISIONS_KEY] = revisions
-    return revisions
+    return ss.get_or_init(ss.WIDGET_REVISIONS, dict)
 
 
 def widget_key(path=None):
@@ -67,55 +50,41 @@ def widget_output(path=None):
 
     Reads directly from ``st.session_state`` using the canonical widget key.
     Returns ``MISSING`` (from modict) if the key is not present — ``None`` is a valid widget value.
-    Intended for use inside element ``render()`` implementations to read the
-    current widget value before deriving element state from it.
     """
+    from modict import MISSING
     from .store import fibers
     from .models import ElementFiber
 
     element_path = _resolve_path(path, expected_kind="element", fn_name="widget_output") if path is not None else get_element_path()
     if element_path is None:
-        if Context.callback.widget_key is not None:
-            return state.get(Context.callback.widget_key, MISSING)
+        cb = ctx.current("callback")
+        if isinstance(cb, CallbackState) and cb.widget_key is not None:
+            return ss.get(cb.widget_key, MISSING)
         return MISSING
 
     fiber = fibers().get(element_path)
     wk = fiber.widget_key if isinstance(fiber, ElementFiber) else widget_key(element_path)
-    return state.get(wk, MISSING)
+    return ss.get(wk, MISSING)
 
 
 def get_state(path_or_ref=None):
     """Return the current state for any Component or Element.
 
-    - For a **Component**: returns the live ``State`` object (mutable).
-    - For an **Element**: returns a frozen snapshot of the element's state (read-only).
-    - Returns ``None`` if the path doesn't resolve to a live fiber.
+    Returns ``None`` if the path doesn't resolve to a live fiber.
     """
     from .store import fibers
-    from .models import ElementFiber
 
     path = _resolve_path(path_or_ref) if path_or_ref is not None else get_element_path()
     if path is None:
         return None
     fiber = fibers().get(path)
-    if fiber is None:
-        return None
-
-    if isinstance(fiber, ElementFiber):
-        return fiber.state
-
-    return fiber.state
+    return fiber.state if fiber is not None else None
 
 
 def set_state(path_or_ref=None, other=None, /, **kwargs):
     """Set or update the state of a Component.
 
-    - *path_or_ref* — path string, ``Ref``, or ``None`` (defaults to the current context component).
-    - *other* — a ``dict`` or ``State`` instance that replaces the current state wholesale.
-    - **kwargs — field updates applied on top (or instead) of *other*.
-
-    Raises ``RuntimeError`` if the path resolves to an Element; element state is
-    managed exclusively by the element's own ``render()`` method.
+    Raises ``RuntimeError`` if the path resolves to an Element.
     """
     from .store import fibers
     from .models import ElementFiber
@@ -148,14 +117,31 @@ def set_state(path_or_ref=None, other=None, /, **kwargs):
         fiber.state.update(**kwargs)
 
 
+def _accepts_value(fn):
+    """Return True if *fn* accepts at least one positional argument (beyond self)."""
+    import inspect
+    try:
+        sig = inspect.signature(fn)
+    except (ValueError, TypeError):
+        return True  # assume it does if we can't tell
+    params = [
+        p for p in sig.parameters.values()
+        if p.kind in (
+            inspect.Parameter.POSITIONAL_ONLY,
+            inspect.Parameter.POSITIONAL_OR_KEYWORD,
+        )
+    ]
+    # For bound methods, `self` is already consumed — params are the remaining ones.
+    # For plain functions / lambdas, first param is the value.
+    return len(params) >= 1
+
+
 def callback(fn):
     """Wrap *fn* as a widget callback for the currently rendering Element.
 
-    Resolves the element from the active render context, captures its path and
-    widget key, and returns a zero-argument callable suitable for ``on_change`` /
-    ``on_click`` / ``on_select`` parameters of ``st.*`` widgets.  When invoked,
-    reads the element's current output, writes it to ``state.output``, and calls
-    ``fn(value)``.
+    If *fn* accepts a positional argument, it receives the widget's current
+    value.  Zero-argument callbacks are called without it — convenient for
+    simple ``on_click`` handlers that don't need the value.
 
     Returns ``None`` when *fn* is ``None``.
     """
@@ -173,13 +159,14 @@ def callback(fn):
 
     element_path = element._fiber_key
     wk = element.fiber.widget_key if element.fiber else None
+    wants_value = _accepts_value(fn)
 
     def wrapped():
-        with callback_context(element_path=element_path, widget_key=wk):
+        with set_context(callback={"element_path": element_path, "widget_key": wk}):
             value = element._current_output()
             with element.state._writable():
                 element.state.output = value
-            return fn(value)
+            return fn(value) if wants_value else fn()
 
     return wrapped
 
@@ -193,21 +180,15 @@ def reset_element(path=None):
 
     base_key = _base_value_key(element_path)
     current_key = widget_key(element_path)
-    if base_key in state:
-        del state[base_key]
-    if current_key in state and current_key != base_key:
-        del state[current_key]
+    for key in {base_key, current_key}:
+        ss.delete(key)
 
     revisions = _widget_revisions()
     revisions[base_key] = revisions.get(base_key, 0) + 1
-    state[_WIDGET_REVISIONS_KEY] = revisions
+    ss.put(ss.WIDGET_REVISIONS, revisions)
 
     from .store import fibers
-    from .models import ElementFiber, ElementState
+    from .models import ElementFiber
     fiber = fibers().get(element_path)
     if isinstance(fiber, ElementFiber):
-        # Reset state to a fresh default instance of the same class
-        state_cls = type(fiber.state)
-        fiber.state = state_cls()
-
-
+        fiber.state = type(fiber.state)()

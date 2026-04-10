@@ -1,13 +1,13 @@
-from typing import Optional
 
 import streamlit as st
 
 from ...core import Element, Ref, render
+from ..factory import render_handle
 from ..prop_types import WidthWithoutContent
 
 
 class balloons(Element):
-    def __init__(self, *, key: str, ref: Optional[Ref] = None):
+    def __init__(self, *, key: str, ref: Ref | None = None):
         Element.__init__(self, key=key, ref=ref)
 
     def render(self):
@@ -15,7 +15,7 @@ class balloons(Element):
 
 
 class snow(Element):
-    def __init__(self, *, key: str, ref: Optional[Ref] = None):
+    def __init__(self, *, key: str, ref: Ref | None = None):
         Element.__init__(self, key=key, ref=ref)
 
     def render(self):
@@ -27,7 +27,7 @@ class spinner(Element):
         self,
         *children,
         key: str,
-        ref: Optional[Ref] = None,
+        ref: Ref | None = None,
         text: str = "In progress...",
         show_time: bool = False,
         width: WidthWithoutContent = "content",
@@ -37,11 +37,12 @@ class spinner(Element):
             self.children = list(children)
 
     def render(self):
-        with st.spinner(
+        handle = st.spinner(
             self.props.text,
             show_time=self.props.show_time,
             width=self.props.width,
-        ):
+        )
+        with render_handle(handle, self._fiber_key):
             for child in self.children:
                 render(child)
 
@@ -52,8 +53,8 @@ class progress(Element):
         value=0,
         *,
         key: str,
-        ref: Optional[Ref] = None,
-        text: Optional[str] = None,
+        ref: Ref | None = None,
+        text: str | None = None,
         width: WidthWithoutContent = "stretch",
     ):
         Element.__init__(self, key=key, ref=ref, value=value, text=text, width=width)

@@ -1,4 +1,4 @@
-from typing import Any, Iterable, Optional
+from typing import Any, Iterable
 
 import streamlit as st
 
@@ -9,7 +9,7 @@ from ..factory import widget_child
 
 
 class altair_chart(Element):
-    def __init__(self, altair_chart: Any = None, *, key: str, ref: Optional[Ref] = None, width: Optional[Width] = None, height: Height = "content", use_container_width: Optional[bool] = None, theme: Optional[str] = "streamlit", on_select: SelectionBehavior = "ignore", selection_mode: Optional[str | Iterable[str]] = None):
+    def __init__(self, altair_chart: Any = None, *, key: str, ref: Ref | None = None, width: Width | None = None, height: Height = "content", use_container_width: bool | None = None, theme: str | None = "streamlit", on_select: SelectionBehavior = "ignore", selection_mode: str | Iterable[str] | None = None):
         Element.__init__(self, key=key, altair_chart=altair_chart, ref=ref, width=width, height=height, use_container_width=use_container_width, theme=theme, on_select=on_select, selection_mode=selection_mode)
 
     def render(self):

@@ -5,7 +5,7 @@ from .input import (button, download_button, link_button, form_submit_button, ch
                     date_input, datetime_input, time_input, color_picker, file_uploader, camera_input, audio_input,
                     chat_input, menu_button,
                     pills, segmented_control, data_editor, feedback as input_feedback)
-from .layout import container, columns, tabs, form, dialog, chat_message, status, expander, popover, sidebar, empty
+from .layout import column, container, columns, tab, tabs, form, fragment, dialog, chat_message, status, expander, popover, sidebar, empty
 from .display import write, dataframe, table, metric, json, html, iframe, pdf, exception, help, page_link, logo, write_stream
 from .charts import (
     area_chart,
@@ -64,10 +64,13 @@ __all__ = [
     "pills",
     "segmented_control",
     "data_editor",
+    "column",
     "container",
     "columns",
     "tabs",
     "form",
+    "fragment",
+    "tab",
     "dialog",
     "chat_message",
     "status",

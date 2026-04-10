@@ -45,7 +45,7 @@ class ReportPage(Component):
             WorkspaceSidebar(key="workspace_sidebar"),
             title(key="title")("Report page"),
             caption(key="caption")(
-                "This page lives in examples/multipage/pages/report_page.py and ends with get_app().render_page(...)."
+                "This page lives in examples/11_multipage/pages/report_page.py and ends with get_app().render_page(...)."
             ),
             info(key="info")(
                 "This file-backed page instantiates the same sidebar component as the overview page."

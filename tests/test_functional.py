@@ -1,7 +1,7 @@
 """
 Tests for the @component decorator, hooks, and fragment support.
 """
-from st_components.core import App, Component, Context, ContextData, Ref, State, component, create_context, render, fibers, use_callback, use_context, use_effect, use_id, use_memo, use_previous, use_ref, use_state
+from st_components.core import App, Component, ctx, ContextData, Ref, State, component, create_context, render, fibers, use_callback, use_context, use_effect, use_id, use_memo, use_previous, use_ref, use_state
 from st_components.core.hooks import _use_hook_slot
 from st_components.core.models import Props
 from st_components.elements import text_input
@@ -29,9 +29,9 @@ def test_function_component_decorator():
     assert instance.__class__.__name__ == "Title"
     assert Title.component_class is instance.__class__
 
-    Context.key_stack[:] = [fake_ctx("app")]
+    ctx.replace("key", [fake_ctx("app")])
     render(instance)
-    Context.key_stack.clear()
+    ctx.replace("key", [])
 
     assert title_ref.path == "app.title"
     assert seen == [{
@@ -630,43 +630,30 @@ def test_hook_count_change_raises():
         raise AssertionError("Expected hook count change to raise")
 
 
-def test_class_component_fragment():
-    fragment_calls = []
-    fragment_wrappers = []
-    seen_keys = []
+def test_fragment_transparent_renders_children():
+    """fragment(scoped=False) renders children in sequence — no st.fragment call."""
+    writes = []
+    _mock_st.write.side_effect = lambda v: writes.append(v)
 
-    def fake_fragment(func=None, *, run_every=None):
-        def decorator(inner):
-            def wrapped(*args, **kwargs):
-                fragment_calls.append(run_every)
-                return inner(*args, **kwargs)
-            fragment_wrappers.append(wrapped)
-            return wrapped
-        return decorator if func is None else decorator(func)
+    from st_components.elements.layout.fragment import fragment
 
-    def fake_text_input(label, key=None, value=None, **kwargs):
-        seen_keys.append(key)
-        _session_data[key] = value
-        return value
-
-    _mock_st.fragment.side_effect = fake_fragment
-    _mock_st.text_input.side_effect = fake_text_input
-
-    class Profile(Component, fragment=True, run_every="10s"):
+    class Root(Component):
         def render(self):
-            return text_input(key="name", value="Alice")("Name")
+            return fragment(key="grp")(
+                "hello",
+                "world",
+            )
 
-    Context.key_stack[:] = [fake_ctx("app")]
-    render(Profile(key="profile"))
-    Context.key_stack.clear()
+    ctx.replace("key", [fake_ctx("app")])
+    render(Root(key="root"))
+    ctx.replace("key", [])
 
-    fragment_wrappers[-1]()
-
-    assert fragment_calls == ["10s", "10s"], f"unexpected fragment calls: {fragment_calls}"
-    assert seen_keys == ["app.profile.name.raw", "app.profile.name.raw"], f"got keys: {seen_keys}"
+    assert writes == ["hello", "world"]
+    _mock_st.fragment.assert_not_called()
 
 
-def test_function_component_fragment():
+def test_fragment_scoped_wraps_in_st_fragment():
+    """fragment(scoped=True) wraps children in st.fragment()."""
     fragment_calls = []
     fragment_wrappers = []
     seen_keys = []
@@ -688,15 +675,51 @@ def test_function_component_fragment():
     _mock_st.fragment.side_effect = fake_fragment
     _mock_st.text_input.side_effect = fake_text_input
 
-    @component(fragment=True, run_every="5s")
-    def FragmentName(props):
-        return text_input(key="name", value="Alice")("Name")
+    from st_components.elements.layout.fragment import fragment
 
-    Context.key_stack[:] = [fake_ctx("app")]
-    render(FragmentName(key="profile"))
-    Context.key_stack.clear()
+    class Profile(Component):
+        def render(self):
+            return fragment(key="frag", scoped=True, run_every="10s")(
+                text_input(key="name", value="Alice")("Name")
+            )
 
+    ctx.replace("key", [fake_ctx("app")])
+    render(Profile(key="profile"))
+    ctx.replace("key", [])
+
+    # st.fragment was called with run_every during the first render
+    assert fragment_calls == ["10s"], f"unexpected fragment calls: {fragment_calls}"
+    assert seen_keys == ["app.profile.frag.name.raw"], f"got keys: {seen_keys}"
+
+    # Simulate a fragment re-run (Streamlit calls the wrapped function again)
     fragment_wrappers[-1]()
+    assert fragment_calls == ["10s", "10s"]
+    assert seen_keys == ["app.profile.frag.name.raw", "app.profile.frag.name.raw"]
 
-    assert fragment_calls == ["5s", "5s"], f"unexpected fragment calls: {fragment_calls}"
-    assert seen_keys == ["app.profile.name.raw", "app.profile.name.raw"], f"got keys: {seen_keys}"
+
+def test_fragment_scoped_without_run_every():
+    """fragment(scoped=True) without run_every uses None."""
+    fragment_calls = []
+
+    def fake_fragment(func=None, *, run_every=None):
+        def decorator(inner):
+            def wrapped(*args, **kwargs):
+                fragment_calls.append(run_every)
+                return inner(*args, **kwargs)
+            return wrapped
+        return decorator if func is None else decorator(func)
+
+    _mock_st.fragment.side_effect = fake_fragment
+    _mock_st.write.side_effect = lambda v: None
+
+    from st_components.elements.layout.fragment import fragment
+
+    class Root(Component):
+        def render(self):
+            return fragment(key="f", scoped=True)("child")
+
+    ctx.replace("key", [fake_ctx("app")])
+    render(Root(key="root"))
+    ctx.replace("key", [])
+
+    assert fragment_calls == [None]

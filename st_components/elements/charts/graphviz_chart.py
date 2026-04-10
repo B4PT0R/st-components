@@ -1,4 +1,4 @@
-from typing import Any, Optional
+from typing import Any
 
 import streamlit as st
 
@@ -8,7 +8,7 @@ from ..factory import widget_child
 
 
 class graphviz_chart(Element):
-    def __init__(self, figure_or_dot: Any = None, use_container_width: Optional[bool] = None, *, key: str, ref: Optional[Ref] = None, width: Width = "content", height: Height = "content"):
+    def __init__(self, figure_or_dot: Any = None, use_container_width: bool | None = None, *, key: str, ref: Ref | None = None, width: Width = "content", height: Height = "content"):
         Element.__init__(self, key=key, figure_or_dot=figure_or_dot, ref=ref, use_container_width=use_container_width, width=width, height=height)
 
     def render(self):

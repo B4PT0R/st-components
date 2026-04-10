@@ -3,7 +3,7 @@ import inspect
 import textwrap
 import time as pytime
 
-from st_components import App, Component, Ref, State, elements, get_state
+from st_components import App, Component, Ref, State, elements
 from st_components.elements import (
     audio,
     altair_chart,
@@ -37,6 +37,7 @@ from st_components.elements import (
     feedback,
     file_uploader,
     form,
+    fragment,
     form_submit_button,
     graphviz_chart,
     header,
@@ -94,12 +95,12 @@ from st_components.elements import (
 )
 from st_components.elements.runtime import show_balloons, show_progress, show_snow, show_spinner, show_toast
 
-PRIMITIVES = sorted(set(elements.__all__) | {"fragment"})
+PRIMITIVES = sorted(elements.__all__)
 
 
 def signature_doc(name):
     if name == "fragment":
-        return "class ClockFragment(Component, fragment=True, run_every=1)"
+        return "fragment(key=..., scoped=False, run_every=None)"
     target = globals().get(name)
     if target is None:
         raise RuntimeError(f"Missing public callable for primitive {name!r}.")
@@ -134,11 +135,11 @@ def snippet(name, component=None):
     )
 
 class PrimitivePanelValue(Component):
-    def __init__(self, *, name, demo_ref, **props):
-        super().__init__(name=name, demo_ref=demo_ref, **props)
+    """Reads the demo element's state via its Ref prop."""
 
     def render(self):
-        value = self.props.demo_ref.state()
+        ref = self.props.get("demo_ref")
+        value = ref.state() if ref else None
         if value is None:
             return None
         return json(key="value")(value)
@@ -174,12 +175,12 @@ class BalloonsDemo(Component):
         consumed = None
         last_mode = None
 
-    def trigger_element(self, _):
+    def trigger_element(self):
         self.state.element_runs += 1
         self.state.pending = self.state.element_runs
         self.state.last_mode = "element"
 
-    def trigger_helper(self, _):
+    def trigger_helper(self):
         show_balloons()
         self.state.helper_runs += 1
         self.state.last_mode = "helper"
@@ -333,59 +334,34 @@ class PopoverDemo(Component):
 
 class ProgressDemo(Component):
     class DemoState(State):
-        callback_runs = 0
-        element_runs = 0
-        current_progress = 0
+        runs: int = 0
+        p: int = 0
 
-    def __init__(self, **props):
-        super().__init__(**props)
-        self.bar_ref = Ref()
-        self.slot_ref = Ref()
+    def _msg(self, p):
+        if p == 0: return "Idle"
+        if p < 30: return "Starting..."
+        if p < 70: return "Progressing..."
+        if p < 100: return "Finishing..."
+        return "Done!"
 
-    def progress_message(self,progress):
-        if progress == 0 :
-            return "Idle"
-        if 0 <= progress < 30 :
-            return "Starting..."
-        elif 30 <= progress < 70 :
-            return "Progressing..."
-        elif 70 <= progress < 100 :
-            return "Finishing..."
-        else:
-            return "Done!"
-
-    def run_element_job(self, _):
-        bar = self.bar_ref.state().handle
-        next_progress = self.state.current_progress + 10
-        if next_progress > 100:
-            next_progress = 0
-        self.state.current_progress = next_progress
-        bar.progress(next_progress, text=self.progress_message(next_progress), width="stretch")
-        self.state.element_runs += 1
-
-    def run_callback_job(self, _):
-        bar = show_progress(ref=self.slot_ref, value=0, text="Starting...", width="stretch")
-        for prog in range(10,110,10):
-            pytime.sleep(0.5)
-            bar.update(prog, text=self.progress_message(prog))
-        pytime.sleep(0.5)
-        self.state.callback_runs += 1
+    def step(self):
+        p = (self.state.p + 10) % 110
+        self.state.p = p
+        self.state.runs += 1
+        # Update the bar in-place via its Streamlit handle (no remount)
+        handle = self.widget.handle
+        if handle:
+            handle.progress(p, text=self._msg(p), width="stretch")
 
     def render(self):
         return (
             markdown(key="hint")(
-                "On the left, `progress(...)` is pre-rendered in the tree and updated via `ref.state().handle`. On the right, `show_progress(...)` uses a placeholder as a callback-only alternative."
+                "`self.widget.handle` gives direct access to the Streamlit DeltaGenerator. "
+                "Calling `.progress(value)` on it updates in-place without remounting the widget."
             ),
-            columns(key="content", spec=2)(
-                container(key="element_panel", border=True)(
-                    button(key="element_run", on_click=self.run_element_job, type="primary")("Trigger element progress"),
-                    progress(key="widget", ref=self.bar_ref, value=self.state.current_progress, text=self.progress_message(self.state.current_progress), width="stretch"),
-                ),
-                container(key="callback_panel", border=True)(
-                    button(key="callback_run", on_click=self.run_callback_job, type="primary")("Trigger callback progress"),
-                    empty(key="slot", ref=self.slot_ref),
-                ),
-            ),
+            button(key="step", on_click=self.step, type="primary")("Step progress"),
+            progress(key="widget", value=self.state.p, text=self._msg(self.state.p), width="stretch"),
+            metric(key="runs", label="Runs", value=self.state.runs),
         )
 
 
@@ -405,12 +381,12 @@ class SnowDemo(Component):
         consumed = None
         last_mode = None
 
-    def trigger_element(self, _):
+    def trigger_element(self):
         self.state.element_runs += 1
         self.state.pending = self.state.element_runs
         self.state.last_mode = "element"
 
-    def trigger_helper(self, _):
+    def trigger_helper(self):
         show_snow()
         self.state.helper_runs += 1
         self.state.last_mode = "helper"
@@ -441,57 +417,30 @@ class SlowSpinnerPreview(Component):
 
 class SpinnerDemo(Component):
     class DemoState(State):
-        element_runs = 0
-        pending_element = None
-        consumed_element = None
-        callback_runs = 0
+        runs: int = 0
+        pending: int = 0
+        consumed: int = 0
 
-    def __init__(self, **props):
-        super().__init__(**props)
-        self.slot_ref = Ref()
-
-    def run_element_preview(self, _):
-        self.state.element_runs += 1
-        self.state.pending_element = self.state.element_runs
-
-    def run_callback_preview(self, _):
-        with show_spinner(ref=self.slot_ref, text="Loading preview", show_time=True):
-            for _ in range(3):
-                pytime.sleep(0.6)
-        self.state.callback_runs += 1
-
-    def maybe_render(self, component):
-        if self.state.pending_element == self.state.consumed_element:
-            return None
-        self.state.consumed_element = self.state.pending_element
-        return component
+    def trigger(self):
+        self.state.runs += 1
+        self.state.pending = self.state.runs
 
     def render(self):
+        show_spinner_block = None
+        if self.state.pending != self.state.consumed:
+            self.state.consumed = self.state.pending
+            show_spinner_block = spinner(
+                key=f"widget_{self.state.pending}",
+                text="Rendering slow subtree",
+                show_time=True,
+            )(SlowSpinnerPreview(key=f"preview_{self.state.pending}"))
+
         return (
             markdown(key="hint")(
-                "On the left, `spinner(...)` wraps a slow subtree during render. On the right, `show_spinner(...)` covers slow callback work inside a placeholder."
+                "`spinner(...)` wraps a slow subtree during render."
             ),
-            columns(key="content", spec=[1, 2])(
-                container(key="element_panel", border=True)(
-                    button(key="element_trigger", on_click=self.run_element_preview, type="primary")("Trigger slow render"),
-                    self.maybe_render(
-                        spinner(
-                            key=f"element_spinner_{self.state.pending_element}",
-                            text="Rendering slow preview",
-                            show_time=True,
-                        )(
-                            SlowSpinnerPreview(key=f"slow_preview_{self.state.pending_element}")
-                        )
-                    ),
-                ),
-                container(key="callback_panel", border=True)(
-                    button(key="callback_trigger", on_click=self.run_callback_preview, type="primary")("Trigger callback"),
-                    empty(key="slot", ref=self.slot_ref),
-                    success(key="callback_done")("Callback completed successfully")
-                    if self.state.callback_runs
-                    else None
-                ),
-            ),
+            button(key="trigger", on_click=self.trigger, type="primary")("Trigger slow render"),
+            show_spinner_block,
         )
 
 
@@ -531,12 +480,12 @@ class ToastDemo(Component):
         consumed = None
         last_mode = None
 
-    def trigger_element(self, _):
+    def trigger_element(self):
         self.state.element_runs += 1
         self.state.pending = self.state.element_runs
         self.state.last_mode = "element"
 
-    def trigger_helper(self, _):
+    def trigger_helper(self):
         show_toast("Saved draft", duration="short")
         self.state.helper_runs += 1
         self.state.last_mode = "helper"
@@ -578,7 +527,7 @@ class ButtonDemo(Component):
     class DemoState(State):
         clicks = 0
 
-    def click(self, _):
+    def click(self):
         self.state.clicks += 1
 
     def render(self):
@@ -1102,30 +1051,46 @@ class BokehChartDemo(Component):
         return bokeh_chart(key="widget", figure=fig)
 
 
-class ClockFragment(Component, fragment=True, run_every=1):
+class LiveClock(Component):
+    """Must live INSIDE the fragment so it re-renders on each fragment rerun."""
     def render(self):
         now = datetime.datetime.now().strftime("%H:%M:%S")
         return container(key="frame", border=True)(
             markdown(key="title")(f"**Fragment clock:** `{now}`"),
-            caption(key="body")("This subtree reruns every second through `st.fragment`."),
+            caption(key="body")("Auto-refreshes every second."),
         )
 
 
 class FragmentDemo(Component):
     class DemoState(State):
-        clicks = 0
+        clicks: int = 0
 
-    def click(self, _):
+    def click(self):
         self.state.clicks += 1
+
+    def inject(self):
+        self.target(
+            metric(key="injected", label="Injected at", value=datetime.datetime.now().strftime("%H:%M:%S")),
+            caption(key="note")("This content was pushed via `self.target(children)`."),
+        )
+
+    def reset(self):
+        self.target.reset()
 
     def render(self):
         return (
             markdown(key="hint")(
-                "The clock below is a fragment-based component with `run_every=1`. "
-                "It should update once per second without needing any manual interaction."
+                "`fragment` supports scoped re-rendering (`run_every`), "
+                "and dynamic children injection via `self.ref` navigation."
             ),
-            ClockFragment(key="clock"),
-            button(key="clicks", on_click=self.click)("Regular parent button"),
+            fragment(key="target", scoped=True, run_every=1)(
+                LiveClock(key="clock"),
+            ),
+            columns(key="actions")(
+                button(key="clicks", on_click=self.click)(f"Parent button ({self.state.clicks})"),
+                button(key="inject", on_click=self.inject, type="primary")("Inject content"),
+                button(key="reset", on_click=self.reset)("Reset"),
+            ),
         )
 
 
@@ -1134,13 +1099,13 @@ class DialogDemo(Component):
         open = False
         confirmed = 0
 
-    def open_dialog(self, _):
+    def open_dialog(self):
         self.state.open = True
 
-    def close_dialog(self, _):
+    def close_dialog(self):
         self.state.open = False
 
-    def confirm(self, _):
+    def confirm(self):
         self.state.confirmed += 1
         self.state.open = False
 
@@ -1164,7 +1129,7 @@ class WriteStreamDemo(Component):
         pending = False
         runs = 0
 
-    def start_stream(self, _):
+    def start_stream(self):
         self.state.pending = True
         self.state.runs += 1
 
@@ -1190,21 +1155,17 @@ class FormDemo(Component):
     class DemoState(State):
         submitted = None
 
-    def __init__(self, **props):
-        super().__init__(**props)
-        self.name_ref = Ref()
-        self.notes_ref = Ref()
-
-    def submit(self, _):
+    def submit(self):
+        # Navigate to form children via relative ref
         self.state.submitted = {
-            "name": get_state(self.name_ref).value or "",
-            "notes": get_state(self.notes_ref).value or "",
+            "name": self.widget.name.state().output or "",
+            "notes": self.widget.notes.state().output or "",
         }
 
     def render(self):
         return form(key="widget", clear_on_submit=False)(
-            text_input(key="name", ref=self.name_ref)("Name"),
-            text_area(key="notes", ref=self.notes_ref, height=100)("Notes"),
+            text_input(key="name")("Name"),
+            text_area(key="notes", height=100)("Notes"),
             form_submit_button(key="submit", on_click=self.submit, type="primary")("Submit"),
         )
 
@@ -1213,7 +1174,7 @@ class FormSubmitButtonDemo(Component):
     class DemoState(State):
         submissions = 0
 
-    def submit(self, _):
+    def submit(self):
         self.state.submissions += 1
 
     def render(self):
@@ -1376,22 +1337,21 @@ class PrimitivesApp(Component):
     def render(self):
         demo, demo_ref = self.current_demo()
         return container(key="page")(
-            title(key="title")("Primitives smoke test"),
-            caption(key="caption")(
-                "Manual test app for the wrapped Streamlit primitives currently exposed by st-components."
+            markdown(key="title")(
+                "## Elements Index\n\n"
+                "Browse and test every element wrapped by st-components. "
+                "Pick one below to see it in action with a live demo, "
+                "its current state snapshot, and the implementation source."
             ),
-            markdown(key="body")(
-                "Use the selector to switch demos. Each panel renders one primitive, a compact JSON snapshot, and a short invocation snippet."
-            ),
-            divider(key="divider"),
             selectbox(
                 key="selector",
                 options=PRIMITIVES,
                 index=PRIMITIVES.index(self.state.selected),
                 on_change=self.sync_state("selected"),
-            )("Primitive"),
+            )(f"Element ({len(PRIMITIVES)} available)"),
+            divider(key="divider"),
             PrimitivePanel(key="current_panel", name=self.state.selected, demo=demo, demo_ref=demo_ref),
         )
 
 
-App()(PrimitivesApp(key="app")).render()
+App(page_title="Elements Index")(PrimitivesApp(key="app")).render()

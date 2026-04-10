@@ -1,122 +1,34 @@
 # Examples
 
-Each example is a self-contained Streamlit app.
-
-Installed package:
+Each example is a self-contained Streamlit app. They are numbered to form a
+guided progression — start at 01 and work your way up.
 
 ```bash
-python -m st_components.examples <name>
+# Via the installed runner
+python -m st_components.examples 01_hello
 python -m st_components.examples --list
+
+# Or directly
+streamlit run examples/01_hello.py
 ```
 
-From the repository root, you can also run the files directly with `streamlit run`.
+## Guided progression
 
-## basic.py
-
-The minimal entry point. A single stateful `Counter` component — nothing else.
-
-```bash
-python -m st_components.examples basic
-streamlit run examples/basic.py
-```
-
-## data_dashboard.py
-
-A data-science oriented dashboard that shows how Python computation (numpy signal analysis, histogram stats, least-squares regression) lives inside **component methods and callbacks**, keeping the render layer thin. Three panels: Signal Explorer (FFT + rolling mean), Distribution Analyzer (descriptive stats + histogram), Regression Playground (polyfit + R²).
-
-```bash
-python -m st_components.examples data_dashboard
-streamlit run examples/data_dashboard.py
-```
-
-## dashboard.py
-
-A fuller tutorial that walks through the core patterns: local component state, `on_change(value)` callbacks, `Ref`, and layout composition.
-
-```bash
-python -m st_components.examples dashboard
-streamlit run examples/dashboard.py
-```
-
-## flow.py
-
-Small demo of the flow built-ins: `Conditional`, `KeepAlive`, `Case`, and `Switch`/`Match`/`Default`.
-
-```bash
-python -m st_components.examples flow
-streamlit run examples/flow.py
-```
-
-## functional_typed.py
-
-Typed state and props for functional components: `use_state()` with a `State` instance, `@component` with a typed `Props` annotation, and combining both.
-
-```bash
-python -m st_components.examples functional_typed
-streamlit run examples/functional_typed.py
-```
-
-## functional.py
-
-Demonstrates the `@component` decorator and `use_state` hook for defining components as plain functions instead of classes.
-
-```bash
-python -m st_components.examples functional
-streamlit run examples/functional.py
-```
-
-## hooks.py
-
-Compact demo of the main hooks in one place: `use_state`, `use_context`, `use_memo`, `use_effect`, `use_ref`, `use_callback`, `use_previous`, and `use_id`, including a small typed context example.
-
-```bash
-python -m st_components.examples hooks
-streamlit run examples/hooks.py
-```
-
-## primitives.py
-
-A kitchen-sink reference of every built-in element wrapper: inputs, layout, display, media, feedback, and charts.
-
-```bash
-python -m st_components.examples primitives
-streamlit run examples/primitives.py
-```
-
-## typed_state.py
-
-Demonstrates typed state schemas using nested `State` subclasses: single-field state without `__init__`, multi-field structured state, and type validation at definition and assignment time.
-
-```bash
-python -m st_components.examples typed_state
-streamlit run examples/typed_state.py
-```
-
-## typed_props.py
-
-Demonstrates typed props schemas using nested `Props` subclasses: default prop values, `extra="ignore"` for permissive pass-through components, and `extra="forbid"` for strict interface enforcement.
-
-```bash
-python -m st_components.examples typed_props
-streamlit run examples/typed_props.py
-```
-
-## theme_editor.py
-
-Minimal demo of the `ThemeEditorButton` builtin. Open the dialog from a prewired button and edit the current `App` theme live.
-
-```bash
-python -m st_components.examples theme_editor
-streamlit run examples/theme_editor.py
-```
-
-## multipage/
-
-A multipage app using `Router`, `Page`, and `shared_state`. Shows both inline component pages and file-backed pages synchronized through shared state.
-
-```bash
-python -m st_components.examples multipage
-streamlit run examples/multipage/app.py
-```
-
-See [multipage/README.md](multipage/README.md) for details.
+| # | File | What you learn |
+|---|---|---|
+| 01 | `01_hello.py` | Component, State, render — the absolute minimum |
+| 02 | `02_state.py` | Typed State, multi-field state, fiber persistence |
+| 03 | `03_callbacks.py` | on_change receives the value, sync_state shortcut |
+| 04 | `04_composition.py` | Children, nesting, layout, reusable building blocks |
+| 05 | `05_elements.py` | Catalog of every built-in element wrapper |
+| 06 | `06_functional.py` | @component decorator, use_state, class vs functional |
+| 07 | `07_refs.py` | self.ref, self.parent, self.root, attribute navigation, fiber overrides |
+| 08 | `08_hooks.py` | use_memo, use_effect, use_ref, use_callback, use_previous, use_id |
+| 09 | `09_fragments.py` | fragment, scoped re-rendering, run_every, nested fragments |
+| 10 | `10_scoped_rerun.py` | rerun, wait, independent per-fragment rerun timelines |
+| 11 | `11_dynamic_rendering.py` | self.ref(path), fiber overrides, Ref.parent, column/tab scoping |
+| 12 | `12_context.py` | create_context, Provider, use_context — no prop drilling |
+| 13 | `13_flow.py` | Conditional, KeepAlive, Case, Switch/Match/Default |
+| 14 | `14_theming.py` | ThemeEditorButton, live theme customization |
+| 15 | `15_multipage/` | Router, Page, shared state, file-backed pages |
+| 16 | `16_full_data_app/` | Multipage data-science app — all features combined |

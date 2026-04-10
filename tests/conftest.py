@@ -14,6 +14,12 @@ sys.modules["streamlit"] = _mock_st
 
 @pytest.fixture(autouse=True)
 def reset_state():
-    """Reset shared mock state before each test."""
+    """Reset shared mock state and internal caches before each test."""
     _session_data.clear()
     _mock_st.reset_mock()
+
+    # Invalidate module-level caches that mirror session_state
+    from st_components.core.store import _invalidate_fibers_cache
+    from st_components.core.context import ctx
+    _invalidate_fibers_cache()
+    ctx._invalidate()

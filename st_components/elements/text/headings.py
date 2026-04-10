@@ -1,4 +1,4 @@
-from typing import Any, Optional
+from typing import Any
 
 import streamlit as st
 
@@ -8,7 +8,7 @@ from ..factory import widget_child
 
 
 class title(Element):
-    def __init__(self, body: Any = "", anchor: Anchor = None, *, key: str, ref: Optional[Ref] = None, help: Optional[str] = None, width: Width = "stretch", text_alignment: TextAlignment = "left"):
+    def __init__(self, body: Any = "", anchor: Anchor = None, *, key: str, ref: Ref | None = None, help: str | None = None, width: Width = "stretch", text_alignment: TextAlignment = "left"):
         Element.__init__(self, key=key, body=body, anchor=anchor, ref=ref, help=help, width=width, text_alignment=text_alignment)
 
     def render(self):
@@ -16,7 +16,7 @@ class title(Element):
 
 
 class header(Element):
-    def __init__(self, body: Any = "", anchor: Anchor = None, *, key: str, ref: Optional[Ref] = None, help: Optional[str] = None, divider: Divider = False, width: Width = "stretch", text_alignment: TextAlignment = "left"):
+    def __init__(self, body: Any = "", anchor: Anchor = None, *, key: str, ref: Ref | None = None, help: str | None = None, divider: Divider = False, width: Width = "stretch", text_alignment: TextAlignment = "left"):
         Element.__init__(self, key=key, body=body, anchor=anchor, ref=ref, help=help, divider=divider, width=width, text_alignment=text_alignment)
 
     def render(self):
@@ -24,7 +24,7 @@ class header(Element):
 
 
 class subheader(Element):
-    def __init__(self, body: Any = "", anchor: Anchor = None, *, key: str, ref: Optional[Ref] = None, help: Optional[str] = None, divider: Divider = False, width: Width = "stretch", text_alignment: TextAlignment = "left"):
+    def __init__(self, body: Any = "", anchor: Anchor = None, *, key: str, ref: Ref | None = None, help: str | None = None, divider: Divider = False, width: Width = "stretch", text_alignment: TextAlignment = "left"):
         Element.__init__(self, key=key, body=body, anchor=anchor, ref=ref, help=help, divider=divider, width=width, text_alignment=text_alignment)
 
     def render(self):
