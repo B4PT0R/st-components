@@ -91,22 +91,9 @@ This short demo already shows the basic idea:
   - [Pattern 4: Fragments and scoped re-rendering](#pattern-4-fragments-and-scoped-re-rendering)
   - [Pattern 5: Dynamic rendering from callbacks](#pattern-5-dynamic-rendering-from-callbacks)
 - [API Reference](API_REFERENCE.md)
-- [Theming and Config](#theming-and-config)
+- [App](#app)
+- [Theming](#theming)
 - [Built-ins](#built-ins)
-  - [Fragment](#fragment)
-  - [Scoped Rerun](#scoped-rerun)
-  - [Flow helpers](#flow-helpers)
-    - [Conditional](#conditional)
-    - [KeepAlive](#keepalive)
-    - [Case](#case)
-    - [Switch, Match, Default](#switch-match-default)
-  - [Router and Page](#router-and-page)
-    - [Router](#router)
-    - [Page](#page)
-  - [Theme tooling](#theme-tooling)
-    - [ThemeEditor](#themeeditor)
-    - [ThemeEditorDialog](#themeeditordialog)
-    - [ThemeEditorButton](#themeeditorbutton)
 - [Examples](#examples)
 - [Usage Guidelines](#usage-guidelines)
   - [Keep keys local and boring](#keep-keys-local-and-boring)
@@ -532,6 +519,55 @@ See **[API_REFERENCE.md](API_REFERENCE.md)** for the full reference covering all
 App, Component, Element, State, Props, Hooks, Context, Ref, Fragment, Slot, Column/Tab, Scoped Rerun, Shared State, Local Storage, Query Params, Streamlit APIs, Flow Helpers, Router/Page, Theming, Elements Catalog, and Custom Element authoring.
 
 ---
+
+## App
+
+`App` is the root of every `st-components` application. It manages page config, theming, CSS, render cycles, and app-level state.
+
+### App-level state
+
+Set `app.state` before `render()` to initialize state — it works like a Component's state setter (no-op on subsequent reruns once the fiber exists):
+
+```python
+from st_components import App, State
+from st_components.elements import container, text_input
+
+class AppState(State):
+    user: str = ""
+    lang: str = "en"
+
+app = App(page_title="My App")
+app.state = AppState()  # initial state, ignored on reruns
+
+app(
+    MyLayout(key="layout")
+).render()
+```
+
+The state is then accessible from anywhere via `get_app().state`.
+
+### Subclassing App
+
+You can subclass `App` and declare a `State` inner class, just like any `Component`. Override `render()` to return the root of your tree:
+
+```python
+class MyApp(App):
+    class AppState(State):
+        user: str = ""
+        lang: str = "en"
+
+    def render(self):
+        return container(key="main")(
+            Header(key="header"),
+            Body(key="body"),
+        )
+
+MyApp(page_title="My App").render()
+```
+
+`render()` is fully overridable — return any Component, Element, Router, or tree of them. The framework infrastructure (page config, styles, routing, rerun control) is handled by the decorator, not by `render()` itself.
+
+You can still use the `App()(root)` pattern without subclassing — the default `render()` just returns the child passed via `__call__`.
 
 ## Theming
 

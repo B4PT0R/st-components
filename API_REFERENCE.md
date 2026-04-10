@@ -82,6 +82,28 @@ app = App(
 | `app.request_context` | HTTP headers and cookies (`RequestContext` modict) |
 | `App.cache_data` / `App.cache_resource` | Re-exported Streamlit cache decorators |
 
+**App-level state:**
+
+```python
+app.state = dict(user="", lang="en")   # before render(), no-op on reruns
+get_app().state.user                    # accessible from anywhere
+```
+
+**Subclassing:**
+
+```python
+class MyApp(App):
+    class AppState(State):
+        user: str = ""
+
+    def render(self):
+        return MyLayout(key="layout")
+
+MyApp(page_title="My App").render()
+```
+
+`render()` returns the root of the tree. The framework plumbing (page config, styles, routing, rerun) is handled by the decorator — `render()` is a plain method you can override freely.
+
 
 [↑ Back to top](#table-of-contents)
 

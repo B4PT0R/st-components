@@ -113,7 +113,19 @@ class App(Component):
         _CURRENT_APP = self
 
     def _decorate_render(self):
-        pass
+        original_render = self.render
+
+        def decorated():
+            root = original_render()
+            if root is None:
+                raise RuntimeError(
+                    "App.render() must return a root — "
+                    "pass one via App()(root) or override render()."
+                )
+            return self._run_app(root)
+
+        decorated._decorated = True
+        self.render = decorated
 
     def _apply_overrides(self):
         """Apply fiber overrides to App's direct attributes (not just props)."""
@@ -639,9 +651,11 @@ class App(Component):
             return sections, page_map
         return pages, page_map
 
-    def _unwrap_router_root(self):
+    @staticmethod
+    def _unwrap_router(root):
+        """Walk through ContextProvider wrappers to find a Router root."""
         wrappers = []
-        node = self.root
+        node = root
 
         while isinstance(node, ContextProvider):
             if len(node.children) != 1:
@@ -728,17 +742,15 @@ class App(Component):
 
     # ── Render ───────────────────────────────────────────────────────────
 
-    def render(self):
-        if self.root is None:
-            raise RuntimeError("App.render() requires a root.")
-
-        wrappers, router = self._unwrap_router_root()
+    def _run_app(self, root):
+        """Run all App infrastructure around the rendered root."""
+        wrappers, router = self._unwrap_router(root)
 
         try:
             if router is None:
                 self._apply_page_config()
                 self._apply_styles()
-                return self._render_root(self.root)
+                return self._render_root(root)
 
             navigation_pages, page_map = self._build_navigation_pages(router, wrappers=wrappers)
             current = st.navigation(
@@ -768,3 +780,11 @@ class App(Component):
             from .rerun import check_rerun
             render_local_storage()
             check_rerun()
+
+    def render(self):
+        """Return the root of the app tree.
+
+        Override in subclasses to build the tree dynamically.
+        Default returns the child passed via ``App()(root)``.
+        """
+        return self.root
