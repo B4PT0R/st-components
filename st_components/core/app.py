@@ -62,8 +62,6 @@ class App(Component):
         query_params=None,
     ):
         normalized_children = [] if children is None else list(children)
-        if len(normalized_children) > 1:
-            raise TypeError("App expects at most one root child in children=.")
         super().__init__(key="app", children=normalized_children)
 
         # Constructor args are defaults — fiber overrides are the source of truth.
@@ -154,19 +152,14 @@ class App(Component):
             self.props.children = list(children_ov)
             _auto_key_children(self.props.children)
 
-    @property
-    def root(self):
-        if not self.children:
-            return None
-        return self.children[0]
-
     def __call__(self, *children):
-        if len(children) != 1:
-            raise TypeError("App expects exactly one child root.")
-        from .base import _ensure_key
-        child = children[0]
-        _ensure_key(child)
-        self.props.children = [child]
+        from .base import _ensure_key, _auto_key_children
+        child_list = list(children)
+        if len(child_list) == 1:
+            _ensure_key(child_list[0])
+        else:
+            _auto_key_children(child_list)
+        self.props.children = child_list
         return self
 
     def create_shared_state(self, namespace, spec):
@@ -582,6 +575,13 @@ class App(Component):
     def _render_root(self, root):
         return self._render_with_cycle(lambda: render(root))
 
+    def _render_root_sequence(self, children):
+        """Render multiple root children in sequence."""
+        def body():
+            for child in children:
+                render(child)
+        return self._render_with_cycle(body)
+
     def _render_routed_root(self, router, page, root, *, wrappers=None):
         def build_router_page_tree():
             return router._render_component_body(
@@ -744,6 +744,24 @@ class App(Component):
 
     def _run_app(self, root):
         """Run all App infrastructure around the rendered root."""
+        # Multiple children — render them all sequentially
+        if isinstance(root, (tuple, list)):
+            for child in root:
+                if isinstance(child, Router):
+                    raise TypeError(
+                        "Router must be the sole direct child of App. "
+                        "It cannot be mixed with other children."
+                    )
+            try:
+                self._apply_page_config()
+                self._apply_styles()
+                return self._render_root_sequence(root)
+            finally:
+                from .local_storage import render_local_storage
+                from .rerun import check_rerun
+                render_local_storage()
+                check_rerun()
+
         wrappers, router = self._unwrap_router(root)
 
         try:
@@ -782,9 +800,14 @@ class App(Component):
             check_rerun()
 
     def render(self):
-        """Return the root of the app tree.
+        """Return the app's content tree.
 
         Override in subclasses to build the tree dynamically.
-        Default returns the child passed via ``App()(root)``.
+        Default returns the child(ren) passed via ``App()(...)``.
+        Returns a single child, a tuple for multiple, or ``None``.
         """
-        return self.root
+        if not self.children:
+            return None
+        if len(self.children) == 1:
+            return self.children[0]
+        return tuple(self.children)

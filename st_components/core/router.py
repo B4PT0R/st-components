@@ -52,4 +52,8 @@ class Router(Component):
         return self.children
 
     def render(self):
-        return Anchor(key=self.key)(*self.children)
+        raise TypeError(
+            "Router must be the sole direct child of App "
+            "(optionally wrapped in ContextProviders). "
+            "It cannot be nested inside other components."
+        )
