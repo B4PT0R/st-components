@@ -4,6 +4,28 @@ All notable changes to this project will be documented in this file.
 
 The format is based on Keep a Changelog, and this project uses SemVer.
 
+## [0.5.0] - 2026-04-28
+
+### Added
+
+- **Inline styles via `style=` dict on every Element**. Compiled to scoped CSS targeting only that element instance via Streamlit's `.st-key-<scope>` wrapper class — no global leakage. Supports CSS properties (camelCase or kebab), nested selectors with `&` (`:hover`, `:focus-within`), and descendant selectors.
+- **Slot system**. Each Element class declares a `_slots` map (logical name → inner CSS selector) and a `_default_slot`. Top-level CSS props on a `button` land on the `button` slot; on a `markdown` they land on the `text` (`<p>`) slot, etc. Slots also act as nested-rule keys: `style={"label": {"fontWeight": "bold"}}` on a `text_input` targets the inner `<label>`. ~30 element families covered (buttons, text/inputs, selects, alerts, metric, …).
+- **`Router(chrome=...)`**. A Component class declared as `chrome=` is instantiated by the framework as a per-app layout wrapper around the active page. Chrome's fiber lives at `app.<router>.chrome` — page-independent, so chrome state survives navigation between pages. The active page renders inside `*self.children` of the chrome.
+- **New example `05_styles`** (inline styles, slots, pseudo-classes, reusable styled components). Renumbered existing 05–16 to 06–17.
+- **Centralized framework-managed prop filtering** via `Element._FRAMEWORK_PROPS` (`{"key", "children", "ref", "style"}`) + `Element._st_props(*element_specific)` helper. Replaces ~50 hand-rolled `self.props.exclude("key", "children", X, "ref")` calls scattered across element files.
+
+### Changed
+
+- **`color_mode` propagates to Streamlit's `theme.base`** even without a custom `Theme=` configured. `app.set_params(color_mode="dark")` now flips the appearance for apps that didn't declare their own theme (previously a silent no-op).
+- **Example 17 (`17_full_data_app`)** refactored to use chrome: sidebar and footer declared once in `AppChrome`, not repeated by each page.
+
+### Fixed
+
+- **Encoding on Windows**: `Path.read_text()` / `Path.write_text()` calls in the library and examples now pass `encoding="utf-8"` explicitly. Previously fell back to `cp1252` on Windows-FR locales, mangling UTF-8 sources, CSS, and TOML configs.
+- **Scoped rerun from callbacks**: callbacks now capture `rerun_scope` at wrap time so `rerun()` / `wait()` from a fragment-bound widget target the right fragment scope (previously fell through to `"app"`).
+- **Fragment-rerun fallback**: `_st_rerun` falls back to a plain rerun when Streamlit rejects `scope="fragment"` after a long `time.sleep()` (e.g., long `wait()` followed by `rerun()`).
+- **Defensive `_writable()` around `state.output`**: re-enters `_writable()` for the final output assignment in Element render, in case `fiber.state` was replaced during `render_func()`.
+
 ## [0.4.1] - 2026-04-10
 
 ### Added
