@@ -85,7 +85,7 @@ class container(Element):
         Element.__init__(self, key=key, ref=ref, border=border, width=width, height=height, horizontal=horizontal, horizontal_alignment=horizontal_alignment, vertical_alignment=vertical_alignment, gap=gap, autoscroll=autoscroll)
 
     def render(self):
-        handle = st.container(key=KEY("raw"), **self.props.exclude("key", "children", "ref"))
+        handle = st.container(key=KEY("raw"), **self._st_props())
         self.state.handle = handle
         with render_handle(handle, self._fiber_key):
             for child in self.children:
@@ -110,7 +110,7 @@ class columns(Element):
         spec = self.props.get("spec")
         if spec is None:
             spec = len(self.children)
-        cols = st.columns(spec=spec, **self.props.exclude("key", "children", "spec", "ref"))
+        cols = st.columns(spec=spec, **self._st_props("spec"))
         self.state.handle = cols
         for i, (child, col_handle) in enumerate(zip(self.children, cols)):
             if isinstance(child, column):
@@ -143,7 +143,7 @@ class tabs(Element):
             labels = [c.props.get("label") or str(i) for i, c in enumerate(children)]
         else:
             labels = self.props.get("tabs", self.props.get("labels", [str(i) for i in range(len(children))]))
-        tab_objs = st.tabs(labels, **self.props.exclude("key", "children", "tabs", "labels", "ref"))
+        tab_objs = st.tabs(labels, **self._st_props("tabs", "labels"))
         self.state.handle = tab_objs
         for i, (child, tab_handle) in enumerate(zip(children, tab_objs)):
             if isinstance(child, tab):
@@ -156,6 +156,9 @@ class tabs(Element):
 
 
 class form(Element):
+    _slots = {"root": ""}
+    _default_slot = "root"
+
     def __init__(
         self,
         clear_on_submit: bool = False,
@@ -170,7 +173,7 @@ class form(Element):
         Element.__init__(self, key=key, ref=ref, clear_on_submit=clear_on_submit, enter_to_submit=enter_to_submit, border=border, width=width, height=height)
 
     def render(self):
-        handle = st.form(KEY("raw"), **self.props.exclude("key", "children", "ref"))
+        handle = st.form(KEY("raw"), **self._st_props())
         self.state.handle = handle
         with render_handle(handle, self._fiber_key):
             for child in self.children:
@@ -178,6 +181,9 @@ class form(Element):
 
 
 class expander(Element):
+    _slots = {"root": "", "header": "summary", "body": "details > div"}
+    _default_slot = "root"
+
     def __init__(
         self,
         label: str = "",
@@ -192,7 +198,7 @@ class expander(Element):
         Element.__init__(self, key=key, label=label, ref=ref, expanded=expanded, icon=icon, width=width, on_change=on_change)
 
     def render(self):
-        handle = st.expander(**self.props.exclude("key", "children", "ref"))
+        handle = st.expander(**self._st_props())
         self.state.handle = handle
         with render_handle(handle, self._fiber_key):
             for child in self.children:
@@ -200,6 +206,9 @@ class expander(Element):
 
 
 class popover(Element):
+    _slots = {"root": "", "trigger": "button", "label": "button p"}
+    _default_slot = "root"
+
     def __init__(
         self,
         label: str = "",
@@ -217,7 +226,7 @@ class popover(Element):
         Element.__init__(self, key=key, label=label, ref=ref, type=type, help=help, icon=icon, disabled=disabled, use_container_width=use_container_width, width=width, on_change=on_change)
 
     def render(self):
-        handle = st.popover(**self.props.exclude("key", "children", "ref"))
+        handle = st.popover(**self._st_props())
         self.state.handle = handle
         with render_handle(handle, self._fiber_key):
             for child in self.children:

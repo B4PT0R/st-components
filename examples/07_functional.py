@@ -1,5 +1,5 @@
 """
-05 - Functional Components
+07 - Functional Components
 
 Shows the @component decorator and use_state() hook as a lighter
 alternative to class-based components.
@@ -100,4 +100,4 @@ def FunctionalDemo(props):
     )
 
 
-stc.App(FunctionalDemo(), page_title="05 - Functional").render()
+stc.App(FunctionalDemo(), page_title="07 - Functional").render()

@@ -15,7 +15,7 @@ class vega_lite_chart(Element):
     def render(self):
         data = widget_child("data")
         streamlit_kwargs = dict(self.props.get("kwargs") or {})
-        streamlit_kwargs.update(self.props.exclude("key", "children", "data", "ref", "on_select", "kwargs"))
+        streamlit_kwargs.update(self._st_props("data", "on_select", "kwargs"))
         on_select = self.props.get("on_select", "ignore")
         st.vega_lite_chart(
             data,

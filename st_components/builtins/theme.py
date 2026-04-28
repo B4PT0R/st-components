@@ -448,11 +448,11 @@ class CSSEditor(Component):
         if css is None:
             return ""
         if isinstance(css, Path):
-            return css.read_text()
+            return css.read_text(encoding="utf-8")
         if isinstance(css, str):
             return css
         return "\n\n".join(
-            item.read_text() if isinstance(item, Path) else str(item)
+            item.read_text(encoding="utf-8") if isinstance(item, Path) else str(item)
             for item in css
         )
 
@@ -476,11 +476,11 @@ class CSSEditor(Component):
             if self.state.save_requested:
                 css = get_app().css
                 if isinstance(css, Path):
-                    css.write_text(self.state.text)
+                    css.write_text(self.state.text, encoding="utf-8")
                 elif isinstance(css, str):
                     candidate = Path(css)
                     if candidate.suffix == ".css" and candidate.parent.exists():
-                        candidate.write_text(self.state.text)
+                        candidate.write_text(self.state.text, encoding="utf-8")
             get_app().set_css(self.state.text)
             self.state.apply_requested = False
             self.state.save_requested = False

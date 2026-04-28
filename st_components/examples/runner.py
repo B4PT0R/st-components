@@ -5,29 +5,31 @@ from pathlib import Path
 
 
 EXAMPLE_MODULES = {
-    # Guided progression (01-16)
+    # Guided progression (01-17)
     "01_hello": "examples.01_hello",
     "02_state": "examples.02_state",
     "03_callbacks": "examples.03_callbacks",
     "04_composition": "examples.04_composition",
-    "05_elements": "examples.05_elements",
-    "06_functional": "examples.06_functional",
-    "07_refs": "examples.07_refs",
-    "08_hooks": "examples.08_hooks",
-    "09_fragments": "examples.09_fragments",
-    "10_scoped_rerun": "examples.10_scoped_rerun",
-    "11_dynamic_rendering": "examples.11_dynamic_rendering",
-    "12_context": "examples.12_context",
-    "13_flow": "examples.13_flow",
-    "14_theming": "examples.14_theming",
-    "15_multipage": "examples.15_multipage.app",
-    "16_full_data_app": "examples.16_full_data_app.app",
+    "05_styles": "examples.05_styles",
+    "06_elements": "examples.06_elements",
+    "07_functional": "examples.07_functional",
+    "08_refs": "examples.08_refs",
+    "09_hooks": "examples.09_hooks",
+    "10_fragments": "examples.10_fragments",
+    "11_scoped_rerun": "examples.11_scoped_rerun",
+    "12_dynamic_rendering": "examples.12_dynamic_rendering",
+    "13_context": "examples.13_context",
+    "14_flow": "examples.14_flow",
+    "15_theming": "examples.15_theming",
+    "16_multipage": "examples.16_multipage.app",
+    "17_full_data_app": "examples.17_full_data_app.app",
     # Legacy aliases
     "basic": "examples.01_hello",
-    "elements": "examples.05_elements",
-    "primitives": "examples.05_elements",
-    "multipage": "examples.15_multipage.app",
-    "data_dashboard": "examples.16_full_data_app.app",
+    "styles": "examples.05_styles",
+    "elements": "examples.06_elements",
+    "primitives": "examples.06_elements",
+    "multipage": "examples.16_multipage.app",
+    "data_dashboard": "examples.17_full_data_app.app",
 }
 
 

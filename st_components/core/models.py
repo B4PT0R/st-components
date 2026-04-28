@@ -730,14 +730,14 @@ class AppConfig(_PruneEmpty):
             css_path = Path.cwd() / css
             css_path.parent.mkdir(parents=True, exist_ok=True)
             if not css_path.exists():
-                css_path.write_text("")
+                css_path.write_text("", encoding="utf-8")
             data["css"] = {"path": str(css)}
         # Streamlit config
         st_config = self.get("streamlit_config")
         if st_config:
             data["streamlit_config"] = dict(st_config)
         path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_text(toml.dumps(data))
+        path.write_text(toml.dumps(data), encoding="utf-8")
 
     @classmethod
     def load_toml(cls, path=None):
@@ -746,7 +746,7 @@ class AppConfig(_PruneEmpty):
         if not path.exists():
             return cls()
         try:
-            data = toml.loads(path.read_text())
+            data = toml.loads(path.read_text(encoding="utf-8"))
         except Exception:
             return cls()
 
@@ -776,7 +776,7 @@ class AppConfig(_PruneEmpty):
                 css_file = Path.cwd() / css_path_str
                 css_file.parent.mkdir(parents=True, exist_ok=True)
                 if not css_file.exists():
-                    css_file.write_text("")
+                    css_file.write_text("", encoding="utf-8")
 
         # Streamlit config
         config_data = data.get("streamlit_config")

@@ -9,6 +9,9 @@ from ..factory import widget_callback, widget_child, widget_props
 
 
 class text_input(Element):
+    _slots = {"root": "", "input": '[data-baseweb="input"]', "label": "label"}
+    _default_slot = "input"
+
     def __init__(
         self,
         label: str | None = None,
@@ -37,6 +40,9 @@ class text_input(Element):
 
 
 class number_input(Element):
+    _slots = {"root": "", "input": '[data-baseweb="input"]', "label": "label"}
+    _default_slot = "input"
+
     def __init__(
         self,
         label: str | None = None,
@@ -64,6 +70,9 @@ class number_input(Element):
 
 
 class text_area(Element):
+    _slots = {"root": "", "input": '[data-baseweb="textarea"]', "label": "label"}
+    _default_slot = "input"
+
     def __init__(
         self,
         label: str | None = None,

@@ -1,5 +1,5 @@
 """
-07 - Hooks
+09 - Hooks
 
 Progressive introduction to every hook, one section at a time.
 Each hook is demonstrated in isolation before they combine in a final demo.
@@ -166,4 +166,4 @@ def HooksDemo(props):
     )
 
 
-stc.App(HooksDemo(), page_title="07 - Hooks").render()
+stc.App(HooksDemo(), page_title="09 - Hooks").render()

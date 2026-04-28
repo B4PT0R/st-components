@@ -8,6 +8,9 @@ from ..factory import widget_callback, widget_child, widget_props
 
 
 class file_uploader(Element):
+    _slots = {"root": "", "label": "label"}
+    _default_slot = "root"
+
     def __init__(
         self,
         label: str | None = None,
@@ -30,6 +33,9 @@ class file_uploader(Element):
 
 
 class camera_input(Element):
+    _slots = {"root": "", "label": "label"}
+    _default_slot = "root"
+
     def __init__(
         self,
         label: str | None = None,
@@ -49,6 +55,9 @@ class camera_input(Element):
 
 
 class audio_input(Element):
+    _slots = {"root": "", "label": "label"}
+    _default_slot = "root"
+
     def __init__(
         self,
         label: str | None = None,
@@ -69,6 +78,9 @@ class audio_input(Element):
 
 
 class chat_input(Element):
+    _slots = {"root": "", "input": "textarea"}
+    _default_slot = "input"
+
     def __init__(
         self,
         placeholder: str = "Your message",

@@ -20,7 +20,7 @@ from st_components.elements import (
     caption, columns, container, divider, line_chart, markdown, slider,
 )
 from examples._source import source_view
-from shared import AppSidebar, DisplayContext
+from shared import DisplayContext
 from components import Section, StatsRow
 
 
@@ -69,7 +69,6 @@ class SignalExplorer(stc.Component):
         )
 
         return container(key="page")(
-            AppSidebar(key="sidebar"),
             Section(key="header", title="Signal Explorer",
                     description="Adjust frequency and noise — or change seed/samples in the sidebar. "
                                 "Computation reruns automatically via use_memo when any input changes."),

@@ -15,7 +15,7 @@ from st_components.elements import (
 )
 
 from examples._source import source_view
-from shared import AppModeContext, AppModeData, WorkspaceSidebar, WorkspaceState
+from shared import AppChrome, AppModeContext, AppModeData, WorkspaceState
 
 
 class OverviewPage(Component):
@@ -35,14 +35,14 @@ class OverviewPage(Component):
         }
 
         return container(key="page")(
-            WorkspaceSidebar(key="workspace_sidebar"),
             title(key="title")("st-components multipage example"),
             caption(key="caption")(
                 "This page is declared inline in the entrypoint with Page(...)(OverviewPage(key=\"root\"))."
             ),
             info(key="info")(
                 "Use the top navigation to switch between this inline page and the file-backed report page. "
-                "Both pages instantiate the same sidebar component and keep it synchronized through shared state."
+                "The sidebar comes from the Router's `chrome=AppChrome` wrapper — declared once, "
+                "applied around every page. The pages themselves no longer need to instantiate it."
             ),
             columns(key="metrics")(
                 metric(key="team", label="Shared team", value=workspace.team),
@@ -57,11 +57,14 @@ class OverviewPage(Component):
                 on_change=self.sync_state("note"),
             )("Inline page note"),
             markdown(key="body")(
-                "The sidebar is declared as a reusable component and instantiated by each page. "
-                "Its inputs read and write `get_shared_state(\"workspace\")`, so the visible controls stay aligned across navigation."
-                "\n\n"
-                "A lightweight app-level context is also provided above the router and consumed both here and in the shared sidebar, "
-                "just to verify that ambient context survives normal multipage usage."
+                "The sidebar lives in `AppChrome`, the Router's chrome wrapper. "
+                "Chrome's `render()` places the active page via `*self.children` — so each page "
+                "is rendered inside the chrome's layout (path: `app.router.chrome.<page>.<source>`).\n\n"
+                "Chrome's own fiber lives at `app.router.chrome` — page-independent — so chrome "
+                "state would survive navigation naturally. The sidebar still uses "
+                "`get_shared_state(\"workspace\")` here because the values are also consumed by "
+                "page bodies (cross-cutting state), but a sidebar-only widget could use plain "
+                "`self.state` and persist across pages without `shared_state`."
             ),
             page_link(
                 key="report_link",
@@ -71,19 +74,22 @@ class OverviewPage(Component):
             ),
             json(key="snapshot")(snapshot),
             code(key="code", language="python")(
+                "class AppChrome(Component):\n"
+                "    def render(self):\n"
+                "        return container(key=\"layout\")(\n"
+                "            WorkspaceSidebar(key=\"workspace_sidebar\"),\n"
+                "            container(key=\"main\")(*self.children),  # ← active page renders here\n"
+                "        )\n\n"
                 "app = App(\n"
                 "    page_title=\"st-components multipage example\",\n"
-                "    page_icon=\":material/dashboard:\",\n"
                 "    layout=\"wide\",\n"
                 ")(\n"
                 "    AppModeContext.Provider(key=\"app_mode_scope\", data=AppModeData(mode=\"multipage-demo\"))(\n"
-                "        Router(\n"
-                "            position=\"top\",\n"
-                "        )(\n"
-                "            Page(key=\"overview\", nav_title=\"Overview\", nav_icon=\":material/home:\", default=True)(\n"
+                "        Router(position=\"top\", chrome=AppChrome)(\n"
+                "            Page(key=\"overview\", nav_title=\"Overview\", default=True)(\n"
                 "                OverviewPage(key=\"root\")\n"
                 "            ),\n"
-                "            Page(key=\"report\", nav_title=\"Report\", nav_icon=\":material/description:\")(\n"
+                "            Page(key=\"report\", nav_title=\"Report\")(\n"
                 "                \"pages/report_page.py\"\n"
                 "            ),\n"
                 "        )\n"
@@ -97,7 +103,7 @@ class OverviewPage(Component):
 
 app = App(
     AppModeContext.Provider(key="app_mode_scope", data=AppModeData(mode="multipage-demo"))(
-        Router(position="top")(
+        Router(position="top", chrome=AppChrome)(
             Page(key="overview", nav_title="Overview", nav_icon=":material/home:", default=True)(
                 OverviewPage(key="root")
             ),

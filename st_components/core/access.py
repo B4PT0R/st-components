@@ -162,6 +162,12 @@ def callback(fn):
     value.  Zero-argument callbacks are called without it — convenient for
     simple ``on_click`` handlers that don't need the value.
 
+    Captures the current ``rerun_scope`` at wrap time so that ``rerun()`` /
+    ``wait()`` calls inside the callback target the same scope as the
+    enclosing render — typically the scoped fragment that owns the widget.
+    Without this, callbacks fired by Streamlit run outside the fragment's
+    context stack and would default to the ``"app"`` scope.
+
     Returns ``None`` when *fn* is ``None``.
     """
     if fn is None:
@@ -179,9 +185,13 @@ def callback(fn):
     element_path = element._fiber_key
     wk = element.fiber.widget_key if element.fiber else None
     wants_value = _accepts_value(fn)
+    rerun_scope = ctx.current("rerun_scope", "app")
 
     def wrapped():
-        with set_context(callback={"element_path": element_path, "widget_key": wk}):
+        with set_context(
+            callback={"element_path": element_path, "widget_key": wk},
+            rerun_scope=rerun_scope,
+        ):
             value = element._current_output()
             with element.state._writable():
                 element.state.output = value

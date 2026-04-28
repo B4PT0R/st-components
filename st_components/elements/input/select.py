@@ -15,6 +15,9 @@ def _indexed_default(props):
 
 
 class radio(Element):
+    _slots = {"root": "", "label": "label"}
+    _default_slot = "root"
+
     def __init__(
         self,
         label: str | None = None,
@@ -43,6 +46,9 @@ class radio(Element):
 
 
 class selectbox(Element):
+    _slots = {"root": "", "select": '[data-baseweb="select"]', "label": "label"}
+    _default_slot = "select"
+
     def __init__(
         self,
         label: str | None = None,
@@ -73,6 +79,8 @@ class selectbox(Element):
 
 class multiselect(Element):
     _default_output_prop = "default"
+    _slots = {"root": "", "select": '[data-baseweb="select"]', "label": "label"}
+    _default_slot = "select"
 
     def __init__(
         self,
@@ -102,6 +110,8 @@ class multiselect(Element):
 
 class slider(Element):
     _default_output_prop = "value"
+    _slots = {"root": "", "label": "label"}
+    _default_slot = "root"
 
     def __init__(
         self,
@@ -129,6 +139,8 @@ class slider(Element):
 
 class select_slider(Element):
     _default_output_prop = "value"
+    _slots = {"root": "", "label": "label"}
+    _default_slot = "root"
 
     def __init__(
         self,
@@ -154,6 +166,8 @@ class select_slider(Element):
 
 class pills(Element):
     _default_output_prop = "default"
+    _slots = {"root": "", "label": "label"}
+    _default_slot = "root"
 
     def __init__(
         self,
@@ -181,6 +195,8 @@ class pills(Element):
 
 class segmented_control(Element):
     _default_output_prop = "default"
+    _slots = {"root": "", "label": "label"}
+    _default_slot = "root"
 
     def __init__(
         self,
@@ -208,6 +224,8 @@ class segmented_control(Element):
 
 class feedback(Element):
     _default_output_prop = "default"
+    _slots = {"root": ""}
+    _default_slot = "root"
 
     def __init__(
         self,

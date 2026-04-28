@@ -20,7 +20,7 @@ MULTIPAGE_DIR = Path(__file__).resolve().parents[1]
 if str(MULTIPAGE_DIR) not in sys.path:
     sys.path.insert(0, str(MULTIPAGE_DIR))
 
-from shared import AppModeContext, WorkspaceSidebar
+from shared import AppModeContext
 
 
 class ReportPage(Component):
@@ -42,13 +42,13 @@ class ReportPage(Component):
         }
 
         return container(key="page")(
-            WorkspaceSidebar(key="workspace_sidebar"),
             title(key="title")("Report page"),
             caption(key="caption")(
-                "This page lives in examples/11_multipage/pages/report_page.py and ends with get_app().render_page(...)."
+                "This page lives in examples/16_multipage/pages/report_page.py and ends with get_app().render_page(...)."
             ),
             info(key="info")(
-                "This file-backed page instantiates the same sidebar component as the overview page."
+                "This file-backed page renders inside the same `AppChrome` as the overview page — "
+                "the Router applies its chrome to file-backed pages too (via `get_app().render_page(...)`)."
             ),
             columns(key="metrics")(
                 metric(key="team", label="Shared team", value=workspace.team),
@@ -64,20 +64,19 @@ class ReportPage(Component):
                 on_change=self.sync_state("notes"),
             )("File page notes"),
             markdown(key="body")(
-                "This file is a regular Streamlit page source. "
-                "The important part is that its internal st-components paths stay in the normal tree model, "
-                "for example under `app.router.report...`."
-                "\n\n"
-                "The sidebar component is reused here without any special router API. "
-                "It stays synchronized because it reads and writes `get_shared_state(\"workspace\")`."
-                " The same app-level context also remains available here through `use_context(...)`."
+                "This file is a regular Streamlit page source — but its content still lives "
+                "inside the Router's chrome. Path: `app.router.report.chrome.root...`.\n\n"
+                "No special router API is needed here: `get_app().render_page(ReportPage(...))` "
+                "goes through the same routed-render pipeline as inline pages, so the chrome "
+                "(sidebar, layout) wraps this page automatically. Shared state and context "
+                "carry over too."
             ),
             json(key="snapshot")(snapshot),
             code(key="code", language="python")(
                 "from st_components import Component, get_app\n\n"
                 "class ReportPage(Component):\n"
                 "    def render(self):\n"
-                "        return ...\n\n"
+                "        return ...  # no need to declare the sidebar here — chrome handles it\n\n"
                 "get_app().render_page(ReportPage(key=\"root\"))"
             ),
             source_view(__file__),

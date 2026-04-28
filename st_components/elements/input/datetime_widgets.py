@@ -9,6 +9,9 @@ from ..factory import widget_callback, widget_child, widget_props
 
 
 class date_input(Element):
+    _slots = {"root": "", "input": '[data-baseweb="input"]', "label": "label"}
+    _default_slot = "input"
+
     def __init__(
         self,
         label: str | None = None,
@@ -33,6 +36,9 @@ class date_input(Element):
 
 
 class time_input(Element):
+    _slots = {"root": "", "input": '[data-baseweb="input"]', "label": "label"}
+    _default_slot = "input"
+
     def __init__(
         self,
         label: str | None = None,
@@ -55,6 +61,9 @@ class time_input(Element):
 
 
 class color_picker(Element):
+    _slots = {"root": "", "label": "label"}
+    _default_slot = "root"
+
     def __init__(
         self,
         label: str | None = None,
@@ -76,6 +85,9 @@ class color_picker(Element):
 
 
 class datetime_input(Element):
+    _slots = {"root": "", "input": '[data-baseweb="input"]', "label": "label"}
+    _default_slot = "input"
+
     def __init__(
         self,
         label: str | None = None,

@@ -19,7 +19,7 @@ from st_components.elements import (
     button, columns, container, divider, line_chart, markdown, slider,
 )
 from examples._source import source_view
-from shared import AppSidebar, DisplayContext
+from shared import DisplayContext
 from components import Section, StatsRow
 
 
@@ -71,7 +71,6 @@ class RegressionPlayground(stc.Component):
         slope_error = round(abs(computed["fitted_slope"] - self.state.true_slope), 3)
 
         return container(key="page")(
-            AppSidebar(key="sidebar"),
             Section(key="header", title="Regression Playground",
                     description="Set the true slope and noise — or change seed/samples in the sidebar."),
             columns(key="controls")(

@@ -12,4 +12,4 @@ class line_chart(Element):
         Element.__init__(self, key=key, data=data, ref=ref, x=x, y=y, x_label=x_label, y_label=y_label, color=color, width=width, height=height, use_container_width=use_container_width)
 
     def render(self):
-        st.line_chart(widget_child("data"), **self.props.exclude("key", "children", "data", "ref"))
+        st.line_chart(widget_child("data"), **self._st_props("data"))

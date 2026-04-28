@@ -376,7 +376,7 @@ class App(Component):
         if not config_path.exists():
             return None, None
         try:
-            data = toml.loads(config_path.read_text())
+            data = toml.loads(config_path.read_text(encoding="utf-8"))
         except Exception:
             return None, None
 
@@ -449,7 +449,7 @@ class App(Component):
     @staticmethod
     def _write_toml(path, updates):
         """Merge *updates* into a TOML file, writing only if changed."""
-        existing_text = path.read_text() if path.exists() else ""
+        existing_text = path.read_text(encoding="utf-8") if path.exists() else ""
         existing_config = toml.loads(existing_text) if existing_text.strip() else {}
         rendered_config = dict(existing_config)
         for key, value in updates.items():
@@ -457,7 +457,7 @@ class App(Component):
         rendered = toml.dumps(rendered_config)
         if rendered != existing_text:
             path.parent.mkdir(parents=True, exist_ok=True)
-            path.write_text(rendered)
+            path.write_text(rendered, encoding="utf-8")
 
     def _persist_toml_section(self, updates):
         """Merge *updates* into .streamlit/config.toml."""
@@ -498,12 +498,17 @@ class App(Component):
 
     def _apply_theme_runtime(self):
         theme = self._theme_dict()
+        mode = getattr(self, "color_mode", None)
         if not theme:
+            # No Theme configured — still propagate color_mode so
+            # ``set_params(color_mode="dark")`` actually flips Streamlit's
+            # appearance, even when the app hasn't declared a custom theme.
+            if mode:
+                self._set_streamlit_options("theme", {"base": mode})
             return
         if hasattr(theme, "flat"):
             # Flat top-level only — no light/dark sub-sections
-            mode = getattr(self, "color_mode", "light") or "light"
-            self._set_streamlit_options("theme", theme.flat(mode))
+            self._set_streamlit_options("theme", theme.flat(mode or "light"))
         else:
             self._set_streamlit_options("theme", theme)
 
@@ -516,11 +521,11 @@ class App(Component):
     def _read_css_source(source):
         """Resolve a single CSS source to a string."""
         if isinstance(source, Path):
-            return source.read_text()
+            return source.read_text(encoding="utf-8")
         if isinstance(source, str):
             candidate = Path(source)
             if candidate.suffix == ".css" and candidate.exists():
-                return candidate.read_text()
+                return candidate.read_text(encoding="utf-8")
             return source
         raise StcTypeError(
             f"Unsupported CSS source type: {type(source).__name__!r}. "
@@ -594,11 +599,29 @@ class App(Component):
         return self._render_with_cycle(body)
 
     def _render_routed_root(self, router, page, root, *, wrappers=None):
-        """Render a page source inside its Router→Page→Wrapper component chain."""
-        def build_router_page_tree():
-            return router._render_component_body(
-                lambda: page._render_component_body(lambda: root)
-            )
+        """Render a page source inside its Router→[Chrome]→Page→Source chain.
+
+        Path layout:
+        - **No chrome**: ``app.<router>.<page>.<source>`` — the Page fiber
+          carries the page-key context for source isolation.
+        - **With chrome**: ``app.<router>.chrome.<page>.<source>`` — Chrome
+          sits BETWEEN router and page, so its own state lives at
+          ``app.<router>.chrome`` and survives navigation between pages.
+          A private ``_RoutedSource`` wrapper takes over the page-key context
+          duty (the ``Page`` instance itself only carries navigation
+          metadata for ``st.navigation``).
+        """
+        chrome_class = router.props.get("chrome")
+
+        if chrome_class is None:
+            def build_router_page_tree():
+                return router._render_component_body(
+                    lambda: page._render_component_body(lambda: root)
+                )
+        else:
+            chrome_inst = chrome_class(key="chrome")(_RoutedSource(page=page, root=root))
+            def build_router_page_tree():
+                return router._render_component_body(lambda: chrome_inst)
 
         def body():
             current = build_router_page_tree
@@ -831,3 +854,21 @@ class App(Component):
         if len(self.children) == 1:
             return self.children[0]
         return tuple(self.children)
+
+
+class _RoutedSource(Component):
+    """Internal wrapper used by the router when ``chrome=`` is set.
+
+    Carries the active page's key into the render context so source paths
+    stay page-scoped (``app.<router>.chrome.<page>.<source>``) while the
+    chrome's own fiber lives at ``app.<router>.chrome`` — invariant across
+    navigation, so chrome-level state (search box, breadcrumbs, etc.)
+    persists naturally.
+    """
+
+    def __init__(self, *, page, root):
+        super().__init__(key=page.key)
+        self._source = root
+
+    def render(self):
+        return self._source

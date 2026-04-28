@@ -1,5 +1,5 @@
 """
-11 - Dynamic Rendering
+12 - Dynamic Rendering
 
 Every node in the tree is pilotable from callbacks via fiber overrides.
 Navigate the tree with attribute access (self.panel.results) and override
@@ -229,4 +229,4 @@ class DynamicRenderingDemo(stc.Component):
         )
 
 
-stc.App(DynamicRenderingDemo(), page_title="11 - Dynamic Rendering", layout="wide").render()
+stc.App(DynamicRenderingDemo(), page_title="12 - Dynamic Rendering", layout="wide").render()

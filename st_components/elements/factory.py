@@ -78,7 +78,7 @@ def widget_child(prop_name, default=None):
 
 def widget_props(*excluded):
     """Build the kwargs dict for the ``st.*`` call, excluding framework props."""
-    return _props().exclude("key", "children", "ref", *excluded)
+    return _props().exclude(*Element._FRAMEWORK_PROPS, *excluded)
 
 
 def widget_callback(prop_name="on_change"):
@@ -106,7 +106,7 @@ __all__ = [
 ]
 
 
-def element_factory(streamlit_fn, *, child_prop=None, callback_prop=None, default_prop=None, props_schema=None, spec_prop=None, spec_type="int", has_key=True):
+def element_factory(streamlit_fn, *, child_prop=None, callback_prop=None, default_prop=None, props_schema=None, spec_prop=None, spec_type="int", has_key=True, slots=None, default_slot=None):
     """Generate an Element subclass wrapping *streamlit_fn*.
 
     Args:
@@ -185,4 +185,7 @@ def element_factory(streamlit_fn, *, child_prop=None, callback_prop=None, defaul
     cls_attrs = {"render": render, "_default_output_prop": default_prop}
     if props_schema is not None:
         cls_attrs["__props_class__"] = props_schema
+    if slots is not None:
+        cls_attrs["_slots"] = slots
+        cls_attrs["_default_slot"] = default_slot
     return type(streamlit_fn.__name__, (Element,), cls_attrs)

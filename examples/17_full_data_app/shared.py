@@ -8,7 +8,7 @@ Demonstrates:
 """
 import st_components as stc
 from st_components.elements import (
-    caption, container, divider, markdown, metric, sidebar, slider, toggle,
+    caption, columns, container, divider, markdown, metric, sidebar, slider, toggle,
 )
 
 
@@ -72,4 +72,61 @@ class AppSidebar(stc.Component):
                 metric(key="m_seed", label="Seed", value=settings.seed),
                 metric(key="m_n", label="Samples", value=settings.n_samples),
             ),
+        )
+
+
+# ── Page chrome (sidebar + main + footer wrapped around every page) ─────────
+
+class AppFooter(stc.Component):
+    """Footer rendered around every page via AppChrome."""
+
+    def render(self):
+        return container(key="footer")(
+            divider(key="rule"),
+            columns(key="cols")(
+                container(key="brand")(
+                    markdown(key="title")("**Data Explorer**"),
+                    caption(key="tagline")(
+                        "st-components full data-app demo."
+                    ),
+                ),
+                container(key="resources")(
+                    markdown(key="title")("**Resources**"),
+                    markdown(key="docs")(
+                        "[Documentation](https://github.com/B4PT0R/st-components#readme)"
+                    ),
+                    markdown(key="examples")(
+                        "[All examples](https://github.com/B4PT0R/st-components/tree/main/examples)"
+                    ),
+                ),
+                container(key="about")(
+                    markdown(key="title")("**About**"),
+                    caption(key="data")(
+                        "Synthetic data computed in-process via numpy."
+                    ),
+                    caption(key="license")("Released under the MIT License."),
+                ),
+            ),
+            divider(key="bottom_rule"),
+            caption(key="copyright")(
+                "© 2026 · footer rendered once by `AppChrome`, shown around every page."
+            ),
+        )
+
+
+class AppChrome(stc.Component):
+    """Page chrome — Router instantiates this around every page source.
+
+    Lives at fiber path ``app.router.chrome``, page-independent: chrome
+    state survives navigation between pages naturally. The active page
+    renders inside `*self.children` (path:
+    ``app.router.chrome.<page>.<source>``). Sidebar and footer are
+    declared here once instead of being repeated by each page.
+    """
+
+    def render(self):
+        return container(key="layout")(
+            AppSidebar(key="sidebar"),
+            container(key="main")(*self.children),
+            AppFooter(key="footer"),
         )

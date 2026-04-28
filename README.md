@@ -84,6 +84,7 @@ This short demo already shows the basic idea:
 - [App](#app)
 - [Theming](#theming)
 - [Built-ins](#built-ins)
+- [Styling](#styling)
 - [Examples](#examples)
 - [Usage Guidelines](#usage-guidelines)
   - [Keep keys local and boring](#keep-keys-local-and-boring)
@@ -209,6 +210,7 @@ An `Element` is a render primitive.
 - Its `render()` method returns nothing
 - The actual value of the widget, if any, lives in `st.session_state`, accessible via `self.child_key.state().output` from a parent, or `ref.state().output`.
 - You can't declare a custom state on it.
+- Every Element accepts a `style=` dict for inline styling scoped to that one instance — see [Styling](#styling).
 
 You'll generally use ready-made elements from `st_components.elements` (all streamlit widgets can be found there) and won't have to bother how they are implemented, unless you want to wrap a custom or third-party widget. 
 
@@ -638,6 +640,8 @@ Without `scoped=True`, `fragment` is transparent grouping (like React's `<Fragme
 `rerun()` and `wait()` are automatically scoped to the current fragment. Each scoped fragment has its own independent timeline.
 
 ```python
+from st_components import rerun, wait
+
 rerun()                  # current scope (fragment or app)
 rerun(scope="app")       # force full app rerun
 rerun(wait=1.5)          # rerun after delay
@@ -685,6 +689,95 @@ Router(key="router", position="sidebar")(
 
 Pages can be component classes, instances, callables, or file paths.
 
+#### Shared chrome with `chrome=`
+
+For sidebar / header / footer common to every page, pass a Component class via `chrome=`. The class wraps each rendered page — it receives the page source as `*self.children` and places it wherever it wants:
+
+```python
+class AppChrome(Component):
+    def render(self):
+        return container(key="layout")(
+            sidebar(key="sb")(NavLinks(key="nav")),
+            container(key="main")(*self.children),  # ← active page renders here
+            caption(key="ft")("© 2026"),
+        )
+
+App()(
+    Router(key="router", chrome=AppChrome)(
+        Page(key="home", default=True)(HomePage(key="root")),
+        Page(key="settings")(SettingsPage(key="root")),
+    )
+).render()
+```
+
+Path layout: `app.router.chrome.<page>.<source>`. Chrome's own fiber lives at `app.router.chrome` — **page-independent, so chrome state survives navigation between pages**. A global search box, a theme toggle, breadcrumbs with history all just work via local `self.state` without needing `shared_state`. The active page's source still nests under the page key inside chrome, preserving per-page source state isolation.
+
+`chrome=` accepts a `Component` subclass (not an instance — the framework instantiates it for you). It applies to both inline page sources and file-backed pages (those calling `get_app().render_page(...)`).
+
+## Styling
+
+Every Element accepts a `style=` dict. The framework wraps it in a keyed `st.container` (which Streamlit emits as a `.st-key-<scope>` wrapper class) and injects a scoped `<style>` block — rules apply to **this instance only**, never leaking to other elements of the same type.
+
+```python
+button(key="cta", type="primary", style={
+    "backgroundColor": "tomato",
+    "borderRadius": "12px",
+    "&:hover": {"transform": "scale(1.05)"},
+})("Click me")
+```
+
+### Slots
+
+Streamlit elements aren't atomic DOM nodes — a button is `<div><button><p>label</p></button></div>`, an input is wrapped in BaseWeb divs, etc. Each Element class declares named slots mapping to inner CSS selectors, so you target the right node by intent:
+
+| Element family | Default slot | Other slots |
+|---|---|---|
+| `markdown`, `caption`, `latex` | `text` (the `<p>`) | `root`, `body` (tight wrapper around content) |
+| `button` family | `button` | `root`, `label` |
+| `text_input`, `number_input`, date inputs | `input` (BaseWeb wrapper) | `root`, `label` |
+| `text_area`, `chat_input` | `input` (textarea wrapper) | `root`, `label` |
+| `selectbox`, `multiselect` | `select` | `root`, `label` |
+| `metric` | `root` | `label`, `value`, `delta` |
+| `container`, `columns`, `tabs`, `form`, alerts | `root` | — |
+
+### Three forms of dict keys
+
+| Form | Effect |
+|---|---|
+| `"backgroundColor": "red"` | CSS property → applied to the **default slot** |
+| `"label": {...}` | matches a slot name → rule on that slot |
+| `"&:hover": {...}` | CSS selector with `&` (= scope wrapper) — for `:hover`, `:focus-within`, etc. |
+| `"& > div": {...}` | descendant selector for advanced cases |
+
+### Reusable styled components
+
+Wrap a styled Element inside your own `Component` class to expose a clean, prop-driven API — same idea as styled-components in React:
+
+```python
+class Tag(Component):
+    PALETTE = {"green": ("#dcfce7", "#166534"), "red": ("#fee2e2", "#991b1b"), ...}
+
+    def render(self):
+        bg, fg = self.PALETTE[self.props.get("color", "green")]
+        label = self.children[0] if self.children else ""
+        return markdown(key="tag", style={
+            "body": {                              # tight wrapper around <p>
+                "display": "inline-block",
+                "backgroundColor": bg,
+                "padding": "0.25rem 0.75rem",
+                "borderRadius": "999px",
+            },
+            "color": fg, "fontSize": "0.8rem",     # default slot = <p>
+            "fontWeight": "600", "lineHeight": "1.4", "margin": "0",
+        })(label)
+
+Tag(key="t", color="green")("Stable")
+```
+
+See [`examples/05_styles.py`](examples/05_styles.py) for a guided tour.
+
+> **Note** — slot selectors target Streamlit's internal DOM (BaseWeb wrappers, `data-testid` attributes). Streamlit doesn't formally guarantee these between versions; pin a known-good Streamlit version for production-critical visuals, and the `&`-relative escape hatch lets you write any CSS selector when needed.
+
 ## Examples
 
 The `examples/` directory contains numbered, self-contained Streamlit apps forming a guided progression:
@@ -700,18 +793,19 @@ python -m st_components.examples --list
 | 02 | `02_state` | Typed State, multi-field state, fiber persistence |
 | 03 | `03_callbacks` | on_change receives the value, sync_state shortcut |
 | 04 | `04_composition` | Children, nesting, layout, reusable building blocks |
-| 05 | `05_elements` | Catalog of every built-in element wrapper |
-| 06 | `06_functional` | @component decorator, use_state, class vs functional |
-| 07 | `07_refs` | self.ref, self.parent, self.root, attribute navigation, fiber overrides |
-| 08 | `08_hooks` | use_memo, use_effect, use_ref, use_callback, use_previous, use_id |
-| 09 | `09_fragments` | fragment, scoped re-rendering, run_every, nested fragments |
-| 10 | `10_scoped_rerun` | rerun, wait, independent per-fragment rerun timelines |
-| 11 | `11_dynamic_rendering` | self.child navigation, fiber overrides, Ref.parent, column/tab scoping |
-| 12 | `12_context` | create_context, Provider, use_context — no prop drilling |
-| 13 | `13_flow` | Conditional, KeepAlive, Case, Switch/Match/Default |
-| 14 | `14_theming` | ThemeEditorButton, live theme customization |
-| 15 | `15_multipage` | Router, Page, shared state, file-backed pages |
-| 16 | `16_full_data_app` | Multipage data-science app — all features combined |
+| 05 | `05_styles` | Inline `style=` dict, slot-based targeting, scoped CSS, pseudo-classes |
+| 06 | `06_elements` | Catalog of every built-in element wrapper |
+| 07 | `07_functional` | @component decorator, use_state, class vs functional |
+| 08 | `08_refs` | self.ref, self.parent, self.root, attribute navigation, fiber overrides |
+| 09 | `09_hooks` | use_memo, use_effect, use_ref, use_callback, use_previous, use_id |
+| 10 | `10_fragments` | fragment, scoped re-rendering, run_every, nested fragments |
+| 11 | `11_scoped_rerun` | rerun, wait, independent per-fragment rerun timelines |
+| 12 | `12_dynamic_rendering` | self.child navigation, fiber overrides, Ref.parent, column/tab scoping |
+| 13 | `13_context` | create_context, Provider, use_context — no prop drilling |
+| 14 | `14_flow` | Conditional, KeepAlive, Case, Switch/Match/Default |
+| 15 | `15_theming` | ThemeEditorButton, live theme customization |
+| 16 | `16_multipage` | Router, Page, chrome wrapper, shared state, file-backed pages |
+| 17 | `17_full_data_app` | Multipage data-science app — all features combined |
 
 You can also run files directly: `streamlit run examples/01_hello.py`.
 
@@ -742,7 +836,7 @@ If you need custom state shared across several components, declare it once with 
 
 ### Think in paths/refs, not instances
 
-Because every rerun recreates the tree, the stable identity of a component is its location in the tree materialized as a resolved path, or a `Ref` pointing to it, not the Python object from a previous run.
+Because every rerun recreates the tree, the stable identity of a component is its location in the tree materialized as a resolved path, or a `Ref` object pointing to it, not the Python object from a previous run.
 
 Component instances are short-lived and not persisted, they won't survive the current render cycle. They will be discarded in the garbage collector at the end of it.
 
@@ -756,7 +850,7 @@ This is why component coordination should preferably use the dedicated API:
 - `self.child_key.state()` to read a child's state from a callback
 - context for ambient values shared by one subtree
 - shared state for app-level coordination
-- explicit `Ref()` + `ref=` prop only when you need cross-branch reachability (sibling to sibling)
+- explicit `Ref()` + `ref=` prop only when you need more explicit or cross-branch reachability (sibling to sibling)
 
 Any custom data that's attached only on the instance will die with it at the end of the current cyle.
 

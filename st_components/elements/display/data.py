@@ -9,6 +9,9 @@ from ..factory import widget_child
 
 
 class dataframe(Element):
+    _slots = {"root": ""}
+    _default_slot = "root"
+
     def __init__(
         self,
         data: Any = None,
@@ -35,11 +38,14 @@ class dataframe(Element):
             widget_child("data"),
             key=widget_key(),
             on_select=callback(on_select) if callable(on_select) else on_select,
-            **self.props.exclude("key", "children", "data", "ref", "on_select"),
+            **self._st_props("data", "on_select"),
         )
 
 
 class table(Element):
+    _slots = {"root": "", "table": "table"}
+    _default_slot = "root"
+
     def __init__(
         self,
         data: Any = None,
@@ -55,10 +61,18 @@ class table(Element):
         Element.__init__(self, key=key, ref=ref, data=data, border=border, width=width, height=height, hide_index=hide_index, hide_header=hide_header)
 
     def render(self):
-        st.table(widget_child("data"), **self.props.exclude("key", "children", "data", "ref"))
+        st.table(widget_child("data"), **self._st_props("data"))
 
 
 class metric(Element):
+    _slots = {
+        "root": "",
+        "label": '[data-testid="stMetricLabel"]',
+        "value": '[data-testid="stMetricValue"]',
+        "delta": '[data-testid="stMetricDelta"]',
+    }
+    _default_slot = "root"
+
     def __init__(
         self,
         label: str = "",
@@ -82,4 +96,4 @@ class metric(Element):
         Element.__init__(self, key=key, label=label, ref=ref, value=value, delta=delta, delta_color=delta_color, help=help, label_visibility=label_visibility, border=border, width=width, height=height, chart_data=chart_data, chart_type=chart_type, delta_arrow=delta_arrow, format=format, delta_description=delta_description)
 
     def render(self):
-        st.metric(widget_child("label", ""), **self.props.exclude("key", "children", "label", "ref"))
+        st.metric(widget_child("label", ""), **self._st_props("label"))

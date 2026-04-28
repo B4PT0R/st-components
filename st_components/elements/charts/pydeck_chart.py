@@ -19,5 +19,5 @@ class pydeck_chart(Element):
             pydeck_obj,
             key=widget_key(),
             on_select=callback(on_select) if callable(on_select) else on_select,
-            **self.props.exclude("key", "children", "pydeck_obj", "ref", "on_select"),
+            **self._st_props("pydeck_obj", "on_select"),
         )

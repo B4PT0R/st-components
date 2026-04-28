@@ -12,4 +12,4 @@ class graphviz_chart(Element):
         Element.__init__(self, key=key, figure_or_dot=figure_or_dot, ref=ref, use_container_width=use_container_width, width=width, height=height)
 
     def render(self):
-        st.graphviz_chart(widget_child("figure_or_dot"), **self.props.exclude("key", "children", "figure_or_dot", "ref"))
+        st.graphviz_chart(widget_child("figure_or_dot"), **self._st_props("figure_or_dot"))

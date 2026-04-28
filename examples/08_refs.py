@@ -1,5 +1,5 @@
 """
-07 - Refs
+08 - Refs
 
 Shows how to navigate the component tree and interact with any node
 via Ref objects — lightweight path-based cursors on the fiber tree.
@@ -213,4 +213,4 @@ class RefsDemo(stc.Component):
         )
 
 
-stc.App(RefsDemo(), page_title="07 - Refs").render()
+stc.App(RefsDemo(), page_title="08 - Refs").render()

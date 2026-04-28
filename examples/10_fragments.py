@@ -1,5 +1,5 @@
 """
-08 - Fragments
+10 - Fragments
 
 Shows the fragment element for grouping and scoped re-rendering.
 Introduces: fragment, scoped, run_every, nested fragments.
@@ -201,4 +201,4 @@ class FragmentDemo(stc.Component):
         )
 
 
-stc.App(FragmentDemo(), page_title="08 - Fragments", layout="wide").render()
+stc.App(FragmentDemo(), page_title="10 - Fragments", layout="wide").render()

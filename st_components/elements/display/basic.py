@@ -14,7 +14,7 @@ class write(Element):
             self.children = list(children)
 
     def render(self):
-        st.write(*self.children, **self.props.exclude("key", "children", "ref"))
+        st.write(*self.children, **self._st_props())
 
 
 class json(Element):
@@ -22,7 +22,7 @@ class json(Element):
         Element.__init__(self, key=key, body=body, ref=ref, expanded=expanded, width=width)
 
     def render(self):
-        st.json(widget_child("body"), **self.props.exclude("key", "children", "body", "ref"))
+        st.json(widget_child("body"), **self._st_props("body"))
 
 
 class html(Element):
@@ -30,7 +30,7 @@ class html(Element):
         Element.__init__(self, key=key, body=body, ref=ref, width=width, unsafe_allow_javascript=unsafe_allow_javascript)
 
     def render(self):
-        st.html(widget_child("body", ""), **self.props.exclude("key", "children", "body", "ref"))
+        st.html(widget_child("body", ""), **self._st_props("body"))
 
 
 class iframe(Element):
@@ -38,7 +38,7 @@ class iframe(Element):
         Element.__init__(self, key=key, src=src, ref=ref, width=width, height=height, tab_index=tab_index)
 
     def render(self):
-        st.iframe(widget_child("src"), **self.props.exclude("key", "children", "src", "ref"))
+        st.iframe(widget_child("src"), **self._st_props("src"))
 
 
 class pdf(Element):
@@ -46,15 +46,18 @@ class pdf(Element):
         Element.__init__(self, key=key, data=data, ref=ref, height=height)
 
     def render(self):
-        st.pdf(widget_child("data"), key=KEY("raw"), **self.props.exclude("key", "children", "data", "ref"))
+        st.pdf(widget_child("data"), key=KEY("raw"), **self._st_props("data"))
 
 
 class exception(Element):
+    _slots = {"root": "", "message": "p"}
+    _default_slot = "root"
+
     def __init__(self, exception: BaseException | None = None, width: WidthWithoutContent = "stretch", *, key: str, ref: Ref | None = None):
         Element.__init__(self, key=key, exception=exception, ref=ref, width=width)
 
     def render(self):
-        st.exception(widget_child("exception"), **self.props.exclude("key", "children", "exception", "ref"))
+        st.exception(widget_child("exception"), **self._st_props("exception"))
 
 
 class help(Element):
@@ -62,7 +65,7 @@ class help(Element):
         Element.__init__(self, key=key, obj=obj, ref=ref, width=width)
 
     def render(self):
-        st.help(widget_child("obj"), **self.props.exclude("key", "children", "obj", "ref"))
+        st.help(widget_child("obj"), **self._st_props("obj"))
 
 
 class write_stream(Element):
@@ -71,5 +74,5 @@ class write_stream(Element):
 
     def render(self):
         from ...core.access import widget_key
-        result = st.write_stream(widget_child("stream"), **self.props.exclude("key", "children", "stream", "ref"))
+        result = st.write_stream(widget_child("stream"), **self._st_props("stream"))
         st.session_state[widget_key()] = result

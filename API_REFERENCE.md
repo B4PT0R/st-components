@@ -24,6 +24,7 @@ Comprehensive reference for the `st-components` public API.
 - [Flow Helpers](#flow-helpers)
 - [Router / Page](#router--page)
 - [Theming](#theming)
+- [Inline Styles](#inline-styles)
 - [Elements Catalog](#elements-catalog)
 - [Writing Custom Elements](#writing-custom-elements)
 - [Fiber (Internals)](#fiber-internals)
@@ -161,14 +162,23 @@ Terminal node that renders a Streamlit widget.
 
 ```python
 class my_widget(Element):
-    _default_output_prop = "value"  # auto get_output
+    _default_output_prop = "value"           # auto get_output
+    _slots = {"root": "", "input": "input"}  # CSS slot map for style=
+    _default_slot = "input"                  # bare CSS props land here
+
+    def __init__(self, *, key, value="", on_change=None, **kw):
+        Element.__init__(self, key=key, value=value, on_change=on_change, **kw)
 
     def render(self):
-        st.my_widget(widget_child("label"), key=widget_key(), ...)
+        st.my_widget(widget_child("label"), key=widget_key(),
+                     on_change=widget_callback(),
+                     **self._st_props("label", "on_change"))
 ```
 
 `render()` must return `None`.  Widget output exposed via `state.output`.
 Container handles exposed via `state.handle`.
+
+Every Element subclass automatically accepts `style=` (a dict — see [Inline Styles](#inline-styles)).  The framework filters `style`, `key`, `children`, `ref` from the props that flow to the underlying `st.*` call via `self._st_props(*element_specific)` — single source of truth for framework-managed props.
 
 
 [↑ Back to top](#table-of-contents)
@@ -584,6 +594,35 @@ App(
 ).render()
 ```
 
+`Router` accepts:
+
+- `position` — `"sidebar"` (default), `"top"`, or `"hidden"`
+- `expanded` — sidebar nav initially expanded (`bool`)
+- `chrome` — a `Component` subclass that wraps every active page (sidebar / footer / common layout)
+
+### Chrome
+
+`chrome=` declares a per-app layout wrapper instantiated around the active page.  The page source becomes `*self.children` in the chrome's render — the chrome decides where to place it.
+
+```python
+class AppChrome(Component):
+    def render(self):
+        return container(key="layout")(
+            sidebar(key="sb")(NavLinks(key="nav")),
+            container(key="main")(*self.children),  # active page renders here
+            caption(key="ft")("© 2026"),
+        )
+
+Router(chrome=AppChrome)(
+    Page(key="home", default=True)(HomePage(key="root")),
+    Page(key="settings")(SettingsPage(key="root")),
+)
+```
+
+**Path layout**: `app.<router>.chrome.<page>.<source>`.  Chrome's own fiber lives at `app.<router>.chrome` — page-independent, so chrome state survives navigation between pages.  Local `self.state` on chrome widgets persists naturally without needing `shared_state`.  The active page's source still nests under the page key inside chrome, preserving per-page source-state isolation.
+
+`chrome=` accepts a `Component` subclass (not an instance — the framework instantiates it for you).  Applies to both inline page sources and file-backed pages (`get_app().render_page(...)`).
+
 
 [↑ Back to top](#table-of-contents)
 
@@ -610,6 +649,85 @@ app.save_theme()  # persists to .streamlit/stc-config.toml
 # Built-in editor
 ThemeEditorButton(key="edit")("Edit theme")
 ```
+
+`color_mode` works without a custom `Theme=` too: when set, it propagates to Streamlit's `theme.base` config option, so `app.set_params(color_mode="dark")` flips Streamlit's appearance even in apps that haven't declared their own theme.
+
+
+[↑ Back to top](#table-of-contents)
+
+---
+
+## Inline Styles
+
+Every Element accepts a `style=` dict.  At render time the framework wraps the element in `st.container(key=<scope>)` (Streamlit emits `.st-key-<scope>` on the wrapper) and injects a scoped `<style>` block — rules apply to that one instance, never leaking to other elements of the same type.
+
+```python
+button(key="cta", style={
+    "backgroundColor": "tomato",
+    "color": "white",
+    "borderRadius": "12px",
+    "&:hover": {"transform": "scale(1.05)"},
+})("Click")
+```
+
+### Slots
+
+Streamlit elements aren't atomic DOM nodes.  Each Element class declares `_slots` mapping logical names to inner CSS selectors so users target the right node by intent.
+
+```python
+class text_input(Element):
+    _slots = {"root": "", "input": '[data-baseweb="input"]', "label": "label"}
+    _default_slot = "input"
+```
+
+Default slots for the most-styled elements:
+
+| Element | Default | Other slots |
+|---|---|---|
+| `markdown`, `caption`, `latex` | `text` (`p`) | `root`, `body` (`[data-testid="stMarkdownContainer"]`) |
+| `code` | `code` | `root`, `pre` |
+| `title`, `header`, `subheader` | `heading` (`h1`/`h2`/`h3`) | `root` |
+| `divider`, `badge` | `rule` / `badge` | `root` |
+| `button`, `download_button`, `form_submit_button`, `menu_button` | `button` | `root`, `label` (`button p`) |
+| `link_button` | `link` (`a`) | `root`, `label` |
+| `text_input`, `number_input`, `date_input`, `time_input`, `datetime_input` | `input` (`[data-baseweb="input"]`) | `root`, `label` |
+| `text_area` | `input` (`[data-baseweb="textarea"]`) | `root`, `label` |
+| `chat_input` | `input` (`textarea`) | `root` |
+| `selectbox`, `multiselect` | `select` (`[data-baseweb="select"]`) | `root`, `label` |
+| `radio`, `slider`, `select_slider`, `pills`, `segmented_control`, `checkbox`, `toggle`, `color_picker`, `file_uploader`, `camera_input`, `audio_input` | `root` | `label` |
+| `metric` | `root` | `label`, `value`, `delta` (testid-targeted) |
+| `success`, `info`, `warning`, `error`, `toast`, `exception` | `root` | `message` (`p`) |
+| `container`, `columns`, `tabs`, `form`, `expander`, `popover`, etc. | `root` | — |
+
+### Three forms of dict keys
+
+| Form | Effect |
+|---|---|
+| `"backgroundColor": "red"` | CSS property → applied to the **default slot** |
+| `"label": {...}` | matches a slot name → rule on that slot |
+| `"&:hover": {...}` | CSS selector with `&` (= scope wrapper) — for `:hover`, `:focus-within`, etc. |
+| `"& > div": {...}` | descendant selector — escape hatch for advanced cases |
+
+Slot names take precedence over selector heuristics: `style={"input": {...}}` on a `text_input` resolves via the slot map even though `input` is a valid HTML selector.  Inside a nested dict, slot lookup does not recurse — bare keys become plain CSS selectors at the nested scope.
+
+### Lower-level helpers
+
+```python
+from st_components.core.style import compile_style, style_scope_key
+
+# Compile a style dict to scoped CSS text
+css = compile_style(style_dict, scope_selector,
+                    slots={"root": "", "input": "input"},
+                    default_slot="input")
+
+# Derive a CSS-safe scope key from an element's fiber path
+scope = style_scope_key("app.page.button.raw")
+# → "stcstyle__app__page__button__raw"
+```
+
+### Caveat
+
+Slot selectors target Streamlit's internal DOM (BaseWeb wrappers, `data-testid` attributes).  Streamlit doesn't formally guarantee these between versions; pin a known-good Streamlit version for production-critical visuals, and use the `&`-relative escape hatch (`"& [data-something]:focus": {...}`) when you need precise control.
 
 
 [↑ Back to top](#table-of-contents)
@@ -640,8 +758,12 @@ All Streamlit widgets are wrapped in `st_components.elements`:
 **Quick path** — `element_factory`:
 
 ```python
-text_input = element_factory(st.text_input,
-    child_prop="label", callback_prop="on_change", default_prop="value")
+text_input = element_factory(
+    st.text_input,
+    child_prop="label", callback_prop="on_change", default_prop="value",
+    slots={"root": "", "input": '[data-baseweb="input"]', "label": "label"},
+    default_slot="input",
+)
 ```
 
 **Full path** — subclass `Element`:
@@ -649,17 +771,40 @@ text_input = element_factory(st.text_input,
 ```python
 class my_widget(Element):
     _default_output_prop = "value"
+    # Optional: declare slots so style= targets the right inner DOM node
+    _slots = {"root": "", "input": "input", "label": "label"}
+    _default_slot = "input"
 
     def __init__(self, *, key, value="", on_change=None, **kw):
         Element.__init__(self, key=key, value=value, on_change=on_change, **kw)
 
     def render(self):
-        st.my_widget(widget_child("label"), key=widget_key(),
-                     on_change=widget_callback(), **widget_props("label", "on_change"))
+        # _st_props filters framework-managed props (key/children/ref/style)
+        # plus any element-specific names you consume via dedicated paths
+        # (label, callbacks, …)
+        st.my_widget(
+            widget_child("label"),
+            key=widget_key(),
+            on_change=widget_callback(),
+            **self._st_props("label", "on_change"),
+        )
 ```
 
-Helper imports from `st_components.elements.factory`:
-`Element`, `element_factory`, `callback`, `widget_callback`, `widget_child`, `widget_key`, `widget_output`, `widget_props`, `render_handle`, `get_render_target`
+### Framework-managed props
+
+`Element._FRAMEWORK_PROPS` is the single source of truth for props the framework consumes itself and never forwards to `st.*`:
+
+```python
+class Element(Component):
+    _FRAMEWORK_PROPS = frozenset({"key", "children", "ref", "style"})
+```
+
+Both `self._st_props(*element_specific)` (instance method) and `widget_props(*element_specific)` (factory helper) filter this set + any element-specific names you pass.  Adding a new framework-managed prop only requires extending the frozenset.
+
+### Helper imports
+
+From `st_components.elements.factory`:
+`Element`, `element_factory`, `callback`, `widget_callback`, `widget_child`, `widget_key`, `widget_output`, `widget_props`, `render_handle`, `get_render_target`.
 
 
 [↑ Back to top](#table-of-contents)

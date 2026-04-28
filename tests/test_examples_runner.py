@@ -15,18 +15,19 @@ from st_components.examples.runner import (
 
 def test_examples_runner_resolves_known_example():
     assert resolve_example_module("01_hello") == "examples.01_hello"
-    assert resolve_example_module("multipage") == "examples.15_multipage.app"
+    assert resolve_example_module("multipage") == "examples.16_multipage.app"
 
 
 def test_examples_runner_lists_expected_examples():
     names = available_examples()
     assert "01_hello" in names
-    assert "05_elements" in names
-    assert "08_hooks" in names
-    assert "09_fragments" in names
-    assert "10_scoped_rerun" in names
-    assert "11_dynamic_rendering" in names
-    assert "15_multipage" in names
+    assert "05_styles" in names
+    assert "06_elements" in names
+    assert "09_hooks" in names
+    assert "10_fragments" in names
+    assert "11_scoped_rerun" in names
+    assert "12_dynamic_rendering" in names
+    assert "16_multipage" in names
 
 
 def test_examples_runner_builds_streamlit_command():
@@ -51,7 +52,7 @@ def test_examples_join_resolves_packaged_assets():
 
 
 def test_elements_example_covers_public_elements():
-    module = ast.parse(Path("examples/05_elements.py").read_text())
+    module = ast.parse(Path("examples/06_elements.py").read_text(encoding="utf-8"))
     primitive_keys = set()
     demo_keys = set()
 

@@ -12,4 +12,4 @@ class map(Element):
         Element.__init__(self, key=key, data=data, ref=ref, latitude=latitude, longitude=longitude, color=color, size=size, zoom=zoom, width=width, height=height, use_container_width=use_container_width)
 
     def render(self):
-        st.map(widget_child("data"), **self.props.exclude("key", "children", "data", "ref"))
+        st.map(widget_child("data"), **self._st_props("data"))

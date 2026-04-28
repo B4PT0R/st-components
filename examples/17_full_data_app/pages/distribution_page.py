@@ -21,7 +21,7 @@ from st_components.elements import (
     altair_chart, caption, columns, container, divider, markdown, selectbox, slider,
 )
 from examples._source import source_view
-from shared import AppSidebar, DisplayContext
+from shared import DisplayContext
 from components import Section, StatsRow
 
 DISTRIBUTIONS = ["Normal", "Exponential", "Uniform", "Bimodal"]
@@ -91,7 +91,6 @@ class DistributionAnalyzer(stc.Component):
         )
 
         return container(key="page")(
-            AppSidebar(key="sidebar"),
             Section(key="header", title="Distribution Analyzer",
                     description="Pick a distribution and adjust parameters — or change seed/samples in the sidebar."),
             columns(key="controls")(

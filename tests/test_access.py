@@ -312,3 +312,85 @@ def test_reset_element_on_missing_fiber_does_not_raise():
     reset_element("nonexistent.element")
     key = widget_key("nonexistent.element")
     assert "#1" in key
+
+
+# ---------------------------------------------------------------------------
+# callback captures rerun_scope at wrap time (regression test)
+# ---------------------------------------------------------------------------
+
+def test_callback_captures_rerun_scope_at_wrap_time():
+    """When a callback is wrapped inside a scoped fragment's render, it must
+    remember that fragment's ``rerun_scope`` so that ``rerun()`` / ``wait()``
+    calls fired by Streamlit later (outside the fragment's context) still
+    target the correct scope.
+
+    Otherwise rerun(wait=...) inside a fragment-scoped callback would silently
+    fall back to the ``"app"`` scope and either block the whole app or never
+    reach the fragment's ``check_rerun()``.
+    """
+    captured_in_callback = []
+
+    # Build the wrapped callback while a fragment scope is active in context
+    btn = _make_button_runner()
+
+    class Form(Component):
+        def on_click(self):
+            # When the callback fires, the rerun_scope from wrap time must
+            # still be visible in context — even if we're no longer inside
+            # the fragment's set_context block at fire time.
+            captured_in_callback.append(ctx.current("rerun_scope", "app"))
+
+        def render(self):
+            return btn(key="b", on_click=self.on_click)("Go")
+
+    # Simulate fragment context during render
+    ctx.replace("key", [fake_ctx("app")])
+    ctx.push("rerun_scope", "app.frag.scoped")
+    try:
+        render(Form(key="form"))
+    finally:
+        ctx.pop("rerun_scope")
+        ctx.replace("key", [])
+
+    # The fake button runner fired the callback during render, while
+    # rerun_scope was still on the stack. To test the wrap-time capture
+    # specifically, we'd need to fire after pop — but the helper fires
+    # immediately. Confirm at least that the scope was visible at fire time
+    # (which is what the captured-at-wrap-time mechanism guarantees).
+    assert captured_in_callback == ["app.frag.scoped"]
+
+
+def test_callback_preserves_scope_when_fired_outside_render_context():
+    """Direct test of the wrap-time capture: build the callback inside a
+    fragment-scope context, then fire it outside that context — the scope
+    must still be reachable inside the callback body."""
+    captured = []
+
+    class Probe(Element):
+        def render(self):
+            return None  # not used here
+
+    # Manually wrap a callback while inside a rerun_scope context
+    def cb():
+        captured.append(ctx.current("rerun_scope", "app"))
+
+    ctx.replace("key", [fake_ctx("app"), fake_ctx("frag")])
+    elem = Probe(key="frag")
+    elem._fiber_key = "app.frag"
+    fibers()["app.frag"] = ElementFiber(path="app.frag", widget_key="app.frag.raw")
+
+    # Push rerun_scope and wrap the callback while it's active
+    ctx.push("rerun_scope", "app.frag.scope_id")
+    ctx.push("component", elem)
+    try:
+        wrapped = callback(cb)
+    finally:
+        ctx.pop("component")
+        ctx.pop("rerun_scope")
+        ctx.replace("key", [])
+
+    # Now fire the wrapped callback OUTSIDE the fragment's render context
+    assert ctx.current("rerun_scope", "app") == "app", "fragment scope must be popped"
+    wrapped()
+    # The callback body saw the captured scope, not the bare default
+    assert captured == ["app.frag.scope_id"]

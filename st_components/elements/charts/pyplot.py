@@ -12,4 +12,4 @@ class pyplot(Element):
         Element.__init__(self, key=key, fig=fig, ref=ref, clear_figure=clear_figure, width=width, use_container_width=use_container_width, **kwargs)
 
     def render(self):
-        st.pyplot(widget_child("fig"), **self.props.exclude("key", "children", "fig", "ref"))
+        st.pyplot(widget_child("fig"), **self._st_props("fig"))

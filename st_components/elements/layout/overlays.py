@@ -29,7 +29,7 @@ class dialog(Element):
 
         @st.dialog(
             title,
-            **self.props.exclude("key", "children", "title", "ref", "on_dismiss"),
+            **self._st_props("title", "on_dismiss"),
             on_dismiss=dismiss_callback if callable(on_dismiss) else on_dismiss,
         )
         def body():
@@ -53,7 +53,7 @@ class chat_message(Element):
         Element.__init__(self, key=key, name=name, ref=ref, avatar=avatar, width=width)
 
     def render(self):
-        handle = st.chat_message(self.props.get("name", "assistant"), **self.props.exclude("key", "children", "name", "ref"))
+        handle = st.chat_message(self.props.get("name", "assistant"), **self._st_props("name"))
         self.state.handle = handle
         with render_handle(handle, self._fiber_key):
             for child in self.children:
@@ -74,7 +74,7 @@ class status(Element):
         Element.__init__(self, key=key, label=label, ref=ref, expanded=expanded, state=state, width=width)
 
     def render(self):
-        handle = st.status(self.props.get("label", ""), **self.props.exclude("key", "children", "label", "ref"))
+        handle = st.status(self.props.get("label", ""), **self._st_props("label"))
         self.state.handle = handle
         with render_handle(handle, self._fiber_key):
             for child in self.children:

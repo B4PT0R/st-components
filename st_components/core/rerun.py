@@ -37,13 +37,24 @@ def _current_scope():
 
 
 def _st_rerun(scope):
-    """Call the real st.rerun, clearing that scope's pending state."""
+    """Call the real st.rerun, clearing that scope's pending state.
+
+    Falls back to an app-scope rerun if Streamlit rejects the fragment-scope
+    one — which can happen e.g. after a long ``time.sleep()`` in
+    ``check_rerun()`` invalidates the current fragment context.
+    """
     ss.delete(_key(scope))
     st_scope = "fragment" if scope != "app" else "app"
     kwargs = {"scope": st_scope} if st_scope == "fragment" else {}
-    if hasattr(st.rerun, "_patched"):
-        return st.rerun._original(**kwargs)
-    return st.rerun(**kwargs)
+    fn = st.rerun._original if hasattr(st.rerun, "_patched") else st.rerun
+    try:
+        return fn(**kwargs)
+    except Exception:
+        if kwargs:
+            # Fragment-scope rerun rejected — fall back to plain rerun so
+            # the app keeps working (slightly wider re-render, but no crash).
+            return fn()
+        raise
 
 
 def _merge(scope, delay, requested):

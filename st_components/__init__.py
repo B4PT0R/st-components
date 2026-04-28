@@ -81,7 +81,7 @@ def _resolve_version():
     pyproject = Path(__file__).resolve().parent.parent / "pyproject.toml"
     if pyproject.is_file():
         try:
-            return toml.loads(pyproject.read_text())["project"]["version"]
+            return toml.loads(pyproject.read_text(encoding="utf-8"))["project"]["version"]
         except Exception:
             pass
     try:

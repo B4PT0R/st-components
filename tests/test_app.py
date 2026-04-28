@@ -214,6 +214,47 @@ def test_app_set_config():
     assert app.config.client.toolbarMode == "minimal"
 
 
+def test_color_mode_propagates_to_streamlit_theme_base_without_theme():
+    """An App without a Theme= still must flip Streamlit's theme.base when
+    color_mode changes — otherwise toggling 'dark mode' looks like a no-op.
+    """
+    class Root(Component):
+        def render(self):
+            return None
+
+    app = App(color_mode="dark")(Root(key="root"))
+    app.render()
+
+    # Find the set_option call that targeted theme.base
+    calls = _mock_st.config.set_option.call_args_list
+    theme_base_calls = [c for c in calls if c.args and c.args[0] == "theme.base"]
+    assert theme_base_calls, (
+        f"expected a set_option('theme.base', 'dark') call, got {calls}"
+    )
+    assert theme_base_calls[-1].args[1] == "dark"
+
+
+def test_color_mode_change_via_set_params_flips_theme_base():
+    """``app.set_params(color_mode='dark')`` on a no-theme app must update
+    Streamlit's theme.base to 'dark'."""
+    class Root(Component):
+        def render(self):
+            return None
+
+    app = App()(Root(key="root"))
+    app.render()
+    _mock_st.config.set_option.reset_mock()
+
+    app.set_params(color_mode="dark")
+
+    calls = _mock_st.config.set_option.call_args_list
+    theme_base_calls = [c for c in calls if c.args and c.args[0] == "theme.base"]
+    assert theme_base_calls, (
+        f"expected set_option('theme.base', 'dark') after set_params, got {calls}"
+    )
+    assert theme_base_calls[-1].args[1] == "dark"
+
+
 def test_set_theme_does_not_persist_without_save(tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
 
@@ -1112,6 +1153,202 @@ def test_router_rejects_global_page_config_props():
         assert "Pass them to App" in str(err)
     else:
         raise AssertionError("Expected Router to reject global page config props")
+
+
+# ---------------------------------------------------------------------------
+# Router(chrome=...) — per-page wrapper component
+# ---------------------------------------------------------------------------
+
+def _make_fake_navigation(active_index):
+    """Patch _mock_st.Page/_mock_st.navigation to run the page at *active_index*."""
+    class FakeStreamlitPage:
+        def __init__(self, source, **kwargs):
+            self._source = source
+            self.title = kwargs.get("title") or ""
+            self.icon = kwargs.get("icon") or ""
+            self.url_path = "" if kwargs.get("default") else (kwargs.get("url_path") or self.title.lower())
+            self.visibility = kwargs.get("visibility", "visible")
+
+        def run(self):
+            return self._source() if callable(self._source) else None
+
+    _mock_st.Page.side_effect = lambda source, **kwargs: FakeStreamlitPage(source, **kwargs)
+    _mock_st.navigation.side_effect = lambda pages, **kwargs: pages[active_index]
+
+
+def test_router_chrome_rejects_instance():
+    class MyChrome(Component):
+        def render(self):
+            return None
+
+    try:
+        Router(chrome=MyChrome(key="c"))
+    except TypeError as err:
+        assert "Component subclass" in str(err)
+    else:
+        raise AssertionError("Expected Router(chrome=instance) to be rejected")
+
+
+def test_router_chrome_rejects_non_component_class():
+    class NotAComponent:
+        pass
+
+    try:
+        Router(chrome=NotAComponent)
+    except TypeError as err:
+        assert "Component subclass" in str(err)
+    else:
+        raise AssertionError("Expected Router(chrome=plain class) to be rejected")
+
+
+def test_router_chrome_rejects_router_or_page_subclass():
+    class WeirdRouter(Router):
+        pass
+
+    try:
+        Router(chrome=WeirdRouter)
+    except TypeError as err:
+        assert "Component subclass" in str(err)
+    else:
+        raise AssertionError("Expected Router(chrome=Router subclass) to be rejected")
+
+
+def test_router_chrome_accepts_component_subclass():
+    class Chrome(Component):
+        def render(self):
+            return None
+
+    # Just constructing must not raise
+    router = Router(chrome=Chrome)
+    assert router.props.chrome is Chrome
+
+
+def test_router_chrome_wraps_source_path():
+    """Chrome lives at <router>.chrome (independent of active page);
+    source nests under the page key inside chrome:
+    <router>.chrome.<page>.<source>."""
+    _make_fake_navigation(active_index=0)
+
+    class Chrome(Component):
+        def render(self):
+            return tuple(self.children)
+
+    class Home(Component):
+        def render(self):
+            return None
+
+    App()(
+        Router(chrome=Chrome)(
+            Page(key="home", nav_title="Home", default=True)(Home(key="root")),
+        )
+    ).render()
+
+    assert "app.router" in fibers()
+    assert "app.router.chrome" in fibers()           # chrome — page-independent
+    assert "app.router.chrome.home" in fibers()      # page-keyed wrapper
+    assert "app.router.chrome.home.root" in fibers() # source
+    # The Page node itself is not rendered when chrome= is set — only its
+    # navigation metadata is consumed.
+    assert "app.router.home" not in fibers()
+
+
+def test_router_chrome_runs_its_render():
+    """Chrome's render() must execute — its layout should appear around the source."""
+    _make_fake_navigation(active_index=0)
+
+    captured = []
+
+    class Chrome(Component):
+        def render(self):
+            captured.append("chrome-rendered")
+            return tuple(self.children)
+
+    class Home(Component):
+        def render(self):
+            captured.append("home-rendered")
+            return None
+
+    App()(
+        Router(chrome=Chrome)(
+            Page(key="home", nav_title="Home", default=True)(Home(key="root")),
+        )
+    ).render()
+
+    assert captured == ["chrome-rendered", "home-rendered"]
+
+
+def test_router_chrome_state_survives_navigation():
+    """Chrome's fiber path is page-independent (``app.<router>.chrome``).
+    Its state must survive navigation between pages — the whole point of
+    putting it above the page in the tree.
+    """
+
+    class Chrome(Component):
+        class S(State):
+            counter: int = 0
+
+        def render(self):
+            return tuple(self.children)
+
+    class Home(Component):
+        def render(self):
+            return None
+
+    class Settings(Component):
+        def render(self):
+            return None
+
+    # Render with home active — chrome fiber materializes
+    _make_fake_navigation(active_index=0)
+    App()(
+        Router(chrome=Chrome)(
+            Page(key="home", nav_title="Home", default=True)(Home(key="root")),
+            Page(key="settings", nav_title="Settings")(Settings(key="root")),
+        )
+    ).render()
+
+    chrome_fiber = fibers().get("app.router.chrome")
+    assert chrome_fiber is not None, "chrome fiber should exist after first render"
+    chrome_fiber.state.counter = 7  # simulate state mutation
+
+    # Source paths nest per page under chrome
+    assert "app.router.chrome.home.root" in fibers()
+    assert "app.router.chrome.settings" not in fibers()  # not yet visited
+
+    # Navigate to settings — chrome fiber must be reused (state preserved)
+    _make_fake_navigation(active_index=1)
+    App()(
+        Router(chrome=Chrome)(
+            Page(key="home", nav_title="Home", default=True)(Home(key="root")),
+            Page(key="settings", nav_title="Settings")(Settings(key="root")),
+        )
+    ).render()
+
+    chrome_fiber_after = fibers().get("app.router.chrome")
+    assert chrome_fiber_after is chrome_fiber, "chrome fiber identity must persist"
+    assert chrome_fiber_after.state.counter == 7, "chrome state must survive navigation"
+
+    # Source paths now nest under settings; home was GC'd
+    assert "app.router.chrome.settings.root" in fibers()
+    assert "app.router.chrome.home" not in fibers()
+
+
+def test_router_without_chrome_unchanged():
+    """No chrome → source renders directly under the page, no extra fiber level."""
+    _make_fake_navigation(active_index=0)
+
+    class Home(Component):
+        def render(self):
+            return None
+
+    App()(
+        Router()(
+            Page(key="home", nav_title="Home", default=True)(Home(key="root")),
+        )
+    ).render()
+
+    assert "app.router.home.root" in fibers()
+    assert "app.router.home.chrome" not in fibers()
 
 
 def test_app_shared_state_persists():

@@ -26,7 +26,7 @@ class page_link(Element):
         Element.__init__(self, key=key, page=page, ref=ref, label=label, icon=icon, icon_position=icon_position, help=help, disabled=disabled, use_container_width=use_container_width, width=width, query_params=query_params)
 
     def render(self):
-        st.page_link(widget_child("page"), **self.props.exclude("key", "children", "page", "ref"))
+        st.page_link(widget_child("page"), **self._st_props("page"))
 
 
 class logo(Element):
@@ -34,4 +34,4 @@ class logo(Element):
         Element.__init__(self, key=key, image=image, ref=ref, size=size, link=link, icon_image=icon_image)
 
     def render(self):
-        st.logo(widget_child("image"), **self.props.exclude("key", "children", "image", "ref"))
+        st.logo(widget_child("image"), **self._st_props("image"))

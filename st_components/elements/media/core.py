@@ -26,7 +26,7 @@ class image(Element):
 
     def render(self):
         image_data = self.children[0] if self.children else self.props.get("image")
-        st.image(image_data, **self.props.exclude("key", "children", "image", "ref"))
+        st.image(image_data, **self._st_props("image"))
 
 
 class audio(Element):
@@ -48,7 +48,7 @@ class audio(Element):
 
     def render(self):
         data = self.children[0] if self.children else self.props.get("data")
-        st.audio(data, **self.props.exclude("key", "children", "data", "ref"))
+        st.audio(data, **self._st_props("data"))
 
 
 class video(Element):
@@ -71,4 +71,4 @@ class video(Element):
 
     def render(self):
         data = self.children[0] if self.children else self.props.get("data")
-        st.video(data, **self.props.exclude("key", "children", "data", "ref"))
+        st.video(data, **self._st_props("data"))

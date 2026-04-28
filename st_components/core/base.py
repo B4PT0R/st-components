@@ -477,11 +477,37 @@ class Element(Component):
 
     __initial_state_class__ = ElementState
     _default_output_prop = None
+    # Props the framework consumes itself — never forward to ``st.*`` calls.
+    # Single source of truth: subclasses building their st.* kwargs should
+    # use ``self._st_props(*element_specific)`` instead of hand-rolling the
+    # exclusion list.  Adding a new framework-managed prop only requires
+    # extending this set.
+    _FRAMEWORK_PROPS = frozenset({"key", "children", "ref", "style"})
+    # ``style=`` slot map.  Each subclass can declare named slots → inner CSS
+    # selectors so users target the right inner DOM node without knowing
+    # Streamlit's wrapper structure.  Default: empty (top-level CSS props
+    # land on the scope wrapper).  See st_components.core.style.
+    _slots = {}
+    _default_slot = None
 
     def __init_subclass__(cls, **kwargs):
         super().__init_subclass__(**kwargs)
         if "__initial_state_class__" not in vars(cls):
             cls.__initial_state_class__ = getattr(cls.__bases__[0], "__initial_state_class__", ElementState)
+
+        # Auto-extend each Element subclass __init__ with a `style=` kwarg so
+        # users can pass inline styles uniformly without each subclass having
+        # to declare it. The style dict is stashed on self.props and consumed
+        # by _render_decorator (it never reaches the underlying st.* call).
+        original_init = vars(cls).get("__init__")
+        if original_init is not None and not getattr(original_init, "_style_wrapped", False):
+            def wrapped_init(self, *args, style=None, **kw):
+                original_init(self, *args, **kw)
+                if style is not None:
+                    self.props["style"] = style
+            wrapped_init._style_wrapped = True
+            wrapped_init.__wrapped__ = original_init
+            cls.__init__ = wrapped_init
 
     def __init__(self, **props):
         super().__init__(**props)
@@ -494,6 +520,16 @@ class Element(Component):
             self._fiber_key is not None
             and isinstance(fibers().get(self._fiber_key), ElementFiber)
         )
+
+    def _st_props(self, *element_specific):
+        """Build the kwargs dict for the underlying ``st.*`` call.
+
+        Filters out framework-managed props (``key``, ``children``, ``ref``,
+        ``style``, …) plus any element-specific names the caller already
+        consumes positionally or via a custom path (e.g. ``label``, ``body``,
+        callback prop names).
+        """
+        return self.props.exclude(*self._FRAMEWORK_PROPS, *element_specific)
 
     def get_output(self, raw):
         """Transform the raw session_state value before exposing it as state.output.
@@ -530,7 +566,9 @@ class Element(Component):
 
     def _render_decorator(self, render_func):
         def decorated():
+            import streamlit as st
             from .access import widget_key
+            from .style import compile_style, style_scope_key
             _auto_key_children([self])
             element_path = KEY(self.key)
             self._fiber_key = element_path
@@ -544,19 +582,45 @@ class Element(Component):
             self._apply_overrides()
             track_rendered_fiber(element_path)
 
+            # `style` lives in self.props (so fiber overrides can target it)
+            # but is filtered out by ``_st_props`` / ``widget_props`` before
+            # the kwargs reach the st.* call.
+            style = self.props.get("style")
+
+            def _run():
+                self._begin_hook_cycle()
+                result = render_func()
+                if result is not None:
+                    raise RenderError(
+                        f"{type(self).__name__}.render() must return None, got {type(result).__name__!r}. "
+                        f"Elements render imperatively via st.* calls — "
+                        f"return value is ignored. Remove the return statement or use render(child) for sub-elements."
+                    )
+                self._end_hook_cycle()
+                self._flush_hook_effects()
+                # Defensive: re-enter _writable around the final output assignment.
+                # The outer with block already un-froze state, but render_func()
+                # may have replaced self.fiber.state (e.g. via set_state from a
+                # hook effect, or through a fiber-override mechanism), in which
+                # case the new instance is freshly frozen.
+                with self.state._writable():
+                    self.state.output = self._current_output()
+
             with set_context(key=self.key, component=self):
                 with self.state._writable():
-                    self._begin_hook_cycle()
-                    result = render_func()
-                    if result is not None:
-                        raise RenderError(
-                            f"{type(self).__name__}.render() must return None, got {type(result).__name__!r}. "
-                            f"Elements render imperatively via st.* calls — "
-                            f"return value is ignored. Remove the return statement or use render(child) for sub-elements."
+                    if style:
+                        scope = style_scope_key(element_path)
+                        css = compile_style(
+                            style,
+                            f".st-key-{scope}",
+                            slots=type(self)._slots,
+                            default_slot=type(self)._default_slot,
                         )
-                    self._end_hook_cycle()
-                    self._flush_hook_effects()
-                    self.state.output = self._current_output()
+                        with st.container(key=scope):
+                            st.html(f"<style>\n{css}\n</style>")
+                            _run()
+                    else:
+                        _run()
 
         decorated._decorated = True
         return decorated

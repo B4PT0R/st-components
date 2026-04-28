@@ -1,5 +1,5 @@
 """
-10 - Scoped Rerun
+11 - Scoped Rerun
 
 Shows how rerun() and wait() are scoped to the current fragment.
 Each scoped fragment has its own independent rerun timeline —
@@ -13,7 +13,7 @@ import st_components as stc
 from st_components.core.rerun import rerun, wait
 from st_components.elements import (
     button, caption, code, columns, container, divider, fragment,
-    markdown, metric, slider,
+    markdown, metric, slider, toast,
 )
 
 from examples._source import source_view
@@ -73,12 +73,23 @@ class BasicRerunDemo(stc.Component):
 
 @stc.component
 def WaitDemo(props):
-    state = stc.use_state(last_toast="(none)")
+    # `pending` increments on click; `consumed` matches it once the toast has
+    # been emitted by render() — declarative pattern that fires st.toast as
+    # part of the normal render, not from a callback (Streamlit warns about
+    # display-elements-from-fragment-callbacks).
+    state = stc.use_state(last_toast="(none)", pending=0, consumed=0)
 
     def toast_and_rerun():
         state.last_toast = datetime.datetime.now().strftime("%H:%M:%S")
+        state.pending += 1
         wait(1.5)      # fragment gets 1.5s before rerunning
         rerun()         # targets this fragment only
+
+    toast_block = None
+    if state.pending != state.consumed:
+        toast_block = toast(key=f"t{state.pending}", body=f"Saved at {state.last_toast}",
+                            duration="short")
+        state.consumed = state.pending
 
     return container(key="panel", border=True)(
         markdown(key="h")("### 2. Scoped wait()"),
@@ -94,18 +105,28 @@ def WaitDemo(props):
             container(key="frag_box", border=True)(
                 caption(key="lbl")("Fragment with wait(1.5):"),
                 fragment(key="frag", scoped=True)(
-                    metric(key="toast", label="Last toast time", value=state.last_toast),
+                    metric(key="toast_time", label="Last toast time",
+                           value=state.last_toast),
                     button(key="fire", on_click=toast_and_rerun, type="primary")(
                         "Toast + wait(1.5) + rerun"
                     ),
-                    caption(key="note")("The fragment waits 1.5s before refreshing."),
+                    caption(key="note")(
+                        "Click → a toast pops, the metric updates, then the fragment "
+                        "waits 1.5s before its next rerun."
+                    ),
+                    toast_block,
                 ),
             ),
         ),
         code(key="c", language="python")(
+            "# Declarative toast — render emits it, not the callback\n"
             "def toast_and_rerun():\n"
-            "    wait(1.5)    # this fragment waits 1.5s\n"
-            "    rerun()      # then reruns just this fragment"
+            "    state.last_toast = now\n"
+            "    state.pending += 1   # signal the render to emit the toast\n"
+            "    wait(1.5); rerun()\n\n"
+            "if state.pending != state.consumed:\n"
+            "    toast_block = toast(...)(f\"Saved at {state.last_toast}\")\n"
+            "    state.consumed = state.pending"
         ),
     )
 
@@ -173,9 +194,18 @@ class IndependentDemo(stc.Component):
 
 # ── 4. Nested scope isolation ───────────────────────────────────────────────
 
-class NestedRerunDemo(stc.Component):
+class Clock(stc.Component):
+    """Reads ``datetime.now()`` inside its render — must live inside the
+    fragment that triggers re-renders, otherwise the value is captured once
+    at the parent's render and never updates."""
+
     def render(self):
         now = datetime.datetime.now().strftime("%H:%M:%S.%f")[:-4]
+        return metric(key="time", label="Clock", value=now)
+
+
+class NestedRerunDemo(stc.Component):
+    def render(self):
         return container(key="panel", border=True)(
             markdown(key="h")("### 4. Nested scope isolation"),
             caption(key="desc")(
@@ -189,7 +219,7 @@ class NestedRerunDemo(stc.Component):
                     fragment(key="inner", scoped=True, run_every="1s")(
                         container(key="inner_box", border=True)(
                             caption(key="lbl")("Inner fragment (auto 1s):"),
-                            metric(key="time", label="Clock", value=now),
+                            Clock(key="clock"),
                         ),
                     ),
                 ),
@@ -226,4 +256,4 @@ class ScopedRerunDemo(stc.Component):
         )
 
 
-stc.App(ScopedRerunDemo(), page_title="10 - Scoped Rerun", layout="wide").render()
+stc.App(ScopedRerunDemo(), page_title="11 - Scoped Rerun", layout="wide").render()

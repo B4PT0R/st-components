@@ -16,7 +16,7 @@ class plotly_chart(Element):
         figure_or_data = widget_child("figure_or_data")
         on_select = self.props.get("on_select", "ignore")
         streamlit_kwargs = dict(self.props.get("kwargs") or {})
-        streamlit_kwargs.update(self.props.exclude("key", "children", "figure_or_data", "ref", "on_select", "kwargs"))
+        streamlit_kwargs.update(self._st_props("figure_or_data", "on_select", "kwargs"))
         st.plotly_chart(
             figure_or_data,
             key=widget_key(),

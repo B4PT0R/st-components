@@ -13,11 +13,12 @@ ContextProviders).  It holds Page children and delegates to
         )
     ).render()
 """
+import inspect
 from typing import Literal
 
 from modict import modict
 
-from .base import Anchor, Component
+from .base import Anchor, Component, Element
 from .errors import RouterError
 from .models import Props
 from .page import Page
@@ -27,6 +28,7 @@ class RouterProps(Props):
     key: str = "router"
     position: Literal["sidebar", "top", "hidden"] = "sidebar"
     expanded: bool = False
+    chrome: type | None = None
     children: list[Page] = modict.factory(list)
 
 
@@ -52,6 +54,19 @@ class Router(Component):
                 f"Router does not accept global page config props ({names}). "
                 f"Pass them to App(...) instead."
             )
+        chrome = props.get("chrome")
+        if chrome is not None:
+            if not inspect.isclass(chrome) or not issubclass(chrome, Component) or issubclass(chrome, (Element, Page, Router)):
+                raise RouterError(
+                    f"Router(chrome=...) expects a Component subclass, got {chrome!r}. "
+                    f"Define a class that places its page child via *self.children, e.g.:\n"
+                    f"    class Chrome(Component):\n"
+                    f"        def render(self):\n"
+                    f"            return container(key='layout')(\n"
+                    f"                Sidebar(key='sb'),\n"
+                    f"                container(key='main')(*self.children),\n"
+                    f"            )"
+                )
         super().__init__(**props)
 
     def __call__(self, *children):

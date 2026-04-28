@@ -8,6 +8,9 @@ from ..factory import widget_callback, widget_child, widget_props
 
 
 class button(Element):
+    _slots = {"root": "", "button": "button", "label": "button p"}
+    _default_slot = "button"
+
     def __init__(
         self,
         label: str | None = None,
@@ -31,6 +34,9 @@ class button(Element):
 
 
 class download_button(Element):
+    _slots = {"root": "", "button": "button", "label": "button p"}
+    _default_slot = "button"
+
     def __init__(
         self,
         label: str | None = None,
@@ -53,10 +59,13 @@ class download_button(Element):
         Element.__init__(self, key=key, label=label, data=data, ref=ref, file_name=file_name, mime=mime, help=help, on_click=on_click, type=type, icon=icon, icon_position=icon_position, disabled=disabled, use_container_width=use_container_width, width=width, shortcut=shortcut)
 
     def render(self):
-        st.download_button(widget_child("label", ""), key=widget_key(), **self.props.exclude("key", "children", "label", "ref"))
+        st.download_button(widget_child("label", ""), key=widget_key(), **self._st_props("label"))
 
 
 class link_button(Element):
+    _slots = {"root": "", "link": "a", "label": "a p"}
+    _default_slot = "link"
+
     def __init__(
         self,
         label: str | None = None,
@@ -77,10 +86,13 @@ class link_button(Element):
         Element.__init__(self, key=key, label=label, url=url, ref=ref, on_click=on_click, help=help, type=type, icon=icon, icon_position=icon_position, disabled=disabled, use_container_width=use_container_width, width=width, shortcut=shortcut)
 
     def render(self):
-        st.link_button(widget_child("label", ""), key=widget_key(), **self.props.exclude("key", "children", "label", "ref"))
+        st.link_button(widget_child("label", ""), key=widget_key(), **self._st_props("label"))
 
 
 class form_submit_button(Element):
+    _slots = {"root": "", "button": "button", "label": "button p"}
+    _default_slot = "button"
+
     def __init__(
         self,
         label: str | None = "Submit",
@@ -104,6 +116,9 @@ class form_submit_button(Element):
 
 
 class menu_button(Element):
+    _slots = {"root": "", "button": "button", "label": "button p"}
+    _default_slot = "button"
+
     def __init__(
         self,
         label: str | None = None,

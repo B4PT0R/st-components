@@ -8,6 +8,8 @@ from ..factory import widget_callback, widget_child, widget_props
 
 class checkbox(Element):
     _default_output_prop = "value"
+    _slots = {"root": "", "label": "label"}
+    _default_slot = "root"
 
     def __init__(
         self,
@@ -31,6 +33,8 @@ class checkbox(Element):
 
 class toggle(Element):
     _default_output_prop = "value"
+    _slots = {"root": "", "label": "label"}
+    _default_slot = "root"
 
     def __init__(
         self,

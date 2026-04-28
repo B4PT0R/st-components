@@ -1,5 +1,5 @@
 """
-10 - Theming
+15 - Theming
 
 Shows how to use the built-in ThemeEditorButton to customize the app's
 look and feel at runtime: colors, typography, radii, CSS overrides.
@@ -107,4 +107,4 @@ class ThemingDemo(stc.Component):
         )
 
 
-stc.App(ThemingDemo(), page_title="10 - Theming", layout="wide").render()
+stc.App(ThemingDemo(), page_title="15 - Theming", layout="wide").render()
